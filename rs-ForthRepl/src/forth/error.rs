@@ -1,19 +1,26 @@
 #[derive(Debug)]
 pub enum Error {
-    // Singletons
-    StackUnderflow,
-    NumberName,
-
-    NestedCompile,
-    MissingBody,
-    // With implicit context
-    NameAlreadyInUse(String),
     InvalidWordName(String),
-    UnknownWord(String),
-    // With explicit context
-    UnexpectedToken(String),
-    // External
+    MissingBody,
+    NameAlreadyInUse(String),
+    NestedCompile,
+    #[allow(dead_code)]
     Other(Box<dyn std::error::Error>),
+    StackUnderflow,
+    UnknownWord(String),
+}
+
+impl core::cmp::PartialEq for Error {
+    fn eq(&self, other: &Self) -> bool {
+        match (self, other) {
+            (Self::InvalidWordName(l0), Self::InvalidWordName(r0)) => l0 == r0,
+            (Self::NameAlreadyInUse(l0), Self::NameAlreadyInUse(r0)) => l0 == r0,
+            (Self::Other(_), Self::Other(_)) => false,
+            (Self::UnknownWord(l0), Self::UnknownWord(r0)) => l0 == r0,
+            // FIXME: This swallows all variants, especially new variants with parameters
+            _ => core::mem::discriminant(self) == core::mem::discriminant(other),
+        }
+    }
 }
 
 impl std::fmt::Display for Error {
@@ -22,17 +29,11 @@ impl std::fmt::Display for Error {
             Error::StackUnderflow => {
                 write!(f, "stack underflow")
             }
-            Error::NumberName => {
-                write!(f, "can not use a number as a word name")
-            }
             Error::UnknownWord(word) => {
                 write!(f, "unknown word: {}", word)
             }
             Error::NameAlreadyInUse(name) => {
                 write!(f, "name already in use: {}", name)
-            }
-            Error::UnexpectedToken(token) => {
-                write!(f, "unexpected token: {}", token)
             }
             Error::Other(inner) => {
                 write!(f, "internal error: {}", inner)
@@ -56,12 +57,6 @@ impl std::error::Error for Error {
             Error::Other(inner) => Some(inner.as_ref()),
             _ => None,
         }
-    }
-}
-
-impl From<Error> for std::io::Error {
-    fn from(value: Error) -> Self {
-        std::io::Error::new(std::io::ErrorKind::Other, value.to_string())
     }
 }
 

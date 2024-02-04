@@ -5,7 +5,7 @@ use std::io::{stdin, BufRead, Error as IOError};
 use forth::Interpreter;
 
 fn main() -> Result<(), IOError> {
-    let mut host = Interpreter::new();
+    let mut host = Box::new(Interpreter::new());
     let mut stdin_lines = stdin().lock().lines();
 
     loop {

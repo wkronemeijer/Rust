@@ -41,6 +41,6 @@ mod tests {
 
     #[test]
     fn internal() {
-        assert_eq!(Value::Bool(true).try_into_int().unwrap(), 1);
+        assert_eq!(Value::Bool(true).try_into_int(), Ok(1));
     }
 }

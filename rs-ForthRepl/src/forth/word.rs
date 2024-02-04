@@ -31,6 +31,7 @@ impl Deref for UserFunction {
     }
 }
 
+// TODO: Remove deref, implement limited access functions
 impl DerefMut for UserFunction {
     fn deref_mut(&mut self) -> &mut Self::Target {
         &mut self.0
@@ -76,7 +77,7 @@ impl Word {
 impl Display for Word {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         match self {
-            Word::Native(name, _) => write!(f, ": {} <native code> ;", name)?,
+            Word::Native(name, _) => write!(f, ": {} [native code] ;", name)?,
             Word::User(name, tokens) => write!(f, ": {} {} ;", name, tokens)?,
         }
         Ok(())
