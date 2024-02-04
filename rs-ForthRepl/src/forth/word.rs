@@ -1,4 +1,7 @@
-use std::fmt::Display;
+use std::{
+    fmt::{Display, Write},
+    ops::{Deref, DerefMut},
+};
 
 use super::{env::Env, error::Result, value::Value};
 
@@ -7,8 +10,42 @@ pub enum Token {
     CallWord(String), // Late bound!
 }
 
+impl Display for Token {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        match self {
+            Token::PushValue(value) => write!(f, "{}", value),
+            Token::CallWord(name) => write!(f, "{}", name),
+        }
+    }
+}
+
 pub type NativeFunction = fn(&mut Env) -> Result<()>;
-pub type UserFunction = Vec<Token>;
+
+pub struct UserFunction(pub Vec<Token>);
+
+impl Deref for UserFunction {
+    type Target = Vec<Token>;
+
+    fn deref(&self) -> &Self::Target {
+        &self.0
+    }
+}
+
+impl DerefMut for UserFunction {
+    fn deref_mut(&mut self) -> &mut Self::Target {
+        &mut self.0
+    }
+}
+
+impl Display for UserFunction {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        self.iter().try_for_each(|tok| {
+            tok.fmt(f)?;
+            f.write_char(' ')?;
+            Ok(())
+        })
+    }
+}
 
 pub enum Word {
     Native(String, NativeFunction),
@@ -35,8 +72,8 @@ impl Word {
 impl Display for Word {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         match self {
-            Word::Native(name, _) => write!(f, "native word '{}'", name)?,
-            Word::User(name, tokens) => write!(f, "user word '{}' ({} long)", name, tokens.len())?,
+            Word::Native(name, _) => write!(f, ": {} <native code> ;", name)?,
+            Word::User(name, tokens) => write!(f, ": {} {} ;", name, tokens)?,
         }
         Ok(())
     }

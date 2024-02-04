@@ -9,6 +9,7 @@ use super::error::Result;
 use super::stack::Stack;
 use super::value::Value;
 use super::word::Token;
+use super::word::UserFunction;
 use super::word::Word;
 
 pub use super::error::Error;
@@ -24,13 +25,13 @@ enum InterpreterCommand {
 enum InterpreterState {
     Interpret,
     Define, // needs a name
-    Compile(String, Vec<Token>),
+    Compile(String, UserFunction),
 }
 
 pub struct Interpreter {
-    pub stack: Stack,
+    stack: Stack,
     // We want to own
-    pub words: Dictionary,
+    words: Dictionary,
     state: InterpreterState,
 }
 
@@ -54,6 +55,7 @@ impl Interpreter {
             Ok(Token::PushValue(Value::Bool(false)))
         } else {
             // TODO: Maybe check with word regex?
+            // Then again, "1+" is a valid word
             Ok(Token::CallWord(word.to_string()))
         }
     }
@@ -110,8 +112,10 @@ impl Interpreter {
                 Define => match token {
                     PushValue(value) => Err(Error::InvalidWordName(value.to_string())),
                     CallWord(name) => {
+                        // Continue compiling even though the name might not be usable
+                        // Prevents executing the definition body
                         if !self.words.has(&name) {
-                            self.state = Compile(name, vec![]);
+                            self.state = Compile(name, UserFunction(vec![]));
                             Ok(())
                         } else {
                             self.state = Interpret;
@@ -143,7 +147,9 @@ impl Interpreter {
         match self.state {
             InterpreterState::Interpret => print!("> "),
             InterpreterState::Define => print!(": "),
-            InterpreterState::Compile(ref name, _) => print!(": {} (...) ", name),
+            InterpreterState::Compile(ref name, ref tokens) => {
+                print!(": {} {} ... ", name, tokens)
+            }
         }
         stdout().flush().expect("couldn't flush 🤢");
     }
@@ -151,7 +157,6 @@ impl Interpreter {
     pub fn print_stack(&self) {
         print!("\x1b[30m");
         let depth = self.stack.depth();
-        print!("({}) ", depth);
         if depth > 0 {
             print!("{}", self.stack);
         } else {
