@@ -1,4 +1,10 @@
-use super::{dictionary::Dictionary, error::Result, stack::Stack, value::Value, Token, Word};
+use super::{
+    dictionary::Dictionary,
+    error::Result,
+    stack::Stack,
+    value::Value,
+    word::{Token, Word},
+};
 
 pub struct Env<'a> {
     pub dict: &'a Dictionary,
