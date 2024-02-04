@@ -1,5 +1,6 @@
 use std::collections::HashMap;
 use std::fmt::Display;
+use std::fmt::Write;
 
 use super::error::Error;
 use super::error::Result;
@@ -45,8 +46,13 @@ impl Dictionary {
 
 impl Display for Dictionary {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        for word in self.words.values() {
-            writeln!(f, "{}", word)?;
+        let iter = &mut self.words.values();
+        if let Some(first) = iter.next() {
+            first.fmt(f)?;
+            for rest in iter {
+                f.write_char('\n')?;
+                rest.fmt(f)?;
+            }
         }
         Ok(())
     }

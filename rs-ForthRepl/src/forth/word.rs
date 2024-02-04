@@ -39,11 +39,15 @@ impl DerefMut for UserFunction {
 
 impl Display for UserFunction {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        self.iter().try_for_each(|tok| {
-            tok.fmt(f)?;
-            f.write_char(' ')?;
-            Ok(())
-        })
+        let iter = &mut self.iter();
+        if let Some(first) = iter.next() {
+            first.fmt(f)?;
+            for rest in iter {
+                f.write_char(' ')?;
+                rest.fmt(f)?;
+            }
+        }
+        Ok(())
     }
 }
 

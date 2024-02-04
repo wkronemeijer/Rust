@@ -29,10 +29,13 @@ impl Stack {
 
 impl Display for Stack {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        for item in self.values.iter() {
-            f.write_str(&item.to_string())?;
-            f.write_char(' ')?;
-            // TODO: Is there an intersperse method?
+        let iter = &mut self.values.iter();
+        if let Some(first) = iter.next() {
+            first.fmt(f)?;
+            for rest in iter {
+                f.write_char(' ')?;
+                rest.fmt(f)?;
+            }
         }
         Ok(())
     }
