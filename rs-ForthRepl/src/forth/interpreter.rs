@@ -29,9 +29,9 @@ enum InterpreterState {
 }
 
 pub struct Interpreter {
-    stack: Stack,
+    pub stack: Stack,
     // We want to own
-    words: Dictionary,
+    pub words: Dictionary,
     state: InterpreterState,
 }
 
@@ -92,18 +92,15 @@ impl Interpreter {
                 Define => Err(Error::InvalidWordName(":".to_string())),
                 Compile(_, _) => Err(Error::NestedCompile),
             },
-            EndCompile => {
-                let old_state = replace(&mut self.state, Interpret);
-                match old_state {
-                    // Ignore duplicate ';'
-                    Interpret => Ok(()),
-                    Define => Err(Error::MissingBody),
-                    Compile(name, tokens) => {
-                        self.words.define(Word::custom(name, tokens))?;
-                        Ok(())
-                    }
+            EndCompile => match replace(&mut self.state, Interpret) {
+                // Ignore duplicate ';'
+                Interpret => Ok(()),
+                Define => Err(Error::MissingBody),
+                Compile(name, tokens) => {
+                    self.words.define(Word::custom(name, tokens))?;
+                    Ok(())
                 }
-            }
+            },
             Token(token) => match self.state {
                 Interpret => {
                     let mut env = Env::new(&self.words, &mut self.stack);
@@ -155,13 +152,11 @@ impl Interpreter {
     }
 
     pub fn print_stack(&self) {
-        print!("\x1b[30m");
         let depth = self.stack.depth();
         if depth > 0 {
+            print!("\x1b[30m");
             print!("{}", self.stack);
-        } else {
-            print!("-");
+            println!("\x1b[0m");
         }
-        println!("\x1b[0m");
     }
 }

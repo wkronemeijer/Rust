@@ -34,3 +34,13 @@ impl Display for Value {
         }
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn internal() {
+        assert_eq!(Value::Bool(true).try_into_int().unwrap(), 1);
+    }
+}
