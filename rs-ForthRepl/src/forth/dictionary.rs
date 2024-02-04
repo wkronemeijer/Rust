@@ -3,8 +3,8 @@ use std::fmt::Display;
 
 use super::error::Error;
 use super::error::Result;
-use super::NativeFunction;
-use super::Word;
+use super::word::NativeFunction;
+use super::word::Word;
 
 pub struct Dictionary {
     words: HashMap<String, Word>,
@@ -20,6 +20,7 @@ impl Dictionary {
     pub fn define(&mut self, word: Word) -> Result<()> {
         let name = word.name().to_owned();
         if !self.words.contains_key(&name) {
+            // Some version of "provide if doesnt exist"
             self.words.insert(name, word);
             Ok(())
         } else {

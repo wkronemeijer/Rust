@@ -1,98 +1,25 @@
 mod builtins;
-pub mod dictionary;
-pub mod error;
-pub mod stack;
-pub mod value;
+mod dictionary;
+mod env;
+mod error;
+mod stack;
+mod value;
+mod word;
 
-use std::fmt::Display;
 use std::io::stdout;
 use std::io::Write;
-use std::mem::replace;
+use std::mem::replace; // <3
 
 use self::builtins::register_builtins;
 use self::dictionary::Dictionary;
-use self::error::Error;
+use self::env::Env;
 use self::error::Result;
 use self::stack::Stack;
 use self::value::Value;
+use self::word::Token;
+use self::word::Word;
 
-type NativeFunction = fn(&mut Stack) -> Result<()>;
-type UserFunction = Vec<Token>;
-
-pub enum Token {
-    PushValue(Value),
-    CallWord(String), // Late bound!
-}
-
-// Should words know their own name?
-// Feels like a place for other metadata too...
-pub enum Word {
-    Native(String, NativeFunction),
-    User(String, UserFunction),
-}
-
-impl Word {
-    pub fn name(&self) -> &str {
-        match self {
-            Word::Native(name, _) => name,
-            Word::User(name, _) => name,
-        }
-    }
-
-    pub fn native(name: String, body: NativeFunction) -> Word {
-        Word::Native(name, body)
-    }
-
-    pub fn custom(name: String, def: UserFunction) -> Word {
-        Word::User(name, def)
-    }
-}
-
-impl Display for Word {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        match self {
-            Word::Native(name, _) => write!(f, "native word '{}'", name)?,
-            Word::User(name, tokens) => write!(f, "user word '{}' ({} long)", name, tokens.len())?,
-        }
-        Ok(())
-    }
-}
-
-////////////////
-// ForthBlock //
-////////////////
-///
-
-struct Env<'a> {
-    dict: &'a dictionary::Dictionary,
-    stack: &'a mut stack::Stack,
-}
-
-impl<'a> Env<'a> {
-    fn new(dict: &'a dictionary::Dictionary, stack: &'a mut stack::Stack) -> Self {
-        Self { dict, stack }
-    }
-
-    fn evaluate_token(&mut self, token: &Token) -> Result<()> {
-        match token {
-            Token::PushValue(value) => self.stack.push(*value),
-            Token::CallWord(name) => {
-                let word = self.dict.get(name)?;
-                self.evaluate_word(word)?;
-            }
-        };
-        Ok(())
-    }
-    fn evaluate_word(&mut self, word: &Word) -> Result<()> {
-        match word {
-            Word::Native(_, func) => func(self.stack)?,
-            Word::User(_, tokens) => tokens
-                .iter()
-                .try_for_each(|token| self.evaluate_token(token))?,
-        }
-        Ok(())
-    }
-}
+pub use self::error::Error;
 
 ///////////////////////
 // Forth Interpreter //
@@ -176,8 +103,7 @@ impl Interpreter {
                 Compile(_, _) => Err(Error::NestedCompile),
             },
             EndCompile => {
-                let new_state = Interpret;
-                let old_state = replace(&mut self.state, new_state);
+                let old_state = replace(&mut self.state, Interpret);
                 match old_state {
                     // Ignore duplicate ';'
                     Interpret => Ok(()),
@@ -229,7 +155,7 @@ impl Interpreter {
         match self.state {
             InterpreterState::Interpret => print!("> "),
             InterpreterState::Define => print!(": "),
-            InterpreterState::Compile(_, _) => print!("& "),
+            InterpreterState::Compile(ref name, _) => print!(": {} (...) ", name),
         }
         stdout().flush().expect("couldn't flush 🤢");
     }

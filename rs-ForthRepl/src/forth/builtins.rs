@@ -5,10 +5,10 @@ pub(crate) fn register_builtins(dict: &mut Dictionary) -> Result<()> {
     // Stack //
     ///////////
 
-    dict.define_native("dup", |inter| {
-        let a = inter.pop()?;
-        inter.push(a);
-        inter.push(a);
+    dict.define_native("dup", |env| {
+        let a = env.pop()?;
+        env.push(a);
+        env.push(a);
         Ok(())
     })?;
 
@@ -16,8 +16,13 @@ pub(crate) fn register_builtins(dict: &mut Dictionary) -> Result<()> {
     // Input/output //
     //////////////////
 
-    dict.define_native(".", |inter| {
-        println!("{}", inter.pop()?);
+    dict.define_native(".", |env| {
+        println!("{}", env.pop()?);
+        Ok(())
+    })?;
+
+    dict.define_native("words", |env| {
+        println!("{}", env.dict);
         Ok(())
     })?;
 
@@ -25,9 +30,9 @@ pub(crate) fn register_builtins(dict: &mut Dictionary) -> Result<()> {
     // Logic //
     ///////////
 
-    dict.define_native("not", |inter| {
-        let value = inter.pop()?.try_into_bool()?;
-        inter.push(Value::Bool(!value));
+    dict.define_native("not", |env| {
+        let value = env.pop()?.try_into_bool()?;
+        env.push(Value::Bool(!value));
         Ok(())
     })?;
 
@@ -35,17 +40,17 @@ pub(crate) fn register_builtins(dict: &mut Dictionary) -> Result<()> {
     // Math //
     //////////
 
-    dict.define_native("+", |inter| {
-        let a = inter.pop()?.try_into_int()?;
-        let b = inter.pop()?.try_into_int()?;
-        inter.push(Value::Int(a + b));
+    dict.define_native("+", |env| {
+        let a = env.pop()?.try_into_int()?;
+        let b = env.pop()?.try_into_int()?;
+        env.push(Value::Int(a + b));
         Ok(())
     })?;
 
-    dict.define_native("-", |inter| {
-        let a = inter.pop()?.try_into_int()?;
-        let b = inter.pop()?.try_into_int()?;
-        inter.push(Value::Int(a - b));
+    dict.define_native("-", |env| {
+        let a = env.pop()?.try_into_int()?;
+        let b = env.pop()?.try_into_int()?;
+        env.push(Value::Int(a - b));
         Ok(())
     })?;
 

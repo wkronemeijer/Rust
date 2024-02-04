@@ -2,8 +2,7 @@ mod forth;
 
 use std::io::{stdin, BufRead, Error as IOError};
 
-pub use forth::error::Error;
-pub use forth::Interpreter;
+use forth::Interpreter;
 
 fn main() -> Result<(), IOError> {
     let mut host = Interpreter::new();
