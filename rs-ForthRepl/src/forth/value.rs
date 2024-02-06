@@ -41,6 +41,10 @@ mod tests {
 
     #[test]
     fn internal() {
-        assert_eq!(Value::Bool(true).try_into_int(), Ok(1));
+        // TODO: Waiting on assert_matches or PartialEq for io::Result to fix this
+        assert!(match Value::Bool(true).try_into_int() {
+            Ok(1) => true,
+            _ => false,
+        });
     }
 }
