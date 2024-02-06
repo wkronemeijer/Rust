@@ -10,20 +10,18 @@ fn main() -> Result<(), IOError> {
 
     loop {
         host.print_prompt();
-        if let Some(maybe_line) = stdin_lines.next() {
-            let line = maybe_line?;
-            if line.trim() == ".exit" {
-                break;
-            }
-            let result = host.read_and_execute(&line); // (R)ead (E)val
-            if let Err(e) = result {
-                println!("\x1b[31merror: {}\x1b[0m", e);
-            }
-            host.print_stack(); // (P)rint
-        } else {
+        let Some(Ok(line)) = stdin_lines.next() else {
+            break;
+        };
+        if line.trim() == ".exit" {
             break;
         }
-        // (L)oop
+        let result = host.read_and_execute(&line); // (R)ead (E)val
+        if let Err(e) = result {
+            println!("\x1b[31merror: {}\x1b[0m", e);
+        }
+        host.print_stack(); // (P)rint
     }
+    // ^ (L)oop
     Ok(())
 }
