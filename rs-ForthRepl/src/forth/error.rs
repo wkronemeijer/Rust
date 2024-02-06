@@ -8,13 +8,14 @@ pub enum Error {
     NameAlreadyInUse(String),
     #[error("can not nest ':'")]
     NestedCompile,
-    #[allow(dead_code)]
-    #[error("other: {0}")]
-    Other(#[from] Box<dyn std::error::Error>),
     #[error("stack underflow")]
     StackUnderflow,
     #[error("unknown word: {0}")]
     UnknownWord(String),
+    // External
+    #[allow(dead_code)]
+    #[error("other: {0}")]
+    Other(#[from] Box<dyn std::error::Error>),
 }
 
 pub type Result<T> = core::result::Result<T, Error>;
