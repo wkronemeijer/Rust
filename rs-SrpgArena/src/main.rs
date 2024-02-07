@@ -1,17 +1,13 @@
+mod bounded;
 mod error;
 mod game;
 
-use std::io::{stdin, BufRead};
+use cursive::views::TextView;
+use cursive::{Cursive, CursiveExt};
 
 fn main() {
-    let mut lines = stdin().lock().lines();
-    loop {
-        let Some(Ok(line)) = lines.next() else {
-            break;
-        };
-        if line == ".exit" {
-            break;
-        }
-        println!("Hello, \x1B[1m{}\x1b[0m!", line);
-    }
+    let mut siv = Cursive::new();
+    siv.add_layer(TextView::new("Hello World!\nPress q to quit."));
+    siv.add_global_callback('q', |s| s.quit());
+    siv.run();
 }

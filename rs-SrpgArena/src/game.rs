@@ -1,12 +1,7 @@
 use derive_builder::Builder;
 use std::collections::HashMap;
+
 use BaseStat::*;
-
-struct ClampedU8(u8);
-
-struct Percentage(u8);
-
-impl Percentage {}
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash)]
 enum BaseStat {
