@@ -1,3 +1,5 @@
+use std::result;
+
 #[derive(thiserror::Error, Debug)]
 pub enum Error {
     #[error("invalid word name: {0}")]
@@ -18,4 +20,4 @@ pub enum Error {
     Other(#[from] Box<dyn std::error::Error>),
 }
 
-pub type Result<T> = core::result::Result<T, Error>;
+pub type Result<T> = result::Result<T, Error>;

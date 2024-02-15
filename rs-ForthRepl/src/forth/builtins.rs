@@ -1,6 +1,6 @@
-use super::{dictionary::Dictionary, error::Result, value::Value};
+use super::{dictionary::Dictionary, value::Value};
 
-pub(crate) fn register_builtins(dict: &mut Dictionary) -> Result<()> {
+pub(crate) fn register_builtins(dict: &mut Dictionary) -> crate::Result<()> {
     ///////////
     // Stack //
     ///////////

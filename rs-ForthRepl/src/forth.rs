@@ -7,11 +7,9 @@ pub mod stack;
 pub mod value;
 pub mod word;
 
-pub use interpreter::Interpreter;
-
 #[cfg(test)]
 mod tests {
-    use super::*;
+    use super::interpreter::Interpreter;
 
     fn new_boxed_interpreter() -> Box<Interpreter> {
         Box::new(Interpreter::new())

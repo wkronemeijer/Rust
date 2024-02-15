@@ -3,7 +3,7 @@ use std::{
     ops::{Deref, DerefMut},
 };
 
-use super::{env::Env, error::Result, value::Value};
+use super::{env::Env, value::Value};
 
 pub enum Token {
     PushValue(Value),
@@ -19,7 +19,7 @@ impl Display for Token {
     }
 }
 
-pub type NativeFunction = fn(&mut Env) -> Result<()>;
+pub type NativeFunction = fn(&mut Env) -> crate::Result<()>;
 
 pub struct UserFunction(pub Vec<Token>);
 

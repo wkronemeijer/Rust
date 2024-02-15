@@ -1,10 +1,8 @@
-mod forth;
+use std::io::{self, stdin, BufRead};
 
-use std::io::{stdin, BufRead, Error as IOError};
+use forth_repl::Interpreter;
 
-use forth::Interpreter;
-
-fn main() -> Result<(), IOError> {
+fn main() -> io::Result<()> {
     let mut host = Box::new(Interpreter::new());
     let mut stdin_lines = stdin().lock().lines();
 

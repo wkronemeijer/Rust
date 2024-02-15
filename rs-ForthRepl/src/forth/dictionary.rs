@@ -1,9 +1,7 @@
 use std::collections::HashMap;
-use std::fmt::Display;
-use std::fmt::Write;
+use std::fmt::{self, Display, Write};
 
 use super::error::Error;
-use super::error::Result;
 use super::word::NativeFunction;
 use super::word::Word;
 
@@ -18,7 +16,7 @@ impl Dictionary {
         }
     }
 
-    pub fn define(&mut self, word: Word) -> Result<()> {
+    pub fn define(&mut self, word: Word) -> crate::Result<()> {
         let name = word.name().to_owned();
         if !self.words.contains_key(&name) {
             // Some version of "provide if doesnt exist"
@@ -29,11 +27,11 @@ impl Dictionary {
         }
     }
 
-    pub fn define_native(&mut self, name: &'static str, body: NativeFunction) -> Result<()> {
+    pub fn define_native(&mut self, name: &'static str, body: NativeFunction) -> crate::Result<()> {
         self.define(Word::native(name.to_string(), body))
     }
 
-    pub fn get(&self, name: &str) -> Result<&Word> {
+    pub fn get(&self, name: &str) -> crate::Result<&Word> {
         self.words
             .get(name)
             .ok_or_else(|| Error::UnknownWord(name.to_owned()))
@@ -45,7 +43,7 @@ impl Dictionary {
 }
 
 impl Display for Dictionary {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         let iter = &mut self.words.values();
         if let Some(first) = iter.next() {
             first.fmt(f)?;

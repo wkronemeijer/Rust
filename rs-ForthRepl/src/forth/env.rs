@@ -1,6 +1,5 @@
 use super::{
     dictionary::Dictionary,
-    error::Result,
     stack::Stack,
     value::Value,
     word::{Token, Word},
@@ -16,7 +15,7 @@ impl<'a> Env<'a> {
         Self { dict, stack }
     }
 
-    pub fn evaluate_token(&mut self, token: &Token) -> Result<()> {
+    pub fn evaluate_token(&mut self, token: &Token) -> crate::Result<()> {
         match token {
             Token::PushValue(value) => self.stack.push(*value),
             Token::CallWord(name) => {
@@ -26,7 +25,7 @@ impl<'a> Env<'a> {
         };
         Ok(())
     }
-    pub fn evaluate_word(&mut self, word: &Word) -> Result<()> {
+    pub fn evaluate_word(&mut self, word: &Word) -> crate::Result<()> {
         match word {
             Word::Native(_, func) => func(self)?,
             Word::User(_, tokens) => tokens
@@ -40,7 +39,7 @@ impl<'a> Env<'a> {
         self.stack.push(value)
     }
 
-    pub fn pop(&mut self) -> Result<Value> {
+    pub fn pop(&mut self) -> crate::Result<Value> {
         self.stack.pop()
     }
 }
