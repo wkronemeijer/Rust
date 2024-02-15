@@ -1,6 +1,10 @@
+use crate::prelude::*;
+
 use super::{dictionary::Dictionary, value::Value};
 
-pub(crate) fn register_builtins(dict: &mut Dictionary) -> crate::Result<()> {
+pub(crate) fn register_builtins(dict: &mut Dictionary) -> Result<()> {
+    use Value::*;
+
     ///////////
     // Stack //
     ///////////
@@ -32,7 +36,7 @@ pub(crate) fn register_builtins(dict: &mut Dictionary) -> crate::Result<()> {
 
     dict.define_native("not", |env| {
         let value = env.pop()?.try_into_bool()?;
-        env.push(Value::Bool(!value));
+        env.push(Bool(!value));
         Ok(())
     })?;
 
@@ -43,14 +47,14 @@ pub(crate) fn register_builtins(dict: &mut Dictionary) -> crate::Result<()> {
     dict.define_native("+", |env| {
         let a = env.pop()?.try_into_int()?;
         let b = env.pop()?.try_into_int()?;
-        env.push(Value::Int(a + b));
+        env.push(Int(a + b));
         Ok(())
     })?;
 
     dict.define_native("-", |env| {
         let a = env.pop()?.try_into_int()?;
         let b = env.pop()?.try_into_int()?;
-        env.push(Value::Int(a - b));
+        env.push(Int(a - b));
         Ok(())
     })?;
 

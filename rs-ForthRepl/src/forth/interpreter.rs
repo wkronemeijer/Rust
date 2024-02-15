@@ -1,3 +1,5 @@
+use crate::prelude::*;
+
 use std::io::stdout;
 use std::io::Write;
 use std::mem::replace; // <3
@@ -10,8 +12,6 @@ use super::value::Value;
 use super::word::Token;
 use super::word::UserFunction;
 use super::word::Word;
-
-pub use super::error::Error;
 
 enum InterpreterCommand {
     /// ':'
@@ -45,7 +45,7 @@ impl Interpreter {
         return result;
     }
 
-    fn parse_word(&mut self, word: &str) -> crate::Result<Token> {
+    fn parse_word(&mut self, word: &str) -> Result<Token> {
         if let Ok(number) = word.parse::<i32>() {
             Ok(Token::PushValue(Value::Int(number)))
         } else if word == "true" {
@@ -59,7 +59,7 @@ impl Interpreter {
         }
     }
 
-    fn parse_token(&mut self, token: &str) -> crate::Result<InterpreterCommand> {
+    fn parse_token(&mut self, token: &str) -> Result<InterpreterCommand> {
         if token == ":" {
             Ok(InterpreterCommand::StartCompile)
         } else if token == ";" {
@@ -69,15 +69,15 @@ impl Interpreter {
         }
     }
 
-    fn parse(&mut self, input: &str) -> crate::Result<Vec<InterpreterCommand>> {
-        let commands: crate::Result<Vec<InterpreterCommand>> = input
+    fn parse(&mut self, input: &str) -> Result<Vec<InterpreterCommand>> {
+        let commands: Result<Vec<InterpreterCommand>> = input
             .split_ascii_whitespace()
             .map(|token| self.parse_token(token))
             .collect();
         Ok(commands?)
     }
 
-    fn execute_command(&mut self, cmd: InterpreterCommand) -> crate::Result<()> {
+    fn execute_command(&mut self, cmd: InterpreterCommand) -> Result<()> {
         use self::InterpreterCommand::*;
         use self::InterpreterState::*;
         use self::Token::*;
@@ -127,13 +127,13 @@ impl Interpreter {
         }
     }
 
-    fn execute(&mut self, commands: Vec<InterpreterCommand>) -> crate::Result<()> {
+    fn execute(&mut self, commands: Vec<InterpreterCommand>) -> Result<()> {
         commands
             .into_iter()
             .try_for_each(|cmd| self.execute_command(cmd))
     }
 
-    pub fn read_and_execute(&mut self, input: &str) -> crate::Result<()> {
+    pub fn read_and_execute(&mut self, input: &str) -> Result<()> {
         let commands = self.parse(input)?;
         self.execute(commands)?;
         Ok(())

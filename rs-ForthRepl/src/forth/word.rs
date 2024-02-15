@@ -1,5 +1,7 @@
+use crate::prelude::*;
+
 use std::{
-    fmt::{Display, Write},
+    fmt::{self, Display, Write},
     ops::{Deref, DerefMut},
 };
 
@@ -11,7 +13,7 @@ pub enum Token {
 }
 
 impl Display for Token {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         match self {
             Token::PushValue(value) => write!(f, "{}", value),
             Token::CallWord(name) => write!(f, "{}", name),
@@ -19,7 +21,7 @@ impl Display for Token {
     }
 }
 
-pub type NativeFunction = fn(&mut Env) -> crate::Result<()>;
+pub type NativeFunction = fn(&mut Env) -> Result<()>;
 
 pub struct UserFunction(pub Vec<Token>);
 
@@ -39,7 +41,7 @@ impl DerefMut for UserFunction {
 }
 
 impl Display for UserFunction {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         let iter = &mut self.iter();
         if let Some(first) = iter.next() {
             first.fmt(f)?;
@@ -75,7 +77,7 @@ impl Word {
 }
 
 impl Display for Word {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         match self {
             Word::Native(name, _) => write!(f, ": {} [native code] ;", name)?,
             Word::User(name, tokens) => write!(f, ": {} {} ;", name, tokens)?,

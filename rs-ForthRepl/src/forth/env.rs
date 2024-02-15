@@ -1,3 +1,5 @@
+use crate::prelude::*;
+
 use super::{
     dictionary::Dictionary,
     stack::Stack,
@@ -15,7 +17,7 @@ impl<'a> Env<'a> {
         Self { dict, stack }
     }
 
-    pub fn evaluate_token(&mut self, token: &Token) -> crate::Result<()> {
+    pub fn evaluate_token(&mut self, token: &Token) -> Result<()> {
         match token {
             Token::PushValue(value) => self.stack.push(*value),
             Token::CallWord(name) => {
@@ -25,7 +27,7 @@ impl<'a> Env<'a> {
         };
         Ok(())
     }
-    pub fn evaluate_word(&mut self, word: &Word) -> crate::Result<()> {
+    pub fn evaluate_word(&mut self, word: &Word) -> Result<()> {
         match word {
             Word::Native(_, func) => func(self)?,
             Word::User(_, tokens) => tokens
@@ -39,7 +41,7 @@ impl<'a> Env<'a> {
         self.stack.push(value)
     }
 
-    pub fn pop(&mut self) -> crate::Result<Value> {
+    pub fn pop(&mut self) -> Result<Value> {
         self.stack.pop()
     }
 }

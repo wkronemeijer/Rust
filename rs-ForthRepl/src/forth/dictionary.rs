@@ -1,7 +1,10 @@
-use std::collections::HashMap;
-use std::fmt::{self, Display, Write};
+use crate::prelude::*;
 
-use super::error::Error;
+use std::collections::HashMap;
+use std::fmt;
+use std::fmt::Display;
+use std::fmt::Write;
+
 use super::word::NativeFunction;
 use super::word::Word;
 
@@ -16,7 +19,7 @@ impl Dictionary {
         }
     }
 
-    pub fn define(&mut self, word: Word) -> crate::Result<()> {
+    pub fn define(&mut self, word: Word) -> Result<()> {
         let name = word.name().to_owned();
         if !self.words.contains_key(&name) {
             // Some version of "provide if doesnt exist"
@@ -27,11 +30,11 @@ impl Dictionary {
         }
     }
 
-    pub fn define_native(&mut self, name: &'static str, body: NativeFunction) -> crate::Result<()> {
+    pub fn define_native(&mut self, name: &'static str, body: NativeFunction) -> Result<()> {
         self.define(Word::native(name.to_string(), body))
     }
 
-    pub fn get(&self, name: &str) -> crate::Result<&Word> {
+    pub fn get(&self, name: &str) -> Result<&Word> {
         self.words
             .get(name)
             .ok_or_else(|| Error::UnknownWord(name.to_owned()))

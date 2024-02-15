@@ -9,16 +9,19 @@ pub mod word;
 
 #[cfg(test)]
 mod tests {
-    use super::interpreter::Interpreter;
+    use super::*;
+    use crate::prelude::*;
+    use interpreter::Interpreter;
 
     fn new_boxed_interpreter() -> Box<Interpreter> {
         Box::new(Interpreter::new())
     }
 
     #[test]
-    fn push_numbers() {
+    fn push_numbers() -> Result<()> {
         let mut interpreter = new_boxed_interpreter();
-        interpreter.read_and_execute("12 24").unwrap();
+        interpreter.read_and_execute("12 24")?;
         assert_eq!(interpreter.stack.depth(), 2);
+        Ok(())
     }
 }

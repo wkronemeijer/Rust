@@ -1,7 +1,9 @@
+use crate::prelude::*;
+
+use std::fmt;
 use std::fmt::Display;
 use std::fmt::Write;
 
-use super::error::Error;
 use super::value::Value;
 
 pub struct Stack {
@@ -21,13 +23,13 @@ impl Stack {
         self.values.push(value)
     }
 
-    pub fn pop(&mut self) -> crate::Result<Value> {
+    pub fn pop(&mut self) -> Result<Value> {
         self.values.pop().ok_or(Error::StackUnderflow)
     }
 }
 
 impl Display for Stack {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         let iter = &mut self.values.iter();
         if let Some(first) = iter.next() {
             first.fmt(f)?;
