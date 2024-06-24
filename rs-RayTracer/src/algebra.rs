@@ -56,38 +56,42 @@ pub struct Rect {
     pub size: Size,
 }
 
-/////////////
-// Vectors //
-/////////////
+////////////////////////
+// Vector of 2 floats //
+////////////////////////
 
 #[derive(Debug, Clone, Copy, PartialEq)]
-pub struct Vec2F {
+pub struct vec2f {
     pub x: f32,
     pub y: f32,
 }
 
-impl Vec2F {
-    pub fn new(x: f32, y: f32) -> Vec2F {
-        Vec2F { x, y }
+impl vec2f {
+    pub fn new(x: f32, y: f32) -> vec2f {
+        vec2f { x, y }
     }
 }
 
-impl From<Vec2F> for (f32, f32) {
-    fn from(value: Vec2F) -> Self {
+impl From<vec2f> for (f32, f32) {
+    fn from(value: vec2f) -> Self {
         (value.x, value.y)
     }
 }
 
+////////////////////////
+// Vector of 3 floats //
+////////////////////////
+
 #[derive(Debug, Clone, Copy, PartialEq)]
-pub struct Vec3F {
+pub struct vec3f {
     pub x: f32,
     pub y: f32,
     pub z: f32,
 }
 
-impl Vec3F {
-    pub fn new(x: f32, y: f32, z: f32) -> Vec3F {
-        Vec3F { x, y, z }
+impl vec3f {
+    pub fn new(x: f32, y: f32, z: f32) -> vec3f {
+        vec3f { x, y, z }
     }
 
     pub fn to_color_bytes(&self) -> (u8, u8, u8) {
@@ -99,9 +103,13 @@ impl Vec3F {
     }
 }
 
+//////////////////////////////////////////////////////
+// Normalized device coordinates vector of 3 floats //
+//////////////////////////////////////////////////////
+
 #[derive(Debug, Clone, Copy)]
 pub struct NdcVec2F {
-    point: Vec2F,
+    point: vec2f,
 }
 
 const MINIMUM: f32 = -1.0;
@@ -110,12 +118,12 @@ const MAXIMUM: f32 = 1.0;
 impl NdcVec2F {
     pub fn new(x: f32, y: f32) -> NdcVec2F {
         NdcVec2F {
-            point: Vec2F::new(x.clamp(MINIMUM, MAXIMUM), y.clamp(MINIMUM, MAXIMUM)),
+            point: vec2f::new(x.clamp(MINIMUM, MAXIMUM), y.clamp(MINIMUM, MAXIMUM)),
         }
     }
 }
 
-impl From<NdcVec2F> for Vec2F {
+impl From<NdcVec2F> for vec2f {
     fn from(value: NdcVec2F) -> Self {
         value.point
     }

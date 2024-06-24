@@ -1,24 +1,25 @@
-use crate::{algebra::NdcVec2F, prelude::*};
+use crate::algebra::NdcVec2F;
+use crate::prelude::*;
 
 pub struct Ray {
-    pub origin: Vec3F,
-    pub direction: Vec3F,
+    pub origin: vec3f,
+    pub direction: vec3f,
 }
 
-pub type Color = Vec3F;
+pub type Color = vec3f;
 
 pub trait Raytracer {
-    fn render_fragment(&self, ndc: NdcVec2F) -> Vec3F;
+    fn render_fragment(&self, ndc: NdcVec2F) -> vec3f;
 }
 
 pub struct DrRayTracer;
 
 impl Raytracer for DrRayTracer {
-    fn render_fragment(&self, ndc: NdcVec2F) -> Vec3F {
-        let Vec2F { x, y } = ndc.into();
+    fn render_fragment(&self, ndc: NdcVec2F) -> vec3f {
+        let vec2f { x, y } = ndc.into();
         let r = 0.5 + x / 2.0; // 0~1
         let g = 0.5 + y / 2.0; // 0~1
         let b = 0.0 + r / 2.0 + g / 2.0;
-        Vec3F::new(r, g, b)
+        vec3f::new(r, g, b)
     }
 }
