@@ -24,29 +24,9 @@ impl Default for Resources {
     }
 }
 
-#[derive(Default, Clone, Copy)]
-pub enum StatsKind {
-    #[default]
-    Raw,
-    Bonus,
-    Final,
-}
-
-impl StatsKind {
-    fn is_final(&self) -> bool {
-        match self {
-            StatsKind::Final => true,
-            _ => false,
-        }
-    }
-}
-
-// Do we type state this...
-// Problem is you can't transmute the state easily
-
 #[derive(Default, Clone)]
 pub struct Stats {
-    kind: StatsKind,
+    is_final: bool,
     // Why merge attributes and stats?
     // ...so we can do skill checks with the modified attributes
     pub vitality: i16,
@@ -58,6 +38,9 @@ pub struct Stats {
     pub defense: i16,
     pub resistance: i16,
 
+    // Why put growths here?
+    // Because items can influence growths
+    // (FE5 crusader scrolls come to mind)
     pub vitality_growth: i16,
     pub strength_growth: i16,
     pub magic_growth: i16,
@@ -109,7 +92,7 @@ impl AddToStats for Stats {
         }
 
         let Stats {
-            kind,
+            is_final,
 
             vitality,
             strength,
@@ -142,7 +125,7 @@ impl AddToStats for Stats {
 
             critical_boost,
         } = self;
-        assert!(!kind.is_final(), "tried to add final stats");
+        assert!(!is_final, "tried to add final stats");
 
         once!(stats, add_assign, vitality);
         once!(stats, add_assign, strength);
@@ -178,30 +161,24 @@ impl AddToStats for Stats {
 }
 
 impl Stats {
-    fn bonus_stats(&self) -> Stats {
-        Stats {
-            kind: StatsKind::Bonus,
-
-            maximum_life: 2 * self.vitality,
-
-            phys_damage: self.strength,
-            phys_defense: self.defense,
-            mag_damage: self.magic,
-            mag_defense: self.resistance,
-            attack_speed: self.speed,
-
-            hit: self.skill,
-            avoid: self.speed,
-            crit: self.luck / 2,
-            crit_avoid: self.luck / 4,
-
-            ..Default::default()
-        }
-    }
-
     fn compute(&mut self) {
-        self.include(&self.bonus_stats());
-        self.kind = StatsKind::Final;
+        assert!(!self.is_final);
+
+        self.maximum_life += 1 + 2 * self.vitality;
+
+        self.phys_damage += self.strength;
+        self.phys_defense += self.defense;
+        self.mag_damage += self.magic;
+        self.mag_defense += self.resistance;
+
+        self.attack_speed += self.speed;
+
+        self.hit += self.skill;
+        self.avoid += self.speed;
+        self.crit += self.luck / 2;
+        self.crit_avoid += self.luck / 4;
+
+        self.is_final = true;
     }
 }
 
@@ -257,16 +234,63 @@ impl UnitInventory {
     // ...but we don't have specific slots...
 }
 
-fn single_rng_hit(chance: i16) -> bool {
-    let mut random = thread_rng();
+trait HitFn {
+    fn did_hit<R: Rng>(rng: &mut R, chance: i16) -> bool;
+
+    fn overflowing_chance_hit<R: Rng>(rng: &mut R, chance: i16) -> i16 {
+        if chance > 100 {
+            1 + Self::overflowing_chance_hit(rng, chance - 100)
+        } else {
+            if Self::did_hit(rng, chance) {
+                1
+            } else {
+                0
+            }
+        }
+    }
+}
+
+struct SingleHit;
+
+impl HitFn for SingleHit {
+    fn did_hit<R: Rng>(rng: &mut R, chance: i16) -> bool {
+        rng.gen_range(0..100) < chance
+    }
+}
+
+struct DoubleHit;
+
+impl HitFn for DoubleHit {
+    fn did_hit<R: Rng>(rng: &mut R, chance: i16) -> bool {
+        let mut roll = || rng.gen_range(0..100);
+        let average = (roll() + roll()) / 2;
+        average < chance
+    }
+}
+
+fn single_rng_hit<R: Rng>(random: &mut R, chance: i16) -> bool {
     random.gen_range(0..100) < chance
 }
 
-fn double_rng_hit(chance: i16) -> bool {
-    let mut random = thread_rng();
+fn double_rng_hit<R: Rng>(random: &mut R, chance: i16) -> bool {
     let mut roll = || random.gen_range(0..100);
     let average = (roll() + roll()) / 2;
     average < chance
+}
+
+fn overflowing_chance_hit<R: Rng>(random: &mut R, mut chance: i16) -> i16 {
+    let mut result = 0;
+    loop {
+        if chance >= 100 {
+            result += 1;
+            chance -= 100;
+        } else {
+            if single_rng_hit(random, chance) {
+                result += 1;
+            }
+            return result;
+        }
+    }
 }
 
 //////////////////
@@ -478,32 +502,23 @@ const CRIT_FORCES_HIT: bool = true;
 const NORMAL_CRIT_MULTI: i16 = 2;
 const EXTRA_CRIT_MULTI: i16 = 3;
 
-fn roll_attribute_growth(chance: i16) -> i16 {
-    if chance > 100 {
-        1 + roll_attribute_growth(chance - 100)
-    } else {
-        if single_rng_hit(chance) {
-            1
-        } else {
-            0
-        }
-    }
-}
+// TODO: Read https://github.com/zakirullin/cognitive-load
 
 impl Unit {
     fn grow_attributes(&mut self) {
+        let random = &mut thread_rng();
         let stats = self.final_stats();
 
         // Feels like more reason to split out attributes as a AddToStats instance
 
-        self.attributes.vitality += roll_attribute_growth(stats.vitality_growth);
-        self.attributes.strength += roll_attribute_growth(stats.strength_growth);
-        self.attributes.magic += roll_attribute_growth(stats.magic_growth);
-        self.attributes.skill += roll_attribute_growth(stats.skill_growth);
-        self.attributes.speed += roll_attribute_growth(stats.speed_growth);
-        self.attributes.luck += roll_attribute_growth(stats.luck_growth);
-        self.attributes.defense += roll_attribute_growth(stats.defense_growth);
-        self.attributes.resistance += roll_attribute_growth(stats.resistance_growth);
+        self.attributes.vitality += overflowing_chance_hit(random, stats.vitality_growth);
+        self.attributes.strength += overflowing_chance_hit(random, stats.strength_growth);
+        self.attributes.magic += overflowing_chance_hit(random, stats.magic_growth);
+        self.attributes.skill += overflowing_chance_hit(random, stats.skill_growth);
+        self.attributes.speed += overflowing_chance_hit(random, stats.speed_growth);
+        self.attributes.luck += overflowing_chance_hit(random, stats.luck_growth);
+        self.attributes.defense += overflowing_chance_hit(random, stats.defense_growth);
+        self.attributes.resistance += overflowing_chance_hit(random, stats.resistance_growth);
     }
 
     pub fn level_up(&mut self) -> bool {
@@ -558,9 +573,18 @@ impl Unit {
             })
         }
     }
+}
 
+impl Unit {
     pub fn attack(&mut self, defender: &mut Unit, obs: Observer) {
-        const HIT_FUNC: fn(i16) -> bool = if USE_TRUE_HIT { double_rng_hit } else { single_rng_hit };
+        let random = &mut thread_rng();
+        let mut hit_func = |c: i16| -> bool {
+            if USE_TRUE_HIT {
+                double_rng_hit(random, c)
+            } else {
+                single_rng_hit(random, c)
+            }
+        };
 
         let attacker = self;
 
@@ -570,8 +594,8 @@ impl Unit {
         let hit_chance = (alice.hit - bob.avoid).clamp(MIN_HIT, MAX_HIT);
         let crit_chance = (alice.crit - bob.crit_avoid).clamp(MIN_HIT, MAX_HIT);
 
-        let did_hit = HIT_FUNC(hit_chance);
-        let did_crit = HIT_FUNC(crit_chance);
+        let did_hit = hit_func(hit_chance);
+        let did_crit = hit_func(crit_chance);
         if did_hit || (CRIT_FORCES_HIT && did_crit) {
             let phys_dmg = (alice.phys_damage - bob.phys_defense).clamp(MIN_DAMAGE, MAX_DAMAGE);
             let mag_dmg = (alice.mag_damage - bob.mag_defense).clamp(MIN_DAMAGE, MAX_DAMAGE);
