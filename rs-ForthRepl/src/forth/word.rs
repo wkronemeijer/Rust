@@ -1,11 +1,9 @@
+use std::fmt::{self, Display, Write};
+use std::ops::{Deref, DerefMut};
+
+use super::env::Env;
+use super::value::Value;
 use crate::prelude::*;
-
-use std::{
-    fmt::{self, Display, Write},
-    ops::{Deref, DerefMut},
-};
-
-use super::{env::Env, value::Value};
 
 pub enum Token {
     PushValue(Value),

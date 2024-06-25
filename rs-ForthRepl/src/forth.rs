@@ -9,9 +9,10 @@ pub mod word;
 
 #[cfg(test)]
 mod tests {
+    use interpreter::Interpreter;
+
     use super::*;
     use crate::prelude::*;
-    use interpreter::Interpreter;
 
     fn new_boxed_interpreter() -> Box<Interpreter> {
         Box::new(Interpreter::new())

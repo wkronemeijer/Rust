@@ -1,10 +1,8 @@
-use crate::prelude::*;
-
 use std::fmt;
-use std::fmt::Display;
-use std::fmt::Write;
+use std::fmt::{Display, Write};
 
 use super::value::Value;
+use crate::prelude::*;
 
 pub struct Stack {
     values: Vec<Value>,

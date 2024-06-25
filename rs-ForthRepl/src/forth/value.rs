@@ -1,7 +1,7 @@
-use crate::prelude::*;
-
 use std::fmt;
 use std::fmt::Display;
+
+use crate::prelude::*;
 
 #[derive(Debug, Copy, Clone)]
 pub enum Value {

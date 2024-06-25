@@ -1,6 +1,6 @@
+use super::dictionary::Dictionary;
+use super::value::Value;
 use crate::prelude::*;
-
-use super::{dictionary::Dictionary, value::Value};
 
 pub(crate) fn register_builtins(dict: &mut Dictionary) -> Result<()> {
     use Value::*;

@@ -1,4 +1,3 @@
-use super::forth;
+pub use forth::error::{Error, Result};
 
-pub use forth::error::Error;
-pub use forth::error::Result;
+use super::forth;

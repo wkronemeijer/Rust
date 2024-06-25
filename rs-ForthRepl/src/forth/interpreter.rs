@@ -1,7 +1,4 @@
-use crate::prelude::*;
-
-use std::io::stdout;
-use std::io::Write;
+use std::io::{stdout, Write};
 use std::mem::replace; // <3
 
 use super::builtins::register_builtins;
@@ -9,9 +6,8 @@ use super::dictionary::Dictionary;
 use super::env::Env;
 use super::stack::Stack;
 use super::value::Value;
-use super::word::Token;
-use super::word::UserFunction;
-use super::word::Word;
+use super::word::{Token, UserFunction, Word};
+use crate::prelude::*;
 
 enum InterpreterCommand {
     /// ':'
@@ -128,9 +124,7 @@ impl Interpreter {
     }
 
     fn execute(&mut self, commands: Vec<InterpreterCommand>) -> Result<()> {
-        commands
-            .into_iter()
-            .try_for_each(|cmd| self.execute_command(cmd))
+        commands.into_iter().try_for_each(|cmd| self.execute_command(cmd))
     }
 
     pub fn read_and_execute(&mut self, input: &str) -> Result<()> {

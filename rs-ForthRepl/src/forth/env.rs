@@ -1,11 +1,8 @@
+use super::dictionary::Dictionary;
+use super::stack::Stack;
+use super::value::Value;
+use super::word::{Token, Word};
 use crate::prelude::*;
-
-use super::{
-    dictionary::Dictionary,
-    stack::Stack,
-    value::Value,
-    word::{Token, Word},
-};
 
 pub struct Env<'a> {
     pub dict: &'a Dictionary,
@@ -30,9 +27,7 @@ impl<'a> Env<'a> {
     pub fn evaluate_word(&mut self, word: &Word) -> Result<()> {
         match word {
             Word::Native(_, func) => func(self)?,
-            Word::User(_, tokens) => tokens
-                .iter()
-                .try_for_each(|token| self.evaluate_token(token))?,
+            Word::User(_, tokens) => tokens.iter().try_for_each(|token| self.evaluate_token(token))?,
         }
         Ok(())
     }
