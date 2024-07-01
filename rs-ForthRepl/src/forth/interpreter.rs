@@ -10,14 +10,17 @@ use super::word::{Token, UserFunction, Word};
 use crate::prelude::*;
 
 enum InterpreterCommand {
-    /// ':'
+    /// i.e. ':'
     StartCompile,
+    /// e.g. "dup", "rot", "1+"
     Token(Token),
-    /// ';'
+    /// i.e. ';'
     EndCompile,
 }
 
+#[derive(Default)]
 enum InterpreterState {
+    #[default]
     Interpret,
     Define, // needs a name
     Compile(String, UserFunction),
@@ -35,7 +38,7 @@ impl Interpreter {
         let mut result = Interpreter {
             stack: Stack::new(),
             words: Dictionary::new(),
-            state: InterpreterState::Interpret,
+            state: InterpreterState::default(),
         };
         register_builtins(&mut result.words).expect("registering builtins should not fail");
         return result;
