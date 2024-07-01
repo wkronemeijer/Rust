@@ -1,11 +1,10 @@
 use super::dictionary::Dictionary;
 use super::stack::Stack;
 use super::value::Value;
-use super::word::{Token, Word};
-use crate::prelude::*;
+use super::word::{Token, Word, WordKind};
 
 pub struct Env<'a> {
-    pub dict: &'a Dictionary,
+    dict: &'a Dictionary,
     stack: &'a mut Stack,
 }
 
@@ -14,29 +13,47 @@ impl<'a> Env<'a> {
         Self { dict, stack }
     }
 
-    pub fn evaluate_token(&mut self, token: &Token) -> Result<()> {
+    pub fn dict(&self) -> &Dictionary {
+        self.dict
+    }
+
+    pub fn evaluate_token(&mut self, token: &Token) -> crate::Result {
         match token {
             Token::PushValue(value) => self.stack.push(*value),
-            Token::CallWord(name) => {
-                let word = self.dict.get(name)?;
-                self.evaluate_word(word)?;
-            }
+            Token::CallWord(name) => self.evaluate_word(self.dict.get(name)?)?,
         };
         Ok(())
     }
-    pub fn evaluate_word(&mut self, word: &Word) -> Result<()> {
-        match word {
-            Word::Native(_, func) => func(self)?,
-            Word::User(_, tokens) => tokens.iter().try_for_each(|token| self.evaluate_token(token))?,
-        }
-        Ok(())
+
+    pub fn evaluate_word(&mut self, word: &Word) -> crate::Result {
+        word.evaluate(self)
     }
 
     pub fn push(&mut self, value: Value) {
         self.stack.push(value)
     }
 
-    pub fn pop(&mut self) -> Result<Value> {
+    #[must_use]
+    pub fn pop(&mut self) -> crate::Result<Value> {
         self.stack.pop()
+    }
+}
+
+trait Evaluate {
+    fn evaluate(&self, env: &mut Env) -> crate::Result;
+}
+
+impl Evaluate for WordKind {
+    fn evaluate(&self, env: &mut Env) -> crate::Result {
+        match self {
+            WordKind::Native(body) => body.body()(env),
+            WordKind::User(user) => user.iter().try_for_each(|token| env.evaluate_token(token)),
+        }
+    }
+}
+
+impl Evaluate for Word {
+    fn evaluate(&self, env: &mut Env) -> crate::Result {
+        self.kind().evaluate(env)
     }
 }

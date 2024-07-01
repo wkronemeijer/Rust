@@ -6,8 +6,7 @@ use super::dictionary::Dictionary;
 use super::env::Env;
 use super::stack::Stack;
 use super::value::Value;
-use super::word::{Token, UserFunction, Word};
-use crate::prelude::*;
+use super::word::{Token, UserFunction, Word, WordName};
 
 enum InterpreterCommand {
     /// i.e. ':'
@@ -16,14 +15,17 @@ enum InterpreterCommand {
     Token(Token),
     /// i.e. ';'
     EndCompile,
+    /// Like a null terminator
+    EndOfInput,
 }
 
 #[derive(Default)]
 enum InterpreterState {
     #[default]
-    Interpret,
-    Define, // needs a name
-    Compile(String, UserFunction),
+    Interpreting,
+    DefiningPrimed, // needs a name before able to define
+    Defining(WordName, UserFunction),
+    Failing,
 }
 
 pub struct Interpreter {
@@ -40,11 +42,11 @@ impl Interpreter {
             words: Dictionary::new(),
             state: InterpreterState::default(),
         };
-        register_builtins(&mut result.words).expect("registering builtins should not fail");
-        return result;
+        register_builtins(&mut result.words);
+        result
     }
 
-    fn parse_word(&mut self, word: &str) -> Result<Token> {
+    fn parse_word(&self, word: &str) -> crate::Result<Token> {
         if let Ok(number) = word.parse::<i32>() {
             Ok(Token::PushValue(Value::Int(number)))
         } else if word == "true" {
@@ -54,11 +56,11 @@ impl Interpreter {
         } else {
             // TODO: Maybe check with word regex?
             // Then again, "1+" is a valid word
-            Ok(Token::CallWord(word.to_string()))
+            Ok(Token::CallWord(WordName::new(word.to_string())?))
         }
     }
 
-    fn parse_token(&mut self, token: &str) -> Result<InterpreterCommand> {
+    fn parse_token(&self, token: &str) -> crate::Result<InterpreterCommand> {
         if token == ":" {
             Ok(InterpreterCommand::StartCompile)
         } else if token == ";" {
@@ -68,81 +70,103 @@ impl Interpreter {
         }
     }
 
-    fn parse(&mut self, input: &str) -> Result<Vec<InterpreterCommand>> {
-        let commands: Result<Vec<InterpreterCommand>> = input
+    fn parse(&self, input: &str) -> crate::Result<Vec<InterpreterCommand>> {
+        let commands: crate::Result<Vec<_>> = input
             .split_ascii_whitespace()
             .map(|token| self.parse_token(token))
             .collect();
-        Ok(commands?)
+        let mut commands = commands?;
+        commands.push(InterpreterCommand::EndOfInput);
+        Ok(commands)
     }
 
-    fn execute_command(&mut self, cmd: InterpreterCommand) -> Result<()> {
+    fn execute_command(&mut self, cmd: InterpreterCommand) -> crate::Result {
         use self::InterpreterCommand::*;
         use self::InterpreterState::*;
         use self::Token::*;
 
-        match cmd {
+        let result = match cmd {
             StartCompile => match self.state {
-                Interpret => {
-                    self.state = Define;
+                Interpreting => {
+                    self.state = DefiningPrimed;
                     Ok(())
                 }
-                Define => Err(Error::InvalidWordName(":".to_string())),
-                Compile(_, _) => Err(Error::NestedCompile),
+                DefiningPrimed => Err(crate::Error::InvalidWordName(":".to_string())),
+                Defining(_, _) => Err(crate::Error::NestedCompile),
+                Failing => Ok(()),
             },
-            EndCompile => match replace(&mut self.state, Interpret) {
+            EndCompile => match replace(&mut self.state, Interpreting) {
                 // Ignore duplicate ';'
-                Interpret => Ok(()),
-                Define => Err(Error::MissingBody),
-                Compile(name, tokens) => {
+                Interpreting => Ok(()),
+                DefiningPrimed => Err(crate::Error::MissingName),
+                Defining(name, tokens) => {
                     self.words.define(Word::custom(name, tokens))?;
                     Ok(())
                 }
+                Failing => Ok(()),
             },
             Token(token) => match self.state {
-                Interpret => {
-                    let mut env = Env::new(&self.words, &mut self.stack);
-                    env.evaluate_token(&token)
-                }
-                Define => match token {
-                    PushValue(value) => Err(Error::InvalidWordName(value.to_string())),
+                Interpreting => Env::new(&self.words, &mut self.stack).evaluate_token(&token),
+                DefiningPrimed => match token {
+                    PushValue(value) => Err(crate::Error::InvalidWordName(value.to_string())),
                     CallWord(name) => {
                         // Continue compiling even though the name might not be usable
                         // Prevents executing the definition body
                         if !self.words.has(&name) {
-                            self.state = Compile(name, UserFunction(vec![]));
+                            self.state = Defining(name, UserFunction::new());
                             Ok(())
                         } else {
-                            self.state = Interpret;
-                            Err(Error::NameAlreadyInUse(name))
+                            self.state = Interpreting;
+                            Err(crate::Error::NameAlreadyInUse(name.into_inner()))
                         }
                     }
                 },
-                Compile(_, ref mut tokens) => {
+                Defining(_, ref mut tokens) => {
                     tokens.push(token);
                     Ok(())
                 }
+                Failing => Ok(()),
             },
+            EndOfInput => match self.state {
+                Failing => {
+                    self.state = Interpreting;
+                    Ok(())
+                }
+                _ => Ok(()),
+            },
+        };
+        if let Err(_) = result {
+            self.state = Failing;
         }
+        result
     }
 
-    fn execute(&mut self, commands: Vec<InterpreterCommand>) -> Result<()> {
+    fn execute(&mut self, commands: Vec<InterpreterCommand>) -> crate::Result {
         commands.into_iter().try_for_each(|cmd| self.execute_command(cmd))
     }
 
-    pub fn read_and_execute(&mut self, input: &str) -> Result<()> {
+    fn recover(&mut self) {
+        match self.state {
+            InterpreterState::Failing => self.state = InterpreterState::default(),
+            _ => {}
+        }
+    }
+
+    pub fn eval(&mut self, input: &str) -> crate::Result {
         let commands = self.parse(input)?;
-        self.execute(commands)?;
-        Ok(())
+        let result = self.execute(commands);
+        self.recover();
+        result
     }
 
     pub fn print_prompt(&self) {
         match self.state {
-            InterpreterState::Interpret => print!("> "),
-            InterpreterState::Define => print!(": "),
-            InterpreterState::Compile(ref name, ref tokens) => {
+            InterpreterState::Interpreting => print!("> "),
+            InterpreterState::DefiningPrimed => print!(": "),
+            InterpreterState::Defining(ref name, ref tokens) => {
                 print!(": {} {} ... ", name, tokens)
             }
+            InterpreterState::Failing => panic!("interpreter should have recovered"),
         }
         stdout().flush().expect("couldn't flush 🤢");
     }

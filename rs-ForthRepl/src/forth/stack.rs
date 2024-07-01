@@ -2,14 +2,13 @@ use std::fmt;
 use std::fmt::{Display, Write};
 
 use super::value::Value;
-use crate::prelude::*;
 
 pub struct Stack {
     values: Vec<Value>,
 }
 
 impl Stack {
-    pub fn new() -> Stack {
+    pub fn new() -> Self {
         Stack { values: Vec::new() }
     }
 
@@ -21,8 +20,8 @@ impl Stack {
         self.values.push(value)
     }
 
-    pub fn pop(&mut self) -> Result<Value> {
-        self.values.pop().ok_or(Error::StackUnderflow)
+    pub fn pop(&mut self) -> crate::Result<Value> {
+        self.values.pop().ok_or(crate::Error::StackUnderflow)
     }
 }
 

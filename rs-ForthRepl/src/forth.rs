@@ -12,16 +12,15 @@ mod tests {
     use interpreter::Interpreter;
 
     use super::*;
-    use crate::prelude::*;
 
-    fn new_boxed_interpreter() -> Box<Interpreter> {
+    fn interpreter() -> Box<Interpreter> {
         Box::new(Interpreter::new())
     }
 
     #[test]
-    fn push_numbers() -> Result<()> {
-        let mut interpreter = new_boxed_interpreter();
-        interpreter.read_and_execute("12 24")?;
+    fn push_numbers() -> crate::Result {
+        let mut interpreter = interpreter();
+        interpreter.eval("12 24")?;
         assert_eq!(interpreter.stack.depth(), 2);
         Ok(())
     }

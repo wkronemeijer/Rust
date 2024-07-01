@@ -4,8 +4,8 @@ use std::result;
 pub enum Error {
     #[error("invalid word name: {0}")]
     InvalidWordName(String),
-    #[error("missing body for definition")]
-    MissingBody,
+    #[error("missing name for definition")]
+    MissingName,
     #[error("name already in use: {0}")]
     NameAlreadyInUse(String),
     #[error("can not nest ':'")]
@@ -14,10 +14,6 @@ pub enum Error {
     StackUnderflow,
     #[error("unknown word: {0}")]
     UnknownWord(String),
-    // External
-    #[allow(dead_code)]
-    #[error("other: {0}")]
-    Other(#[from] Box<dyn std::error::Error>),
 }
 
-pub type Result<T> = result::Result<T, Error>;
+pub type Result<T = (), E = Error> = result::Result<T, E>;

@@ -2,8 +2,7 @@ use std::collections::HashMap;
 use std::fmt;
 use std::fmt::{Display, Write as _};
 
-use super::word::{NativeFunction, Word};
-use crate::prelude::*;
+use super::word::{NativeFunction, NativeFunctionBody, Word, WordName};
 
 pub struct Dictionary {
     words: HashMap<String, Word>,
@@ -14,23 +13,28 @@ impl Dictionary {
         Dictionary { words: HashMap::new() }
     }
 
-    pub fn define(&mut self, word: Word) -> Result<()> {
+    pub fn define(&mut self, word: Word) -> crate::Result {
         let name = word.name().to_owned();
         if !self.words.contains_key(&name) {
             // Some version of "provide if doesnt exist"
             self.words.insert(name, word);
             Ok(())
         } else {
-            Err(Error::NameAlreadyInUse(name))
+            Err(crate::Error::NameAlreadyInUse(name))
         }
     }
 
-    pub fn define_native(&mut self, name: &'static str, body: NativeFunction) -> Result<()> {
-        self.define(Word::native(name.to_string(), body))
+    pub(crate) fn define_native(&mut self, name: &'static str, body: NativeFunctionBody) -> crate::Result {
+        self.define(Word::native(
+            WordName::new(name.to_string())?,
+            NativeFunction::new(body),
+        ))
     }
 
-    pub fn get(&self, name: &str) -> Result<&Word> {
-        self.words.get(name).ok_or_else(|| Error::UnknownWord(name.to_owned()))
+    pub fn get(&self, name: &str) -> crate::Result<&Word> {
+        self.words
+            .get(name)
+            .ok_or_else(|| crate::Error::UnknownWord(name.to_owned()))
     }
 
     pub fn has(&self, name: &str) -> bool {

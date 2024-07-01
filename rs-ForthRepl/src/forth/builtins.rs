@@ -1,8 +1,7 @@
 use super::dictionary::Dictionary;
 use super::value::Value;
-use crate::prelude::*;
 
-pub(crate) fn register_builtins(dict: &mut Dictionary) -> Result<()> {
+fn do_register(dict: &mut Dictionary) -> crate::Result {
     use Value::*;
 
     ///////////
@@ -16,6 +15,11 @@ pub(crate) fn register_builtins(dict: &mut Dictionary) -> Result<()> {
         Ok(())
     })?;
 
+    dict.define_native("drop", |env| {
+        env.pop()?;
+        Ok(())
+    })?;
+
     //////////////////
     // Input/output //
     //////////////////
@@ -26,7 +30,7 @@ pub(crate) fn register_builtins(dict: &mut Dictionary) -> Result<()> {
     })?;
 
     dict.define_native("words", |env| {
-        println!("{}", env.dict);
+        println!("{}", env.dict());
         Ok(())
     })?;
 
@@ -45,18 +49,26 @@ pub(crate) fn register_builtins(dict: &mut Dictionary) -> Result<()> {
     //////////
 
     dict.define_native("+", |env| {
-        let a = env.pop()?.try_into_int()?;
         let b = env.pop()?.try_into_int()?;
+        let a = env.pop()?.try_into_int()?;
         env.push(Int(a + b));
         Ok(())
     })?;
 
     dict.define_native("-", |env| {
-        let a = env.pop()?.try_into_int()?;
         let b = env.pop()?.try_into_int()?;
+        let a = env.pop()?.try_into_int()?;
         env.push(Int(a - b));
         Ok(())
     })?;
 
+    //////////////
+    // Complete //
+    //////////////
+
     Ok(())
+}
+
+pub(crate) fn register_builtins(dict: &mut Dictionary) {
+    do_register(dict).expect("registering builtins should never fail");
 }
