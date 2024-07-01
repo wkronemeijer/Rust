@@ -27,7 +27,7 @@ impl Stack {
 }
 
 impl Display for Stack {
-    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         let iter = &mut self.values.iter();
         if let Some(first) = iter.next() {
             first.fmt(f)?;

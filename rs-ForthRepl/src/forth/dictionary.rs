@@ -39,7 +39,7 @@ impl Dictionary {
 }
 
 impl Display for Dictionary {
-    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         let iter = &mut self.words.values();
         if let Some(first) = iter.next() {
             first.fmt(f)?;
