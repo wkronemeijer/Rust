@@ -1,4 +1,4 @@
-use std::io::{self, stdin, BufRead};
+use std::io::{self, stdin, BufRead as _};
 
 use forth_repl::Interpreter;
 
@@ -14,12 +14,11 @@ fn main() -> io::Result<()> {
         if line.trim() == ".exit" {
             break;
         }
-        let result = host.read_and_execute(&line); // (R)ead (E)val
+        let result = host.read_and_execute(&line);
         if let Err(e) = result {
             println!("\x1b[31merror: {}\x1b[0m", e);
         }
-        host.print_stack(); // (P)rint
+        host.print_stack();
     }
-    // ^ (L)oop
     Ok(())
 }
