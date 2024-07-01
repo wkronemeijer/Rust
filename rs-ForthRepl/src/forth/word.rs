@@ -1,47 +1,7 @@
 use std::fmt::{self, Display, Write};
-use std::ops::Deref;
 
 use super::env::Env;
 use super::value::Value;
-
-//////////////
-// WordName //
-//////////////
-
-#[derive(Debug)]
-pub struct WordName(String);
-
-impl WordName {
-    fn is_valid(_: &str) -> bool {
-        true
-    }
-
-    pub fn new(name: String) -> crate::Result<WordName> {
-        if Self::is_valid(&name) {
-            Ok(WordName(name))
-        } else {
-            Err(crate::Error::InvalidWordName(name))
-        }
-    }
-
-    pub fn into_inner(self) -> String {
-        self.0
-    }
-}
-
-impl Display for WordName {
-    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-        self.0.fmt(f)
-    }
-}
-
-impl Deref for WordName {
-    type Target = str;
-
-    fn deref(&self) -> &Self::Target {
-        &self.0
-    }
-}
 
 ///////////
 // Token //
@@ -50,7 +10,7 @@ impl Deref for WordName {
 #[derive(Debug)]
 pub enum Token {
     PushValue(Value),
-    CallWord(WordName), // Late bound!
+    CallWord(String), // Late bound!
 }
 
 impl Display for Token {
@@ -133,7 +93,7 @@ pub enum WordKind {
 
 #[derive(Debug)]
 pub struct Word {
-    name: WordName,
+    name: String,
     kind: WordKind,
 }
 
@@ -146,14 +106,14 @@ impl Word {
         &self.kind
     }
 
-    pub fn native(name: WordName, body: NativeFunction) -> Word {
+    pub fn native(name: String, body: NativeFunction) -> Word {
         Word {
             name,
             kind: WordKind::Native(body),
         }
     }
 
-    pub fn custom(name: WordName, def: UserFunction) -> Word {
+    pub fn custom(name: String, def: UserFunction) -> Word {
         Word {
             name,
             kind: WordKind::User(def),

@@ -6,7 +6,7 @@ use super::dictionary::Dictionary;
 use super::env::Env;
 use super::stack::Stack;
 use super::value::Value;
-use super::word::{Token, UserFunction, Word, WordName};
+use super::word::{Token, UserFunction, Word};
 
 enum InterpreterCommand {
     /// i.e. ':'
@@ -24,14 +24,14 @@ enum InterpreterState {
     #[default]
     Interpreting,
     DefiningPrimed, // needs a name before able to define
-    Defining(WordName, UserFunction),
+    Defining(String, UserFunction),
     Failing,
 }
 
 pub struct Interpreter {
-    pub stack: Stack,
+    stack: Stack,
     // We want to own
-    pub words: Dictionary,
+    words: Dictionary,
     state: InterpreterState,
 }
 
@@ -46,6 +46,14 @@ impl Interpreter {
         result
     }
 
+    pub fn stack(&self) -> &Stack {
+        &self.stack
+    }
+
+    pub fn words(&self) -> &Dictionary {
+        &self.words
+    }
+
     fn parse_word(&self, word: &str) -> crate::Result<Token> {
         if let Ok(number) = word.parse::<i32>() {
             Ok(Token::PushValue(Value::Int(number)))
@@ -56,7 +64,7 @@ impl Interpreter {
         } else {
             // TODO: Maybe check with word regex?
             // Then again, "1+" is a valid word
-            Ok(Token::CallWord(WordName::new(word.to_string())?))
+            Ok(Token::CallWord(word.to_string()))
         }
     }
 
@@ -117,7 +125,7 @@ impl Interpreter {
                             Ok(())
                         } else {
                             self.state = Interpreting;
-                            Err(crate::Error::NameAlreadyInUse(name.into_inner()))
+                            Err(crate::Error::NameAlreadyInUse(name.to_string()))
                         }
                     }
                 },

@@ -2,7 +2,7 @@ use std::collections::HashMap;
 use std::fmt;
 use std::fmt::{Display, Write as _};
 
-use super::word::{NativeFunction, NativeFunctionBody, Word, WordName};
+use super::word::{NativeFunction, NativeFunctionBody, Word};
 
 pub struct Dictionary {
     words: HashMap<String, Word>,
@@ -25,10 +25,7 @@ impl Dictionary {
     }
 
     pub(crate) fn define_native(&mut self, name: &'static str, body: NativeFunctionBody) -> crate::Result {
-        self.define(Word::native(
-            WordName::new(name.to_string())?,
-            NativeFunction::new(body),
-        ))
+        self.define(Word::native(name.to_string(), NativeFunction::new(body)))
     }
 
     pub fn get(&self, name: &str) -> crate::Result<&Word> {

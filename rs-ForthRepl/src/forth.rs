@@ -21,7 +21,7 @@ mod tests {
     fn push_numbers() -> crate::Result {
         let mut interpreter = interpreter();
         interpreter.eval("12 24")?;
-        assert_eq!(interpreter.stack.depth(), 2);
+        assert_eq!(interpreter.stack().depth(), 2);
         Ok(())
     }
 }
