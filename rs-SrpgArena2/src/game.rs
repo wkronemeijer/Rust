@@ -2,7 +2,7 @@ use std::ops::{AddAssign, BitOrAssign};
 
 use rand::{thread_rng, Rng};
 
-use crate::core::slice_get_many_mut;
+use crate::core::slice_index_pair;
 
 ////////////////////////
 // Shared definitions //
@@ -685,7 +685,7 @@ impl Arena {
                 }
                 if subject.try_consume_energy() {
                     if let Some(object_idx) = self.find_opponent(subject_idx) {
-                        let (subject, object) = slice_get_many_mut(&mut self.combatants, subject_idx, object_idx);
+                        let (subject, object) = slice_index_pair(&mut self.combatants, (subject_idx, object_idx));
                         subject.attack(object, obs);
                     }
                 }
