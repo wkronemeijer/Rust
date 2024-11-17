@@ -21,7 +21,7 @@ impl Dictionary {
             self.words.insert(name, word);
             Ok(())
         } else {
-            Err(crate::Error::NameAlreadyInUse(name))
+            Err(crate::Error::NameAlreadyInUse(name.into()))
         }
     }
 
@@ -34,9 +34,9 @@ impl Dictionary {
     }
 
     pub fn get(&self, name: &str) -> crate::Result<&Word> {
-        self.words
-            .get(name)
-            .ok_or_else(|| crate::Error::UnknownWord(name.to_owned()))
+        self.words.get(name).ok_or_else(|| {
+            crate::Error::UnknownWord(format!("'{name}'").into())
+        })
     }
 
     pub fn has(&self, name: &str) -> bool { self.words.contains_key(name) }

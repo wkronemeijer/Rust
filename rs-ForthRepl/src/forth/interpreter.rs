@@ -102,7 +102,7 @@ impl Interpreter {
                     Ok(())
                 }
                 DefiningPrimed => {
-                    Err(crate::Error::InvalidWordName(":".to_string()))
+                    Err(crate::Error::InvalidWordName(":".into()))
                 }
                 Defining(_, _) => Err(crate::Error::NestedCompile),
                 Failing => Ok(()),
@@ -121,9 +121,9 @@ impl Interpreter {
                 Interpreting => Env::new(&self.words, &mut self.stack)
                     .evaluate_token(&token),
                 DefiningPrimed => match token {
-                    PushValue(value) => {
-                        Err(crate::Error::InvalidWordName(value.to_string()))
-                    }
+                    PushValue(value) => Err(crate::Error::InvalidWordName(
+                        value.to_string().into(),
+                    )),
                     CallWord(name) => {
                         // Continue compiling even though the name might not be usable
                         // Prevents executing the definition body
@@ -132,9 +132,7 @@ impl Interpreter {
                             Ok(())
                         } else {
                             self.state = Interpreting;
-                            Err(crate::Error::NameAlreadyInUse(
-                                name.to_string(),
-                            ))
+                            Err(crate::Error::NameAlreadyInUse(name.into()))
                         }
                     }
                 },
@@ -178,6 +176,13 @@ impl Interpreter {
         result
     }
 
+    pub fn print_motd(&self) {
+        print!("Welcome to ");
+        print!("\x1b[1m");
+        print!("ForthRepl v0.0.1");
+        println!("\x1b[22m");
+    }
+
     pub fn print_prompt(&self) {
         match self.state {
             InterpreterState::Interpreting => print!("> "),
@@ -194,10 +199,10 @@ impl Interpreter {
 
     pub fn print_stack(&self) {
         let depth = self.stack.depth();
+        print!("\x1b[35m[");
         if depth > 0 {
-            print!("\x1b[30m");
             print!("{}", self.stack);
-            println!("\x1b[0m");
         }
+        println!("]\x1b[39m");
     }
 }

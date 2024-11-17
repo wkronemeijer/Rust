@@ -4,6 +4,15 @@ use super::value::Value;
 fn do_register(dict: &mut Dictionary) -> crate::Result {
     use Value::*;
 
+    ////////////////
+    // Primitives //
+    ////////////////
+
+    dict.define_native("null", |env| {
+        env.push(Null);
+        Ok(())
+    })?;
+
     ///////////
     // Stack //
     ///////////
@@ -11,6 +20,33 @@ fn do_register(dict: &mut Dictionary) -> crate::Result {
     dict.define_native("dup", |env| {
         let a = env.pop()?;
         env.push(a.clone());
+        env.push(a);
+        Ok(())
+    })?;
+
+    dict.define_native("swap", |env| {
+        let b = env.pop()?;
+        let a = env.pop()?;
+        env.push(b);
+        env.push(a);
+        Ok(())
+    })?;
+
+    dict.define_native("over", |env| {
+        let b = env.pop()?;
+        let a = env.pop()?;
+        env.push(a.clone());
+        env.push(b);
+        env.push(a);
+        Ok(())
+    })?;
+
+    dict.define_native("rot", |env| {
+        let c = env.pop()?;
+        let b = env.pop()?;
+        let a = env.pop()?;
+        env.push(b);
+        env.push(c);
         env.push(a);
         Ok(())
     })?;
@@ -34,6 +70,39 @@ fn do_register(dict: &mut Dictionary) -> crate::Result {
         Ok(())
     })?;
 
+    //////////
+    // Math //
+    //////////
+
+    dict.define_native("+", |env| {
+        let b = env.pop()?.try_into_int()?;
+        let a = env.pop()?.try_into_int()?;
+        env.push(Int(a.checked_add(b).ok_or(crate::Error::IntRangeError)?));
+        Ok(())
+    })?;
+
+    dict.define_native("-", |env| {
+        let b = env.pop()?.try_into_int()?;
+        let a = env.pop()?.try_into_int()?;
+        env.push(Int(a.checked_sub(b).ok_or(crate::Error::IntRangeError)?));
+        Ok(())
+    })?;
+
+    dict.define_native("*", |env| {
+        let b = env.pop()?.try_into_int()?;
+        let a = env.pop()?.try_into_int()?;
+
+        env.push(Int(a.checked_mul(b).ok_or(crate::Error::IntRangeError)?));
+        Ok(())
+    })?;
+
+    dict.define_native("/", |env| {
+        let b = env.pop()?.try_into_int()?;
+        let a = env.pop()?.try_into_int()?;
+        env.push(Int(a.checked_div(b).ok_or(crate::Error::IntRangeError)?));
+        Ok(())
+    })?;
+
     ///////////
     // Logic //
     ///////////
@@ -44,21 +113,24 @@ fn do_register(dict: &mut Dictionary) -> crate::Result {
         Ok(())
     })?;
 
-    //////////
-    // Math //
-    //////////
-
-    dict.define_native("+", |env| {
-        let b = env.pop()?.try_into_int()?;
-        let a = env.pop()?.try_into_int()?;
-        env.push(Int(a + b));
+    dict.define_native("=", |env| {
+        let b = env.pop()?;
+        let a = env.pop()?;
+        env.push(Bool(a == b));
         Ok(())
     })?;
 
-    dict.define_native("-", |env| {
-        let b = env.pop()?.try_into_int()?;
-        let a = env.pop()?.try_into_int()?;
-        env.push(Int(a - b));
+    dict.define_native("<", |env| {
+        let b = env.pop()?;
+        let a = env.pop()?;
+        env.push(Bool(a < b));
+        Ok(())
+    })?;
+
+    dict.define_native(">", |env| {
+        let b = env.pop()?;
+        let a = env.pop()?;
+        env.push(Bool(a > b));
         Ok(())
     })?;
 
