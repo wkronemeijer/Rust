@@ -1,5 +1,4 @@
 use std::fmt;
-use std::fmt::Display;
 use std::fmt::Write;
 
 use super::env::Env;
@@ -15,11 +14,11 @@ pub enum Token {
     CallWord(String), // Late bound!
 }
 
-impl Display for Token {
+impl fmt::Display for Token {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         match self {
-            Token::PushValue(value) => write!(f, "{}", value),
-            Token::CallWord(name) => write!(f, "{}", name),
+            Token::PushValue(value) => write!(f, "{value}"),
+            Token::CallWord(name) => write!(f, "{name}"),
         }
     }
 }
@@ -55,13 +54,10 @@ impl UserFunction {
 
     pub fn push(&mut self, token: Token) { self.tokens.push(token); }
 
-    pub fn iter(&self) -> impl Iterator<Item = &Token> {
-        let iter = self.tokens.iter();
-        iter
-    }
+    pub fn iter(&self) -> impl Iterator<Item = &Token> { self.tokens.iter() }
 }
 
-impl Display for UserFunction {
+impl fmt::Display for UserFunction {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         let iter = &mut self.tokens.iter();
         if let Some(first) = iter.next() {
@@ -96,21 +92,21 @@ impl Word {
 
     pub fn kind(&self) -> &WordKind { &self.kind }
 
-    pub fn native(name: String, body: NativeFunction) -> Word {
-        Word { name, kind: WordKind::Native(body) }
+    pub fn native(name: String, body: NativeFunction) -> Self {
+        Self { name, kind: WordKind::Native(body) }
     }
 
-    pub fn custom(name: String, def: UserFunction) -> Word {
-        Word { name, kind: WordKind::User(def) }
+    pub fn custom(name: String, def: UserFunction) -> Self {
+        Self { name, kind: WordKind::User(def) }
     }
 }
 
-impl Display for Word {
+impl fmt::Display for Word {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         let ref name = self.name;
         match self.kind {
-            WordKind::Native(_) => write!(f, ": {} [native code] ;", name)?,
-            WordKind::User(ref tokens) => write!(f, ": {} {} ;", name, tokens)?,
+            WordKind::Native(_) => write!(f, ": {name} [native code] ;")?,
+            WordKind::User(ref tokens) => write!(f, ": {name} {tokens} ;")?,
         }
         Ok(())
     }

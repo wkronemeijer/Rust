@@ -36,12 +36,12 @@ pub type Result<T = (), E = Error> = std::result::Result<T, E>;
 ///////////////////
 // CompactString //
 ///////////////////
+// Goal: reduce inline size, not allocation frequency or size
+// TODO: Find a recently updated crate that does this for you
 
 #[derive(Debug)]
 pub struct CompactString {
     // Wasteful, but effective at reducing size
-    // TODO: Find a recently updated crate that does this for you
-    // Goal: reduce inline size, not allocation frequency or size
     boxed_string: Box<String>,
 }
 
@@ -76,7 +76,7 @@ impl From<String> for CompactString {
 }
 
 impl fmt::Display for CompactString {
-    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         self.boxed_string.fmt(f)
     }
 }

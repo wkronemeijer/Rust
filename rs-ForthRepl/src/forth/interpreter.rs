@@ -163,7 +163,7 @@ impl Interpreter {
     fn recover(&mut self) {
         match self.state {
             InterpreterState::Failing => {
-                self.state = InterpreterState::default()
+                self.state = InterpreterState::default();
             }
             _ => {}
         }
@@ -179,8 +179,10 @@ impl Interpreter {
     pub fn print_motd(&self) {
         print!("Welcome to ");
         print!("\x1b[1m");
-        print!("ForthRepl v0.0.1");
-        println!("\x1b[22m");
+        print!("ForthRepl");
+        print!("\x1b[22m");
+        print!(" v0.0.1");
+        println!();
     }
 
     pub fn print_prompt(&self) {
@@ -199,10 +201,10 @@ impl Interpreter {
 
     pub fn print_stack(&self) {
         let depth = self.stack.depth();
-        print!("\x1b[35m[");
         if depth > 0 {
+            print!("\x1b[34m");
             print!("{}", self.stack);
+            println!("\x1b[39m");
         }
-        println!("]\x1b[39m");
     }
 }

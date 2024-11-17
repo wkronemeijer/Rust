@@ -85,7 +85,7 @@ pub enum ValueKind {
 }
 
 impl fmt::Display for ValueKind {
-    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         match self {
             ValueKind::Null => write!(f, "null"),
             ValueKind::Bool => write!(f, "bool"),
@@ -99,8 +99,8 @@ impl Value {
     pub fn kind(&self) -> ValueKind {
         match self {
             Null => ValueKind::Null,
-            Bool(_) => ValueKind::Bool,
-            Int(_) => ValueKind::Int,
+            Bool(..) => ValueKind::Bool,
+            Int(..) => ValueKind::Int,
         }
     }
 }

@@ -10,6 +10,7 @@ pub mod word;
 #[cfg(test)]
 mod tests {
     use interpreter::Interpreter;
+    use value::Value::*;
 
     use super::*;
 
@@ -21,6 +22,8 @@ mod tests {
         interpreter.eval("12 24")?;
         assert_eq!(interpreter.stack().depth(), 2);
         interpreter.eval("+")?;
+        let result = interpreter.stack().peek().cloned();
+        assert_eq!(result, Some(Int(36)));
         Ok(())
     }
 }
