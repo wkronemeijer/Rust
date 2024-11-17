@@ -1,17 +1,18 @@
 use std::collections::HashMap;
 use std::fmt;
-use std::fmt::{Display, Write as _};
+use std::fmt::Display;
+use std::fmt::Write as _;
 
-use super::word::{NativeFunction, NativeFunctionBody, Word};
+use super::word::NativeFunction;
+use super::word::NativeFunctionBody;
+use super::word::Word;
 
 pub struct Dictionary {
     words: HashMap<String, Word>,
 }
 
 impl Dictionary {
-    pub fn new() -> Dictionary {
-        Dictionary { words: HashMap::new() }
-    }
+    pub fn new() -> Dictionary { Dictionary { words: HashMap::new() } }
 
     pub fn define(&mut self, word: Word) -> crate::Result {
         let name = word.name().to_owned();
@@ -24,7 +25,11 @@ impl Dictionary {
         }
     }
 
-    pub(crate) fn define_native(&mut self, name: &'static str, body: NativeFunctionBody) -> crate::Result {
+    pub(crate) fn define_native(
+        &mut self,
+        name: &'static str,
+        body: NativeFunctionBody,
+    ) -> crate::Result {
         self.define(Word::native(name.to_string(), NativeFunction::new(body)))
     }
 
@@ -34,9 +39,7 @@ impl Dictionary {
             .ok_or_else(|| crate::Error::UnknownWord(name.to_owned()))
     }
 
-    pub fn has(&self, name: &str) -> bool {
-        self.words.contains_key(name)
-    }
+    pub fn has(&self, name: &str) -> bool { self.words.contains_key(name) }
 }
 
 impl Display for Dictionary {

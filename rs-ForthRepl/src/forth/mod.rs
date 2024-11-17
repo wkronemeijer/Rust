@@ -13,15 +13,14 @@ mod tests {
 
     use super::*;
 
-    fn interpreter() -> Box<Interpreter> {
-        Box::new(Interpreter::new())
-    }
+    fn interpreter() -> Box<Interpreter> { Box::new(Interpreter::new()) }
 
     #[test]
     fn push_numbers() -> crate::Result {
         let mut interpreter = interpreter();
         interpreter.eval("12 24")?;
         assert_eq!(interpreter.stack().depth(), 2);
+        interpreter.eval("+")?;
         Ok(())
     }
 }

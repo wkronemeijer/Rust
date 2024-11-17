@@ -10,7 +10,7 @@ fn do_register(dict: &mut Dictionary) -> crate::Result {
 
     dict.define_native("dup", |env| {
         let a = env.pop()?;
-        env.push(a);
+        env.push(a.clone());
         env.push(a);
         Ok(())
     })?;
@@ -70,5 +70,5 @@ fn do_register(dict: &mut Dictionary) -> crate::Result {
 }
 
 pub(crate) fn register_builtins(dict: &mut Dictionary) {
-    do_register(dict).expect("registering builtins should never fail");
+    do_register(dict).expect("registering builtins failed");
 }

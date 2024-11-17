@@ -1,7 +1,9 @@
 use super::dictionary::Dictionary;
 use super::stack::Stack;
 use super::value::Value;
-use super::word::{Token, Word, WordKind};
+use super::word::Token;
+use super::word::Word;
+use super::word::WordKind;
 
 pub struct Env<'a> {
     dict: &'a Dictionary,
@@ -13,14 +15,14 @@ impl<'a> Env<'a> {
         Self { dict, stack }
     }
 
-    pub fn dict(&self) -> &Dictionary {
-        self.dict
-    }
+    pub fn dict(&self) -> &Dictionary { self.dict }
 
     pub fn evaluate_token(&mut self, token: &Token) -> crate::Result {
         match token {
-            Token::PushValue(value) => self.stack.push(*value),
-            Token::CallWord(name) => self.evaluate_word(self.dict.get(name)?)?,
+            Token::PushValue(value) => self.stack.push(value.clone()),
+            Token::CallWord(name) => {
+                self.evaluate_word(self.dict.get(name)?)?
+            }
         };
         Ok(())
     }
@@ -29,14 +31,10 @@ impl<'a> Env<'a> {
         word.evaluate(self)
     }
 
-    pub fn push(&mut self, value: Value) {
-        self.stack.push(value)
-    }
+    pub fn push(&mut self, value: Value) { self.stack.push(value) }
 
     #[must_use]
-    pub fn pop(&mut self) -> crate::Result<Value> {
-        self.stack.pop()
-    }
+    pub fn pop(&mut self) -> crate::Result<Value> { self.stack.pop() }
 }
 
 trait Evaluate {
@@ -47,7 +45,9 @@ impl Evaluate for WordKind {
     fn evaluate(&self, env: &mut Env) -> crate::Result {
         match self {
             WordKind::Native(body) => body.body()(env),
-            WordKind::User(user) => user.iter().try_for_each(|token| env.evaluate_token(token)),
+            WordKind::User(user) => {
+                user.iter().try_for_each(|token| env.evaluate_token(token))
+            }
         }
     }
 }

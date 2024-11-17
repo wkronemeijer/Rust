@@ -1,4 +1,6 @@
-use std::fmt::{self, Display, Write};
+use std::fmt;
+use std::fmt::Display;
+use std::fmt::Write;
 
 use super::env::Env;
 use super::value::Value;
@@ -34,13 +36,9 @@ pub struct NativeFunction {
 }
 
 impl NativeFunction {
-    pub fn new(body: NativeFunctionBody) -> Self {
-        NativeFunction { body }
-    }
+    pub fn new(body: NativeFunctionBody) -> Self { NativeFunction { body } }
 
-    pub fn body(&self) -> NativeFunctionBody {
-        self.body
-    }
+    pub fn body(&self) -> NativeFunctionBody { self.body }
 }
 
 //////////////////
@@ -53,13 +51,9 @@ pub struct UserFunction {
 }
 
 impl UserFunction {
-    pub fn new() -> Self {
-        UserFunction { tokens: Vec::new() }
-    }
+    pub fn new() -> Self { UserFunction { tokens: Vec::new() } }
 
-    pub fn push(&mut self, token: Token) {
-        self.tokens.push(token);
-    }
+    pub fn push(&mut self, token: Token) { self.tokens.push(token); }
 
     pub fn iter(&self) -> impl Iterator<Item = &Token> {
         let iter = self.tokens.iter();
@@ -98,26 +92,16 @@ pub struct Word {
 }
 
 impl Word {
-    pub fn name(&self) -> &str {
-        &self.name
-    }
+    pub fn name(&self) -> &str { &self.name }
 
-    pub fn kind(&self) -> &WordKind {
-        &self.kind
-    }
+    pub fn kind(&self) -> &WordKind { &self.kind }
 
     pub fn native(name: String, body: NativeFunction) -> Word {
-        Word {
-            name,
-            kind: WordKind::Native(body),
-        }
+        Word { name, kind: WordKind::Native(body) }
     }
 
     pub fn custom(name: String, def: UserFunction) -> Word {
-        Word {
-            name,
-            kind: WordKind::User(def),
-        }
+        Word { name, kind: WordKind::User(def) }
     }
 }
 

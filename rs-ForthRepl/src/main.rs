@@ -1,9 +1,10 @@
-use std::io::{stdin, BufRead as _};
+use std::io::stdin;
+use std::io::BufRead as _;
 
 use forth_repl::Interpreter;
 
 fn main() {
-    let mut host = Box::new(Interpreter::new());
+    let ref mut host = Interpreter::new();
     let mut stdin_lines = stdin().lock().lines();
 
     loop {

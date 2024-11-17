@@ -1,4 +1,5 @@
-use std::io::{stdout, Write};
+use std::io::stdout;
+use std::io::Write;
 use std::mem::replace; // <3
 
 use super::builtins::register_builtins;
@@ -6,7 +7,9 @@ use super::dictionary::Dictionary;
 use super::env::Env;
 use super::stack::Stack;
 use super::value::Value;
-use super::word::{Token, UserFunction, Word};
+use super::word::Token;
+use super::word::UserFunction;
+use super::word::Word;
 
 enum InterpreterCommand {
     /// i.e. ':'
@@ -30,41 +33,40 @@ enum InterpreterState {
 
 pub struct Interpreter {
     stack: Stack,
-    // We want to own
+    // We explicitly want to own this ↓
     words: Dictionary,
     state: InterpreterState,
 }
 
 impl Interpreter {
     pub fn new() -> Interpreter {
-        let mut result = Interpreter {
+        let mut interpreter = Interpreter {
             stack: Stack::new(),
             words: Dictionary::new(),
             state: InterpreterState::default(),
         };
-        register_builtins(&mut result.words);
-        result
+        register_builtins(&mut interpreter.words);
+        interpreter
     }
 
-    pub fn stack(&self) -> &Stack {
-        &self.stack
-    }
+    pub fn stack(&self) -> &Stack { &self.stack }
 
-    pub fn words(&self) -> &Dictionary {
-        &self.words
-    }
+    pub fn words(&self) -> &Dictionary { &self.words }
 
     fn parse_word(&self, word: &str) -> crate::Result<Token> {
+        use Token::*;
+        use Value::*;
+
         if let Ok(number) = word.parse::<i32>() {
-            Ok(Token::PushValue(Value::Int(number)))
+            Ok(PushValue(Int(number)))
         } else if word == "true" {
-            Ok(Token::PushValue(Value::Bool(true)))
+            Ok(PushValue(Bool(true)))
         } else if word == "false" {
-            Ok(Token::PushValue(Value::Bool(false)))
+            Ok(PushValue(Bool(false)))
         } else {
             // TODO: Maybe check with word regex?
             // Then again, "1+" is a valid word
-            Ok(Token::CallWord(word.to_string()))
+            Ok(CallWord(word.to_string()))
         }
     }
 
@@ -99,7 +101,9 @@ impl Interpreter {
                     self.state = DefiningPrimed;
                     Ok(())
                 }
-                DefiningPrimed => Err(crate::Error::InvalidWordName(":".to_string())),
+                DefiningPrimed => {
+                    Err(crate::Error::InvalidWordName(":".to_string()))
+                }
                 Defining(_, _) => Err(crate::Error::NestedCompile),
                 Failing => Ok(()),
             },
@@ -114,9 +118,12 @@ impl Interpreter {
                 Failing => Ok(()),
             },
             Token(token) => match self.state {
-                Interpreting => Env::new(&self.words, &mut self.stack).evaluate_token(&token),
+                Interpreting => Env::new(&self.words, &mut self.stack)
+                    .evaluate_token(&token),
                 DefiningPrimed => match token {
-                    PushValue(value) => Err(crate::Error::InvalidWordName(value.to_string())),
+                    PushValue(value) => {
+                        Err(crate::Error::InvalidWordName(value.to_string()))
+                    }
                     CallWord(name) => {
                         // Continue compiling even though the name might not be usable
                         // Prevents executing the definition body
@@ -125,7 +132,9 @@ impl Interpreter {
                             Ok(())
                         } else {
                             self.state = Interpreting;
-                            Err(crate::Error::NameAlreadyInUse(name.to_string()))
+                            Err(crate::Error::NameAlreadyInUse(
+                                name.to_string(),
+                            ))
                         }
                     }
                 },
@@ -155,7 +164,9 @@ impl Interpreter {
 
     fn recover(&mut self) {
         match self.state {
-            InterpreterState::Failing => self.state = InterpreterState::default(),
+            InterpreterState::Failing => {
+                self.state = InterpreterState::default()
+            }
             _ => {}
         }
     }
@@ -174,7 +185,9 @@ impl Interpreter {
             InterpreterState::Defining(ref name, ref tokens) => {
                 print!(": {} {} ... ", name, tokens)
             }
-            InterpreterState::Failing => panic!("interpreter should have recovered"),
+            InterpreterState::Failing => {
+                panic!("interpreter should have recovered")
+            }
         }
         stdout().flush().expect("couldn't flush 🤢");
     }

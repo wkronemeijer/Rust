@@ -1,5 +1,6 @@
 use std::fmt;
-use std::fmt::{Display, Write};
+use std::fmt::Display;
+use std::fmt::Write;
 
 use super::value::Value;
 
@@ -8,17 +9,13 @@ pub struct Stack {
 }
 
 impl Stack {
-    pub fn new() -> Self {
-        Stack { values: Vec::new() }
-    }
+    pub fn new() -> Self { Stack { values: Vec::new() } }
 
-    pub fn depth(&self) -> usize {
-        self.values.len()
-    }
+    pub fn depth(&self) -> usize { self.values.len() }
 
-    pub fn push(&mut self, value: Value) {
-        self.values.push(value)
-    }
+    pub fn peek(&self) -> Option<&Value> { self.values.last() }
+
+    pub fn push(&mut self, value: Value) { self.values.push(value) }
 
     pub fn pop(&mut self) -> crate::Result<Value> {
         self.values.pop().ok_or(crate::Error::StackUnderflow)
