@@ -1,5 +1,6 @@
-use std::io::stdout;
-use std::io::Write;
+use std::borrow::Cow;
+use std::borrow::Cow::Borrowed;
+use std::borrow::Cow::Owned;
 use std::mem::replace; // <3
 
 use super::builtins::register_builtins;
@@ -15,7 +16,7 @@ enum InterpreterCommand {
     /// i.e. ':'
     StartCompile,
     /// e.g. "dup", "rot", "1+"
-    Token(Token),
+    ExecuteToken(Token),
     /// i.e. ';'
     EndCompile,
     /// Like a null terminator
@@ -76,7 +77,7 @@ impl Interpreter {
         } else if token == ";" {
             Ok(InterpreterCommand::EndCompile)
         } else {
-            Ok(InterpreterCommand::Token(self.parse_word(token)?))
+            Ok(InterpreterCommand::ExecuteToken(self.parse_word(token)?))
         }
     }
 
@@ -91,9 +92,9 @@ impl Interpreter {
     }
 
     fn execute_command(&mut self, cmd: InterpreterCommand) -> crate::Result {
-        use self::InterpreterCommand::*;
-        use self::InterpreterState::*;
-        use self::Token::*;
+        use InterpreterCommand::*;
+        use InterpreterState::*;
+        use Token::*;
 
         let result = match cmd {
             StartCompile => match self.state {
@@ -117,7 +118,7 @@ impl Interpreter {
                 }
                 Failing => Ok(()),
             },
-            Token(token) => match self.state {
+            ExecuteToken(token) => match self.state {
                 Interpreting => Env::new(&self.words, &mut self.stack)
                     .evaluate_token(&token),
                 DefiningPrimed => match token {
@@ -176,34 +177,14 @@ impl Interpreter {
         result
     }
 
-    pub fn print_motd(&self) {
-        print!("Welcome to ");
-        print!("\x1b[1m");
-        print!("ForthRepl");
-        print!("\x1b[22m");
-        print!(" v0.0.1");
-        println!();
-    }
-
-    pub fn print_prompt(&self) {
+    pub fn prompt(&self) -> Cow<'static, str> {
         match self.state {
-            InterpreterState::Interpreting => print!("> "),
-            InterpreterState::DefiningPrimed => print!(": "),
+            InterpreterState::Interpreting => Borrowed("> "),
+            InterpreterState::DefiningPrimed => Borrowed(": "),
             InterpreterState::Defining(ref name, ref tokens) => {
-                print!(": {} {} ... ", name, tokens)
+                Owned(format!(": {name} {tokens} ... "))
             }
-            InterpreterState::Failing => {
-                panic!("interpreter should have recovered")
-            }
-        }
-        stdout().flush().expect("couldn't flush 🤢");
-    }
-
-    pub fn print_stack(&self) {
-        if self.stack.depth() > 0 {
-            print!("\x1b[34m");
-            print!("{}", self.stack);
-            println!("\x1b[39m");
+            InterpreterState::Failing => panic!("interpreter should recover"),
         }
     }
 }
