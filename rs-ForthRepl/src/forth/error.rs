@@ -22,9 +22,9 @@ pub enum Error {
     #[error("unknown word: {0}")]
     UnknownWord(CompactString),
     #[error("cannot convert from {0} to {1}")]
-    TypeError(ValueKind, ValueKind),
+    TypeConversion(ValueKind, ValueKind),
     #[error("integer overflow")]
-    IntRangeError,
+    IntegerRange,
 }
 
 ////////////

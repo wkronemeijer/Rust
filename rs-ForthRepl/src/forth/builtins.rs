@@ -87,29 +87,28 @@ fn do_register(dict: &mut Dictionary) -> crate::Result {
     dict.define_native("+", |env| {
         let b = env.pop()?.try_into_int()?;
         let a = env.pop()?.try_into_int()?;
-        env.push(Int(a.checked_add(b).ok_or(crate::Error::IntRangeError)?));
+        env.push(Int(a.checked_add(b).ok_or(crate::Error::IntegerRange)?));
         Ok(())
     })?;
 
     dict.define_native("-", |env| {
         let b = env.pop()?.try_into_int()?;
         let a = env.pop()?.try_into_int()?;
-        env.push(Int(a.checked_sub(b).ok_or(crate::Error::IntRangeError)?));
+        env.push(Int(a.checked_sub(b).ok_or(crate::Error::IntegerRange)?));
         Ok(())
     })?;
 
     dict.define_native("*", |env| {
         let b = env.pop()?.try_into_int()?;
         let a = env.pop()?.try_into_int()?;
-
-        env.push(Int(a.checked_mul(b).ok_or(crate::Error::IntRangeError)?));
+        env.push(Int(a.checked_mul(b).ok_or(crate::Error::IntegerRange)?));
         Ok(())
     })?;
 
     dict.define_native("/", |env| {
         let b = env.pop()?.try_into_int()?;
         let a = env.pop()?.try_into_int()?;
-        env.push(Int(a.checked_div(b).ok_or(crate::Error::IntRangeError)?));
+        env.push(Int(a.checked_div(b).ok_or(crate::Error::IntegerRange)?));
         Ok(())
     })?;
 

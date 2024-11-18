@@ -11,7 +11,7 @@ use forth_repl::StandardHost;
 // Printing //
 //////////////
 
-pub fn print_motd() {
+fn print_motd() {
     println!("Welcome to \x1b[1mForthRepl\x1b[22m v0.0.1");
 }
 

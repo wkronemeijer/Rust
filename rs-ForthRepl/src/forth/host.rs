@@ -3,11 +3,6 @@ pub trait Host {
     fn println(&mut self, line: &str) -> crate::Result;
 }
 
-// TO BE CONTINUED
-// |-> Delegate<'a>
-// |-> Interpreter<'a>
-// |-> PrintLnDelegate : Delegate<'static>
-
 ///////////////////
 // Standard Host //
 ///////////////////
