@@ -200,8 +200,7 @@ impl Interpreter {
     }
 
     pub fn print_stack(&self) {
-        let depth = self.stack.depth();
-        if depth > 0 {
+        if self.stack.depth() > 0 {
             print!("\x1b[34m");
             print!("{}", self.stack);
             println!("\x1b[39m");

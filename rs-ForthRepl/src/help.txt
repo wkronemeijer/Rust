@@ -1,0 +1,11 @@
+Small, barebones Forth-like REPL
+
+literals:
+    null
+    true false
+
+math operators:
+    + - * / 
+
+definitions:
+    : square dup * ;
