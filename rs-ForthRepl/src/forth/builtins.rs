@@ -13,6 +13,16 @@ fn do_register(dict: &mut Dictionary) -> crate::Result {
         Ok(())
     })?;
 
+    dict.define_native("true", |env| {
+        env.push(Bool(true));
+        Ok(())
+    })?;
+
+    dict.define_native("false", |env| {
+        env.push(Bool(false));
+        Ok(())
+    })?;
+
     ///////////
     // Stack //
     ///////////
@@ -61,13 +71,13 @@ fn do_register(dict: &mut Dictionary) -> crate::Result {
     //////////////////
 
     dict.define_native(".", |env| {
-        println!("{}", env.pop()?);
-        Ok(())
+        let a = env.pop()?;
+        env.println(&format!("{a}"))
     })?;
 
     dict.define_native("words", |env| {
-        println!("{}", env.dict());
-        Ok(())
+        let dict = env.dict();
+        env.println(&format!("{dict}"))
     })?;
 
     //////////

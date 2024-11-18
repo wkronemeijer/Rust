@@ -1,4 +1,5 @@
 use super::dictionary::Dictionary;
+use super::host::Host;
 use super::stack::Stack;
 use super::value::Value;
 use super::word::Token;
@@ -8,52 +9,47 @@ use super::word::WordKind;
 pub struct Env<'a> {
     dict: &'a Dictionary,
     stack: &'a mut Stack,
+    output: &'a mut dyn Host,
 }
 
 impl<'a> Env<'a> {
-    pub fn new(dict: &'a Dictionary, stack: &'a mut Stack) -> Self {
-        Self { dict, stack }
+    pub fn new(
+        dict: &'a Dictionary,
+        stack: &'a mut Stack,
+        output: &'a mut dyn Host,
+    ) -> Self {
+        Self { dict, stack, output }
     }
 
     pub fn dict(&self) -> &Dictionary { self.dict }
 
-    pub fn evaluate_token(&mut self, token: &Token) -> crate::Result {
-        match token {
-            Token::PushValue(value) => self.stack.push(value.clone()),
-            Token::CallWord(name) => {
-                self.evaluate_word(self.dict.get(name)?)?
+    pub fn stack(&self) -> &Stack { self.stack }
+
+    fn evaluate_word(&mut self, word: &Word) -> crate::Result {
+        match word.kind() {
+            WordKind::Native(func) => func.body()(self),
+            WordKind::User(func) => {
+                func.iter().try_for_each(|token| self.evaluate_token(token))
             }
-        };
-        Ok(())
+        }
     }
 
-    pub fn evaluate_word(&mut self, word: &Word) -> crate::Result {
-        word.evaluate(self)
+    pub fn evaluate_token(&mut self, token: &Token) -> crate::Result {
+        use Token::*;
+        match token {
+            PushValue(value) => self.stack.push(value.clone()),
+            CallWord(name) => self.evaluate_word(self.dict.get(name)?)?,
+        };
+        Ok(())
     }
 
     pub fn push(&mut self, value: Value) { self.stack.push(value) }
 
     #[must_use]
     pub fn pop(&mut self) -> crate::Result<Value> { self.stack.pop() }
-}
 
-trait Evaluate {
-    fn evaluate(&self, env: &mut Env) -> crate::Result;
-}
-
-impl Evaluate for WordKind {
-    fn evaluate(&self, env: &mut Env) -> crate::Result {
-        match self {
-            WordKind::Native(body) => body.body()(env),
-            WordKind::User(user) => {
-                user.iter().try_for_each(|token| env.evaluate_token(token))
-            }
-        }
-    }
-}
-
-impl Evaluate for Word {
-    fn evaluate(&self, env: &mut Env) -> crate::Result {
-        self.kind().evaluate(env)
+    pub fn println(&mut self, line: &str) -> crate::Result {
+        self.output.println(line)?;
+        Ok(())
     }
 }

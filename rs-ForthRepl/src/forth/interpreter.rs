@@ -6,6 +6,7 @@ use std::mem::replace; // <3
 use super::builtins::register_builtins;
 use super::dictionary::Dictionary;
 use super::env::Env;
+use super::host::Host;
 use super::stack::Stack;
 use super::value::Value;
 use super::word::Token;
@@ -32,19 +33,21 @@ enum InterpreterState {
     Failing,
 }
 
-pub struct Interpreter {
+pub struct Interpreter<'a> {
     stack: Stack,
     // We explicitly want to own this ↓
     words: Dictionary,
     state: InterpreterState,
+    host: &'a mut dyn Host,
 }
 
-impl Interpreter {
-    pub fn new() -> Interpreter {
+impl<'a> Interpreter<'a> {
+    pub fn new(host: &'a mut dyn Host) -> Self {
         let mut interpreter = Interpreter {
             stack: Stack::new(),
             words: Dictionary::new(),
             state: InterpreterState::default(),
+            host,
         };
         register_builtins(&mut interpreter.words);
         interpreter
@@ -91,6 +94,10 @@ impl Interpreter {
         Ok(commands)
     }
 
+    fn env(&mut self) -> Env {
+        Env::new(&self.words, &mut self.stack, self.host)
+    }
+
     fn execute_command(&mut self, cmd: InterpreterCommand) -> crate::Result {
         use InterpreterCommand::*;
         use InterpreterState::*;
@@ -119,8 +126,7 @@ impl Interpreter {
                 Failing => Ok(()),
             },
             ExecuteToken(token) => match self.state {
-                Interpreting => Env::new(&self.words, &mut self.stack)
-                    .evaluate_token(&token),
+                Interpreting => self.env().evaluate_token(&token),
                 DefiningPrimed => match token {
                     PushValue(value) => Err(crate::Error::InvalidWordName(
                         value.to_string().into(),
