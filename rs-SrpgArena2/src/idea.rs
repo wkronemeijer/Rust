@@ -20,6 +20,8 @@ use std::fmt::Debug;
 use std::marker::PhantomData;
 use std::ops::Deref;
 
+// Another idea:
+
 // More or less a monoid
 trait StatValue: Any + Clone + Debug + Default + 'static {
     fn combine(self, other: Self) -> Self;
@@ -31,9 +33,7 @@ trait StatValue: Any + Clone + Debug + Default + 'static {
 struct Flag(bool);
 
 impl StatValue for Flag {
-    fn combine(self, other: Self) -> Self {
-        Flag(self.0 | other.0)
-    }
+    fn combine(self, other: Self) -> Self { Flag(self.0 | other.0) }
 }
 
 #[derive(Debug, Clone, Copy, Default)]
@@ -79,19 +79,14 @@ struct Stat<S: StatValue> {
 
 impl<S: StatValue> Stat<S> {
     pub const fn new(name: StatName) -> Self {
-        Stat {
-            name,
-            data: PhantomData,
-        }
+        Stat { name, data: PhantomData }
     }
 
     fn of(&self, stats: &StatTable) -> S {
         stats.get(self).unwrap_or_else(S::default)
     }
 
-    fn entry(&self, stats: &mut StatTable) -> &mut S {
-        todo!()
-    }
+    fn entry(&self, stats: &mut StatTable) -> &mut S { todo!() }
 }
 
 #[derive(Debug)]
@@ -100,11 +95,7 @@ struct StatTable {
 }
 
 impl StatTable {
-    pub fn new() -> StatTable {
-        StatTable {
-            collection: HashMap::new(),
-        }
-    }
+    pub fn new() -> StatTable { StatTable { collection: HashMap::new() } }
 
     pub fn get<T: StatValue>(&self, stat: &Stat<T>) -> Option<T> {
         Some(self.collection.get(stat.name)?.downcast_ref::<T>()?.clone())
@@ -119,7 +110,11 @@ impl StatTable {
     }
 
     pub fn include(&mut self, other: &StatTable) {
-        let all_keys = self.collection.keys().chain(other.collection.keys()).map(Deref::deref);
+        let all_keys = self
+            .collection
+            .keys()
+            .chain(other.collection.keys())
+            .map(Deref::deref);
 
         for key in all_keys {
             let left_value = self.collection.get(key);

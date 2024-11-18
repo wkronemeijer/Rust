@@ -1,6 +1,9 @@
 use std::time::Instant;
 
-use srpg_arena::game::{Arena, PrintLnDelegate, Stats, Unit};
+use srpg_arena::game::Arena;
+use srpg_arena::game::PrintLnDelegate;
+use srpg_arena::game::Stats;
+use srpg_arena::game::Unit;
 
 fn main() {
     let mut arena = Arena::new();

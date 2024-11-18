@@ -1,6 +1,8 @@
-use std::ops::{AddAssign, BitOrAssign};
+use std::ops::AddAssign;
+use std::ops::BitOrAssign;
 
-use rand::{thread_rng, Rng};
+use rand::thread_rng;
+use rand::Rng;
 
 use crate::core::slice_index_pair;
 
@@ -15,13 +17,7 @@ pub struct Resources {
 }
 
 impl Default for Resources {
-    fn default() -> Self {
-        Resources {
-            level: 1,
-            life: 1,
-            energy: 0,
-        }
-    }
+    fn default() -> Self { Resources { level: 1, life: 1, energy: 0 } }
 }
 
 #[derive(Default, Clone)]
@@ -197,9 +193,7 @@ pub struct EquipmentItem {
 }
 
 impl EquipmentItem {
-    pub fn name(&self) -> &str {
-        &self.name
-    }
+    pub fn name(&self) -> &str { &self.name }
 }
 
 // TODO: Support equipped and unequipped items
@@ -221,9 +215,7 @@ pub struct UnitInventory {
 
 impl UnitInventory {
     pub fn new() -> Self {
-        UnitInventory {
-            items: [const { None }; INVENTORY_SIZE_LIMIT],
-        }
+        UnitInventory { items: [const { None }; INVENTORY_SIZE_LIMIT] }
     }
 
     pub fn equipped_items(&self) -> impl Iterator<Item = &EquipmentItem> {
@@ -372,7 +364,11 @@ impl EventDelegate for PrintLnDelegate {
     }
 
     fn on_life_lost(&mut self, event: DamageEvent) {
-        println!("{} is left with {} HP", event.unit.name, event.unit.resources().life);
+        println!(
+            "{} is left with {} HP",
+            event.unit.name,
+            event.unit.resources().life
+        );
     }
 
     fn on_life_gained(&mut self, event: HealEvent) {
@@ -414,21 +410,13 @@ impl Unit {
         result
     }
 
-    pub fn name(&self) -> &str {
-        &self.name
-    }
+    pub fn name(&self) -> &str { &self.name }
 
-    pub fn is_alive(&self) -> bool {
-        self.is_alive
-    }
+    pub fn is_alive(&self) -> bool { self.is_alive }
 
-    pub fn resources(&self) -> &Resources {
-        &self.resources
-    }
+    pub fn resources(&self) -> &Resources { &self.resources }
 
-    pub fn attributes(&self) -> &Stats {
-        &self.attributes
-    }
+    pub fn attributes(&self) -> &Stats { &self.attributes }
 
     fn collect_stats(&self) -> Stats {
         let mut stats = Stats::default();
@@ -511,14 +499,22 @@ impl Unit {
 
         // Feels like more reason to split out attributes as a AddToStats instance
 
-        self.attributes.vitality += overflowing_chance_hit(random, stats.vitality_growth);
-        self.attributes.strength += overflowing_chance_hit(random, stats.strength_growth);
-        self.attributes.magic += overflowing_chance_hit(random, stats.magic_growth);
-        self.attributes.skill += overflowing_chance_hit(random, stats.skill_growth);
-        self.attributes.speed += overflowing_chance_hit(random, stats.speed_growth);
-        self.attributes.luck += overflowing_chance_hit(random, stats.luck_growth);
-        self.attributes.defense += overflowing_chance_hit(random, stats.defense_growth);
-        self.attributes.resistance += overflowing_chance_hit(random, stats.resistance_growth);
+        self.attributes.vitality +=
+            overflowing_chance_hit(random, stats.vitality_growth);
+        self.attributes.strength +=
+            overflowing_chance_hit(random, stats.strength_growth);
+        self.attributes.magic +=
+            overflowing_chance_hit(random, stats.magic_growth);
+        self.attributes.skill +=
+            overflowing_chance_hit(random, stats.skill_growth);
+        self.attributes.speed +=
+            overflowing_chance_hit(random, stats.speed_growth);
+        self.attributes.luck +=
+            overflowing_chance_hit(random, stats.luck_growth);
+        self.attributes.defense +=
+            overflowing_chance_hit(random, stats.defense_growth);
+        self.attributes.resistance +=
+            overflowing_chance_hit(random, stats.resistance_growth);
     }
 
     pub fn level_up(&mut self) -> bool {
@@ -539,7 +535,8 @@ impl Unit {
         } else {
             -1
         };
-        self.resources.energy = (self.resources.energy + delta).clamp(MIN_ENERGY, MAX_ENERGY);
+        self.resources.energy =
+            (self.resources.energy + delta).clamp(MIN_ENERGY, MAX_ENERGY);
     }
 
     pub fn try_consume_energy(&mut self) -> bool {
@@ -562,15 +559,9 @@ impl Unit {
             self.is_alive = false;
             obs.on_death(DeathEvent { unit: self });
         } else if life_gained > 0 {
-            obs.on_life_gained(HealEvent {
-                unit: self,
-                amount: life_gained,
-            })
+            obs.on_life_gained(HealEvent { unit: self, amount: life_gained })
         } else if life_lost > 0 {
-            obs.on_life_lost(DamageEvent {
-                unit: self,
-                amount: life_lost,
-            })
+            obs.on_life_lost(DamageEvent { unit: self, amount: life_lost })
         }
     }
 }
@@ -597,9 +588,12 @@ impl Unit {
         let did_hit = hit_func(hit_chance);
         let did_crit = hit_func(crit_chance);
         if did_hit || (CRIT_FORCES_HIT && did_crit) {
-            let phys_dmg = (alice.phys_damage - bob.phys_defense).clamp(MIN_DAMAGE, MAX_DAMAGE);
-            let mag_dmg = (alice.mag_damage - bob.mag_defense).clamp(MIN_DAMAGE, MAX_DAMAGE);
-            let mut all_dmg = (phys_dmg + mag_dmg).clamp(MIN_DAMAGE, MAX_DAMAGE);
+            let phys_dmg = (alice.phys_damage - bob.phys_defense)
+                .clamp(MIN_DAMAGE, MAX_DAMAGE);
+            let mag_dmg = (alice.mag_damage - bob.mag_defense)
+                .clamp(MIN_DAMAGE, MAX_DAMAGE);
+            let mut all_dmg =
+                (phys_dmg + mag_dmg).clamp(MIN_DAMAGE, MAX_DAMAGE);
             if did_crit {
                 all_dmg *= if alice.critical_boost {
                     EXTRA_CRIT_MULTI
@@ -638,20 +632,16 @@ pub struct ArenaResult<'a> {
 }
 
 impl Arena {
-    pub fn new() -> Self {
-        Arena { combatants: Vec::new() }
-    }
+    pub fn new() -> Self { Arena { combatants: Vec::new() } }
 
-    pub fn add(&mut self, unit: Unit) {
-        self.combatants.push(unit);
-    }
+    pub fn add(&mut self, unit: Unit) { self.combatants.push(unit); }
 
     fn alive_units(&self) -> impl Iterator<Item = &Unit> {
         self.combatants.iter().filter(|unit| unit.is_alive())
     }
 
     fn find_opponent(&mut self, i: usize) -> Option<usize> {
-        let fixed = &self.combatants[i];
+        let source = &self.combatants[i];
 
         let candidates: Vec<_> = self
             .combatants
@@ -664,8 +654,8 @@ impl Arena {
         // Pitfalls:
         // - you can (but usually don't want to) hit corpses
         // - you will always target first in the list (in a threeway this means the last man is always ignored)
-        for (idx, unit) in candidates {
-            if unit.is_alive() && fixed.can_harm(unit) {
+        for (idx, target) in candidates {
+            if target.is_alive() && source.can_harm(target) {
                 return Some(idx);
             }
         }
@@ -685,7 +675,10 @@ impl Arena {
                 }
                 if subject.try_consume_energy() {
                     if let Some(object_idx) = self.find_opponent(subject_idx) {
-                        let (subject, object) = slice_index_pair(&mut self.combatants, (subject_idx, object_idx));
+                        let (subject, object) = slice_index_pair(
+                            &mut self.combatants,
+                            (subject_idx, object_idx),
+                        );
                         subject.attack(object, obs);
                     }
                 }
