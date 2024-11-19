@@ -3,6 +3,9 @@ name = "forth-repl"
 version = "0.1.0"
 edition = "2021"
 
+[lib]
+doctest = false # reduces 'cargo test' vertical size (while we don't use it)
+
 [profile.release]
 panic = "abort"
 

@@ -25,22 +25,17 @@ impl Host for StandardHost {
 // Test Host //
 ///////////////
 
-#[cfg(test)]
-pub mod tests {
-    use super::*;
+pub struct TestHost {
+    lines: Vec<String>,
+}
 
-    pub struct TestHost {
-        lines: Vec<String>,
-    }
+impl TestHost {
+    pub fn new() -> Self { TestHost { lines: Vec::new() } }
+}
 
-    impl TestHost {
-        pub fn new() -> Self { Self { lines: Vec::new() } }
-    }
-
-    impl Host for TestHost {
-        fn println(&mut self, line: &str) -> crate::Result {
-            self.lines.push(line.to_string());
-            Ok(())
-        }
+impl Host for TestHost {
+    fn println(&mut self, line: &str) -> crate::Result {
+        self.lines.push(line.to_string());
+        Ok(())
     }
 }

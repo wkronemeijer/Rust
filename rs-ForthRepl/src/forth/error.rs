@@ -21,8 +21,8 @@ pub enum Error {
     StackUnderflow,
     #[error("unknown word: {0}")]
     UnknownWord(CompactString),
-    #[error("cannot convert from {0} to {1}")]
-    TypeConversion(ValueKind, ValueKind),
+    #[error("cannot convert from {from} to {to}")]
+    TypeConversion { from: ValueKind, to: ValueKind },
     #[error("integer overflow")]
     IntegerRange,
 }

@@ -78,6 +78,6 @@ fn main() {
     match *args {
         [ref input] => run_line(input),
         [] => run_repl(),
-        _ => println!("invalid args"),
+        _ => eprintln!("invalid args"),
     }
 }

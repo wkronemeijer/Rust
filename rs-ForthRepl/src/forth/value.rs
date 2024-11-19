@@ -1,3 +1,4 @@
+use core::f32;
 use std::cmp::Ordering;
 use std::fmt;
 
@@ -12,24 +13,26 @@ pub enum Value {
     Null,
     Bool(bool),
     Int(i32),
+    Float(f32),
 }
 
 impl Value {
-    // as? into? try_into_int? open for suggestion
-    pub fn try_into_bool(self) -> crate::Result<bool> {
+    // as_X? into_X? try_into_X? open for suggestion
+    pub fn into_bool(self) -> crate::Result<bool> {
         match self {
             Null => Ok(false),
             Bool(b) => Ok(b),
             Int(i) => Ok(if i != 0 { true } else { false }),
+            Float(f) => Ok(!(f.is_nan() || f == 0.0)),
         }
     }
 
-    // as? into? try_into_int? open for suggestion
-    pub fn try_into_int(self) -> crate::Result<i32> {
+    pub fn into_int(self) -> crate::Result<i32> {
         match self {
             Null => Ok(0),
             Bool(b) => Ok(if b { 1 } else { 0 }),
             Int(i) => Ok(i),
+            Float(f) => Ok(f as i32),
         }
     }
 }
@@ -55,19 +58,20 @@ impl Ord for Value {
             (Null, Null) => Ordering::Equal,
             (Bool(a), Bool(b)) => a.cmp(b),
             (Int(a), Int(b)) => a.cmp(b),
+            (Float(a), Float(b)) => a.total_cmp(b),
             // Inter-kind
-            (Null | Bool(_), Bool(_) | Int(_)) => Ordering::Less,
-            (Int(_) | Bool(_), Bool(_) | Null) => Ordering::Greater,
+            _ => self.kind().cmp(&other.kind()),
         }
     }
 }
 
 impl fmt::Display for Value {
-    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+    fn fmt(&self, fmt: &mut fmt::Formatter) -> fmt::Result {
         match self {
-            Null => write!(f, "null"),
-            Bool(b) => write!(f, "{}", b),
-            Int(i) => write!(f, "{}", i),
+            Null => write!(fmt, "null"),
+            Bool(b) => write!(fmt, "{b}"),
+            Int(i) => write!(fmt, "{i}"),
+            Float(f) => write!(fmt, "{f}"),
         }
     }
 }
@@ -77,19 +81,21 @@ impl fmt::Display for Value {
 ///////////////
 
 // This is the same as Value but with the arguments removed
-#[derive(Debug, Clone, Copy)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord)]
 pub enum ValueKind {
     Null,
     Bool,
     Int,
+    Float,
 }
 
 impl fmt::Display for ValueKind {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         match self {
-            ValueKind::Null => write!(f, "null"),
-            ValueKind::Bool => write!(f, "bool"),
-            ValueKind::Int => write!(f, "int"),
+            Self::Null => write!(f, "null"),
+            Self::Bool => write!(f, "bool"),
+            Self::Int => write!(f, "int"),
+            Self::Float => write!(f, "float"),
         }
     }
 }
@@ -99,8 +105,9 @@ impl Value {
     pub fn kind(&self) -> ValueKind {
         match self {
             Null => ValueKind::Null,
-            Bool(..) => ValueKind::Bool,
-            Int(..) => ValueKind::Int,
+            Bool(_) => ValueKind::Bool,
+            Int(_) => ValueKind::Int,
+            Float(_) => ValueKind::Float,
         }
     }
 }
@@ -110,20 +117,35 @@ mod tests {
     use super::*;
 
     #[test]
-    fn bool_to_int() -> crate::Result {
+    fn x_to_bool() -> crate::Result {
         // TODO: Waiting on assert_matches or PartialEq for io::Result to fix this
-        assert_eq!(Bool(false).try_into_int()?, 0);
-        assert_eq!(Bool(true).try_into_int()?, 1);
+
+        assert_eq!(Null.into_bool()?, false);
+
+        assert_eq!(Bool(false).into_bool()?, false);
+        assert_eq!(Bool(true).into_bool()?, true);
+
+        assert_eq!(Int(0).into_bool()?, false);
+        assert_eq!(Int(-1).into_bool()?, true);
+        assert_eq!(Int(123).into_bool()?, true);
+        assert_eq!(Int(4004).into_bool()?, true);
+
+        assert_eq!(Float(0.0).into_bool()?, false);
+        assert_eq!(Float(-0.0).into_bool()?, false);
+        assert_eq!(Float(f32::NAN).into_bool()?, false);
+        assert_eq!(Float(1.0).into_bool()?, true);
+        assert_eq!(Float(-0.1).into_bool()?, true);
+        assert_eq!(Float(f32::INFINITY).into_bool()?, true);
+        assert_eq!(Float(528491.117).into_bool()?, true);
+
         Ok(())
     }
 
     #[test]
-    fn int_to_bool() -> crate::Result {
+    fn x_to_int() -> crate::Result {
         // TODO: Waiting on assert_matches or PartialEq for io::Result to fix this
-        assert_eq!(Int(123).try_into_bool()?, true);
-        assert_eq!(Int(0).try_into_bool()?, false);
-        assert_eq!(Int(-1).try_into_bool()?, true);
-        assert_eq!(Int(4004).try_into_bool()?, true);
+        assert_eq!(Bool(false).into_int()?, 0);
+        assert_eq!(Bool(true).into_int()?, 1);
         Ok(())
     }
 }
