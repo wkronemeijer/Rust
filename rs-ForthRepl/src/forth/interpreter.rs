@@ -7,13 +7,13 @@ use super::builtins::register_builtins;
 use super::dictionary::Dictionary;
 use super::env::Env;
 use super::host::Host;
+use super::parser::parse;
 use super::stack::Stack;
-use super::value::Value;
 use super::word::Token;
 use super::word::UserFunction;
 use super::word::Word;
 
-enum InterpreterCommand {
+pub enum InterpreterCommand {
     /// i.e. ':'
     StartCompile,
     /// e.g. "dup", "rot", "1+"
@@ -25,7 +25,7 @@ enum InterpreterCommand {
 }
 
 #[derive(Default)]
-enum InterpreterState {
+pub enum InterpreterState {
     #[default]
     Interpreting,
     DefiningPrimed, // needs a name before able to define
@@ -56,43 +56,6 @@ impl<'a> Interpreter<'a> {
     pub fn stack(&self) -> &Stack { &self.stack }
 
     pub fn words(&self) -> &Dictionary { &self.words }
-
-    fn parse_word(&self, word: &str) -> crate::Result<Token> {
-        use Token::*;
-        use Value::*;
-
-        if let Ok(number) = word.parse::<i32>() {
-            Ok(PushValue(Int(number)))
-        } else if word == "true" {
-            Ok(PushValue(Bool(true)))
-        } else if word == "false" {
-            Ok(PushValue(Bool(false)))
-        } else {
-            // TODO: Maybe check with word regex?
-            // Then again, "1+" is a valid word
-            Ok(CallWord(word.to_string()))
-        }
-    }
-
-    fn parse_token(&self, token: &str) -> crate::Result<InterpreterCommand> {
-        if token == ":" {
-            Ok(InterpreterCommand::StartCompile)
-        } else if token == ";" {
-            Ok(InterpreterCommand::EndCompile)
-        } else {
-            Ok(InterpreterCommand::ExecuteToken(self.parse_word(token)?))
-        }
-    }
-
-    fn parse(&self, input: &str) -> crate::Result<Vec<InterpreterCommand>> {
-        let commands: crate::Result<Vec<_>> = input
-            .split_ascii_whitespace()
-            .map(|token| self.parse_token(token))
-            .collect();
-        let mut commands = commands?;
-        commands.push(InterpreterCommand::EndOfInput);
-        Ok(commands)
-    }
 
     fn env(&mut self) -> Env {
         Env::new(&self.words, &mut self.stack, self.host)
@@ -177,7 +140,7 @@ impl<'a> Interpreter<'a> {
     }
 
     pub fn eval(&mut self, input: &str) -> crate::Result {
-        let commands = self.parse(input)?;
+        let commands = parse(input)?;
         let result = self.execute(commands);
         self.recover();
         result

@@ -5,26 +5,26 @@ use std::fmt::Write;
 use super::value::Value;
 
 pub struct Stack {
-    values: Vec<Value>,
+    list: Vec<Value>,
 }
 
 impl Stack {
-    pub fn new() -> Self { Stack { values: Vec::new() } }
+    pub fn new() -> Self { Stack { list: Vec::new() } }
 
-    pub fn depth(&self) -> usize { self.values.len() }
+    pub fn depth(&self) -> usize { self.list.len() }
 
-    pub fn peek(&self) -> Option<&Value> { self.values.last() }
+    pub fn peek(&self) -> Option<&Value> { self.list.last() }
 
-    pub fn push(&mut self, value: Value) { self.values.push(value) }
+    pub fn push(&mut self, value: Value) { self.list.push(value) }
 
     pub fn pop(&mut self) -> crate::Result<Value> {
-        self.values.pop().ok_or(crate::Error::StackUnderflow)
+        self.list.pop().ok_or(crate::Error::StackUnderflow)
     }
 }
 
 impl Display for Stack {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-        let iter = &mut self.values.iter();
+        let iter = &mut self.list.iter();
         if let Some(first) = iter.next() {
             first.fmt(f)?;
             for rest in iter {

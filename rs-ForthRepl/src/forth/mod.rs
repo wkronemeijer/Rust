@@ -4,6 +4,7 @@ pub mod env;
 pub mod error;
 pub mod host;
 pub mod interpreter;
+pub mod parser;
 pub mod stack;
 pub mod value;
 pub mod word;
