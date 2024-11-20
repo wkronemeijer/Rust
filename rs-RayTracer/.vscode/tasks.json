@@ -4,6 +4,7 @@
         {
             "label": "rust: cargo build",
             "type": "cargo",
+            "command": "build",
             "group": {
                 "kind": "build",
                 "isDefault": true
@@ -16,7 +17,6 @@
                 "showReuseMessage": false,
                 "clear": true
             },
-            "command": "build",
             "problemMatcher": [
                 "$rustc"
             ]

@@ -1,5 +1,6 @@
 use glium::backend::Facade;
-use glium::{implement_vertex, Program};
+use glium::implement_vertex;
+use glium::Program;
 
 const VERTEX_SHADER: &str = include_str!("shader.vert");
 const FRAGMENT_SHADER: &str = include_str!("shader.frag");
@@ -11,6 +12,7 @@ pub struct Vertex {
 }
 implement_vertex!(Vertex, position, tex_coords);
 
-pub fn program(display: &impl Facade) -> Program {
-    Program::from_source(display, VERTEX_SHADER, FRAGMENT_SHADER, None).expect("create program")
+pub fn compile_program(display: &impl Facade) -> Program {
+    Program::from_source(display, VERTEX_SHADER, FRAGMENT_SHADER, None)
+        .expect("create program")
 }

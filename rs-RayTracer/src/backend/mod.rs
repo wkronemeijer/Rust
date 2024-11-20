@@ -1,33 +1,26 @@
 pub mod shaders;
+use std::borrow::Cow;
+use std::time::Instant;
+
+use glium::backend::Facade;
+use glium::index::NoIndices;
+use glium::index::PrimitiveType;
+use glium::texture::MipmapsOption;
+use glium::texture::RawImage2d;
+use glium::texture::Texture2dDataSink as _;
+use glium::Texture2d;
+use glium::VertexBuffer;
 pub use shaders::*;
 
 use crate::algebra::NdcVec2F;
 use crate::prelude::*;
 use crate::tracer::Raytracer;
-use glium::backend::Facade;
-use glium::index::{NoIndices, PrimitiveType};
-use glium::texture::{MipmapsOption, RawImage2d, Texture2dDataSink as _};
-use glium::{Texture2d, VertexBuffer};
-use std::borrow::Cow;
-use std::time::Instant;
 
 fn screen_quad_vertices() -> Vec<Vertex> {
-    let top_right = Vertex {
-        position: [1.0, 1.0],
-        tex_coords: [1.0, 1.0],
-    };
-    let bottom_right = Vertex {
-        position: [1.0, -1.0],
-        tex_coords: [1.0, 0.0],
-    };
-    let bottom_left = Vertex {
-        position: [-1.0, -1.0],
-        tex_coords: [0.0, 0.0],
-    };
-    let top_left = Vertex {
-        position: [-1.0, 1.0],
-        tex_coords: [0.0, 1.0],
-    };
+    let top_right = Vertex { position: [1.0, 1.0], tex_coords: [1.0, 1.0] };
+    let bottom_right = Vertex { position: [1.0, -1.0], tex_coords: [1.0, 0.0] };
+    let bottom_left = Vertex { position: [-1.0, -1.0], tex_coords: [0.0, 0.0] };
+    let top_left = Vertex { position: [-1.0, 1.0], tex_coords: [0.0, 1.0] };
     // Default winding order is supposedly CCW, yet this still shows up
     // Isn't culling on by default as well?
     // idk
@@ -35,7 +28,8 @@ fn screen_quad_vertices() -> Vec<Vertex> {
 }
 
 pub fn screen_quad(display: &impl Facade) -> (VertexBuffer<Vertex>, NoIndices) {
-    let vertices = VertexBuffer::new(display, &screen_quad_vertices()).expect("create vertex buffer");
+    let vertices = VertexBuffer::new(display, &screen_quad_vertices())
+        .expect("create vertex buffer");
     let indices = NoIndices(PrimitiveType::TrianglesList);
     (vertices, indices)
 }
@@ -60,13 +54,18 @@ fn point_to_ndc(size: Size, ix: u32, iy: u32) -> NdcVec2F {
     NdcVec2F::new(ndc_x, ndc_y)
 }
 
-pub fn render_to_texture(display: &impl Facade, tracer: &impl Raytracer, size: Size) -> Texture2d {
+pub fn render_to_texture(
+    display: &impl Facade,
+    tracer: &dyn Raytracer,
+    size: Size,
+) -> Texture2d {
     let time = Instant::now();
     let result = {
         let Size { width, height } = size;
         type Rgb8 = (u8, u8, u8);
         let buffer = {
-            let target_size: usize = size.area().try_into().expect("calculate pixel area");
+            let target_size: usize =
+                size.area().try_into().expect("calculate pixel area");
             let mut vec: Vec<Rgb8> = Vec::new();
             vec.resize_with(target_size, Default::default);
 
@@ -80,7 +79,8 @@ pub fn render_to_texture(display: &impl Facade, tracer: &impl Raytracer, size: S
             vec
         };
         let image = RawImage2d::from_raw(Cow::Owned(buffer), width, height);
-        Texture2d::with_mipmaps(display, image, MipmapsOption::NoMipmap).expect("create texture from buffer")
+        Texture2d::with_mipmaps(display, image, MipmapsOption::NoMipmap)
+            .expect("create texture from buffer")
     };
     println!("render_texture() in {}ms", time.elapsed().as_millis());
     result

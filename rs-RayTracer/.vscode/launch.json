@@ -1,24 +1,20 @@
 {
     "version": "0.2.0",
     "configurations": [
-        // {
-        //     "name": "Launch",
-        //     "type": "node-terminal",
-        //     "request": "launch",
-        //     "command": "cargo run"
-        // },
         {
-            "name": "(Windows) Launch",
-            "type": "cppvsdbg",
+            "name": "Launch (Windows) ",
             "request": "launch",
+            "preLaunchTask": "${defaultBuildTask}",
+            
+            "type": "cppvsdbg",
             "program": "${workspaceRoot}/target/debug/raytracer.exe",
-            "args": [],
-            "stopAtEntry": false,
             "cwd": "${workspaceRoot}",
+            "args": [],
             "environment": [],
+            "stopAtEntry": false,
+            
             "console": "internalConsole",
-            "internalConsoleOptions": "openOnFirstSessionStart",
-            "preLaunchTask": "${defaultBuildTask}"
+            "internalConsoleOptions": "openOnSessionStart",
         },
     ]
 }
