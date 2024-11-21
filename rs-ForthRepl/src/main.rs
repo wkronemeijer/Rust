@@ -29,28 +29,33 @@ fn print_stack(interpreter: &Interpreter) {
     }
 }
 
-fn print_stack_after_eval(interpreter: &mut Interpreter, line: &str) {
+fn print_stack_after_eval(
+    interpreter: &mut Interpreter,
+    line: &str,
+) -> forth_repl::Result {
     let result = interpreter.eval(line);
-    if let Err(error) = result {
-        eprintln!("\x1b[31merror: {error}\x1b[0m");
+    if let Err(ref error) = result {
+        eprintln!("\x1b[31merror: {error}\x1b[39m");
     }
     print_stack(interpreter);
+    result
 }
 
 ///////////
 // Modes //
 ///////////
 
-fn run_line(line: &str) {
+fn run_line(line: &str) -> forth_repl::Result {
     let ref mut host = StandardHost::new();
     let ref mut interpreter = Interpreter::new(host);
-    print_stack_after_eval(interpreter, line);
+    print_stack_after_eval(interpreter, line)?;
+    Ok(())
 }
 
 const HELP_TEXT: &str = include_str!("./help.txt").trim_ascii();
 const END_OF_TRANSMISSION: &str = "\x04"; // ^D in the terminal
 
-fn run_repl() {
+fn run_repl() -> forth_repl::Result {
     let ref mut host = StandardHost::new();
     let ref mut interpreter = Interpreter::new(host);
     let ref mut stdin_lines = stdin().lock().lines();
@@ -62,22 +67,23 @@ fn run_repl() {
         match line.trim() {
             ".exit" | END_OF_TRANSMISSION => break,
             ".help" => println!("{HELP_TEXT}"),
-            _ => print_stack_after_eval(interpreter, line),
+            _ => print_stack_after_eval(interpreter, line)?,
         }
     }
+    Ok(())
 }
 
 //////////
 // Main //
 //////////
 
-fn main() {
+fn main() -> forth_repl::Result {
     let args: Vec<_> = args()
         .skip(1) // skip executable name
         .collect();
     match *args {
         [ref input] => run_line(input),
         [] => run_repl(),
-        _ => eprintln!("invalid args"),
+        _ => Err(forth_repl::Error::InvalidCliArguments),
     }
 }

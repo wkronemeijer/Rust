@@ -33,6 +33,8 @@ pub enum InterpreterState {
     Failing,
 }
 
+// TODO: Interpreter is really more of the equivalent of LuaState
+// ForthState?
 pub struct Interpreter<'a> {
     stack: Stack,
     // We explicitly want to own this ↓

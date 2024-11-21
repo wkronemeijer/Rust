@@ -11,6 +11,8 @@ use super::value::ValueKind;
 pub enum Error {
     #[error("invalid word name: {0}")]
     InvalidWordName(CompactString),
+    #[error("invalid cli arguments")]
+    InvalidCliArguments,
     #[error("missing name for definition")]
     MissingName,
     #[error("name already in use: {0}")]
@@ -25,6 +27,8 @@ pub enum Error {
     TypeConversion { from: ValueKind, to: ValueKind },
     #[error("integer overflow")]
     IntegerRange,
+    #[error("parse error: {0}")]
+    ParseError(CompactString),
 }
 
 ////////////
@@ -68,11 +72,11 @@ impl Deref for CompactString {
 }
 
 impl From<&str> for CompactString {
-    fn from(value: &str) -> Self { Self::from_str(value) }
+    fn from(value: &str) -> Self { CompactString::from_str(value) }
 }
 
 impl From<String> for CompactString {
-    fn from(value: String) -> Self { Self::from_string(value) }
+    fn from(value: String) -> Self { CompactString::from_string(value) }
 }
 
 impl fmt::Display for CompactString {

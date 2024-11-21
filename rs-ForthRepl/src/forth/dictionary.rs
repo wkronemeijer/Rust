@@ -12,7 +12,7 @@ pub struct Dictionary {
 }
 
 impl Dictionary {
-    pub fn new() -> Dictionary { Dictionary { words: HashMap::new() } }
+    pub fn new() -> Self { Dictionary { words: HashMap::new() } }
 
     pub fn define(&mut self, word: Word) -> crate::Result {
         let name = word.name().to_owned();

@@ -1,0 +1,4 @@
+[square] [dup *] define
+
+"square" [dup *] define
+'square [dup *] define

@@ -1,3 +1,5 @@
+# build output
 rs-*/target/
 
-.vscode/
+# rustc (i)nternal (c)ompiler (e)rrors
+**/rustc-ice-*.txt

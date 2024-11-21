@@ -2,6 +2,7 @@ pub mod builtins;
 pub mod dictionary;
 pub mod env;
 pub mod error;
+pub mod grammar;
 pub mod host;
 pub mod interpreter;
 pub mod parser;
