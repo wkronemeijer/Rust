@@ -60,7 +60,9 @@ fn is_whitespace(c: char) -> bool { matches!(c, ' ' | '\t' | '\r' | '\n') }
 fn is_digit(c: char) -> bool { matches!(c, '0'..='9') }
 // Forth is pretty tolerant when it comes to identifiers
 // Safe because it is always matched last
-fn is_alphanum(c: char) -> bool { !is_whitespace(c) }
+fn is_alphanum(c: char) -> bool {
+    !matches!(c, ' ' | '\t' | '\r' | '\n' | '"' | ']')
+}
 
 // Domain-specific scanning methods
 impl<'source> Scanner<'source> {
@@ -120,11 +122,11 @@ impl<'source> Scanner<'source> {
 
     fn scan(mut self) -> CompileResult<Vec<Token>> {
         let mut tokens = Vec::new();
-        tokens.push(self.token(SOF));
+        tokens.push(self.token(START_OF_FILE));
         while let Some(token) = self.scan_one() {
             tokens.push(token);
         }
-        tokens.push(self.token(EOF));
+        tokens.push(self.token(END_OF_FILE));
         CompileResult::new(tokens, self.report)
     }
 }

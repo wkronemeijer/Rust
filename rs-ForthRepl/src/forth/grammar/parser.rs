@@ -68,7 +68,7 @@ impl<'s> Parser<'s> {
     fn list_body(&mut self) -> CanThrow<Vec<Cst<'s>>> {
         let mut elements = Vec::new();
         loop {
-            if self.check(RIGHT_BRACKET) || self.check(EOF) {
+            if self.check(RIGHT_BRACKET) || self.check(END_OF_FILE) {
                 break;
             }
             if self.matches(COMMENT) {
@@ -120,9 +120,9 @@ impl<'s> Parser<'s> {
     }
 
     fn inner_parse(&mut self) -> CanThrow<Cst<'s>> {
-        self.consume(SOF)?;
+        self.consume(START_OF_FILE)?;
         let nodes = self.list_body()?;
-        self.consume(EOF)?;
+        self.consume(END_OF_FILE)?;
         Ok(Cst::Program(nodes))
     }
 

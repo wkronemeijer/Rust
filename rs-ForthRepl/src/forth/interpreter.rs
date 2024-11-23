@@ -1,5 +1,4 @@
 use super::dictionary::Dictionary;
-use super::dictionary::Word;
 use super::grammar::forestry::Cst;
 use super::grammar::scanner::scan;
 use super::host::Host;

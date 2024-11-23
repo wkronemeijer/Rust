@@ -20,6 +20,32 @@ impl Stack {
     pub fn pop(&mut self) -> crate::Result<Value> {
         self.list.pop().ok_or(crate::Error::StackUnderflow)
     }
+
+    /// Pops multiple values in "visual" order to make implementing native
+    /// functions easier.
+    ///
+    /// If the stack loops like  
+    /// 1 2 3 4  
+    /// Then parallel_pop::<3>() will return  
+    /// \[2, 3, 4\]
+    pub fn parallel_pop<const N: usize>(
+        &mut self,
+    ) -> crate::Result<[Value; N]> {
+        let mut array = [const { Value::Null }; N];
+        let mut failed_to_pop = false;
+        for i in (0..N).rev() {
+            // this /should/ keep popping even when encountering an error
+            match self.list.pop() {
+                Some(value) => array[i] = value,
+                None => failed_to_pop = true,
+            }
+        }
+        if !failed_to_pop {
+            Ok(array)
+        } else {
+            Err(crate::Error::StackUnderflow)
+        }
+    }
 }
 
 impl Display for Stack {

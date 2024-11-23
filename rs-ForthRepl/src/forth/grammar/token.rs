@@ -7,8 +7,8 @@ use std::fmt;
 #[allow(non_camel_case_types)]
 #[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord)]
 pub enum TokenKind {
-    SOF,
-    EOF,
+    START_OF_FILE,
+    END_OF_FILE,
 
     LEFT_BRACKET,
     RIGHT_BRACKET,

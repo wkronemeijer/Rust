@@ -11,8 +11,9 @@ use crate::Value::*;
 ///////////
 // TODO: Maybe extract the list as some general thing?
 
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, Default)]
 pub enum Value {
+    #[default]
     Null,
     Bool(bool),
     Char(char),
