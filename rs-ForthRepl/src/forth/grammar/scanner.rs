@@ -27,8 +27,6 @@ impl<'s> Scanner<'s> {
         Scanner { source, start, current, report }
     }
 
-    pub fn source(&self) -> &str { self.source }
-
     fn lexeme(&self) -> &str { &self.source[self.start..self.current] }
 
     fn peek(&self) -> Option<char> { self.source.try_char_at(self.current) }
@@ -47,14 +45,6 @@ impl<'s> Scanner<'s> {
         loop {
             let Some(c) = self.peek() else { break };
             let true = pred(c) else { break };
-            self.advance();
-        }
-    }
-
-    fn advance_until(&mut self, pred: fn(char) -> bool) {
-        loop {
-            let Some(c) = self.peek() else { break };
-            let false = pred(c) else { break };
             self.advance();
         }
     }
@@ -84,14 +74,16 @@ impl<'source> Scanner<'source> {
     }
 
     fn finish_comment(&mut self) -> Token {
-        self.advance_until(|c| c == ')');
+        self.advance_while(|c| c != ')');
         self.advance(); // consume the )
         self.token(COMMENT)
     }
 
     fn finish_string(&mut self) -> Token {
         // TODO: Choose to restrict strings to a single line
-        self.advance_until(|c| c == '"');
+        self.advance_while(|c| c != '"');
+        self.advance();
+        // FIXME: EOF might mean we get a ["abc] as the token
         self.token(STRING)
     }
 

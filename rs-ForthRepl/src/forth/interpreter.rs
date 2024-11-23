@@ -26,21 +26,18 @@ impl<'a> Interpreter<'a> {
     }
 
     fn execute(&mut self, value: Value) -> crate::Result {
-        match value {
-            Value::List(ref nodes) => {
-                for node in nodes.iter().cloned() {
-                    match node {
-                        Value::Symbol(s) => {
-                            let Word::Native(func) = self.words.get(&s)?;
-                            func(self)?;
-                        }
-                        _ => self.stack.push(node.clone()),
-                    }
+        let Value::List(ref nodes) = value else {
+            return Err(crate::Error::ExecuteTypeError(value.kind()));
+        };
+        for node in nodes.iter().cloned() {
+            match node {
+                Value::Symbol(s) => {
+                    self.words.get(&s)?.run(self)?;
                 }
-                Ok(())
+                _ => self.stack.push(node.clone()),
             }
-            _ => Err(crate::Error::ExecuteTypeError(value.kind())),
         }
+        Ok(())
     }
 
     pub fn eval(&mut self, input: &str) -> crate::Result {

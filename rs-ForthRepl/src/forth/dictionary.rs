@@ -18,6 +18,14 @@ pub enum Word {
     Native(NativeFn),
 }
 
+impl Word {
+    pub fn run(&self, ip: &mut Interpreter) -> crate::Result {
+        match self {
+            Word::Native(func) => func(ip),
+        }
+    }
+}
+
 #[derive(Debug, Clone)]
 pub struct Dictionary {
     word_by_name: HashMap<Cow<'static, str>, Word>,

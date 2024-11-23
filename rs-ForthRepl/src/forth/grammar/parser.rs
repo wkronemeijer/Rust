@@ -71,8 +71,11 @@ impl<'s> Parser<'s> {
             if self.check(RIGHT_BRACKET) || self.check(EOF) {
                 break;
             }
+            if self.matches(COMMENT) {
+                continue;
+            }
             if self.is_at_end() {
-                break;
+                return Err(Sync);
             }
             elements.push(self.expr()?);
         }
@@ -102,6 +105,11 @@ impl<'s> Parser<'s> {
             let token = self.consume(IDENTIFIER)?;
             let lexeme = token.lexeme(self.source);
             Ok(Cst::Identifier(lexeme))
+        } else if self.check(STRING) {
+            let token = self.consume(STRING)?;
+            let lexeme = token.lexeme(self.source);
+            // slice off the "..." on both ends
+            Ok(Cst::Text(&lexeme[1..(lexeme.len() - 1)]))
         } else {
             let Some(token) = self.advance() else {
                 panic!("unexpected eof");
@@ -119,12 +127,11 @@ impl<'s> Parser<'s> {
     }
 
     pub fn parse(mut self) -> CompileResult<Cst<'s>> {
-        match self.inner_parse() {
-            Ok(program) => CompileResult::new(program, self.report),
-            Err(_) => {
-                self.report.error(SyntaxError::FailedToSynchronize);
-                CompileResult::fail(self.report)
-            }
+        if let Ok(program) = self.inner_parse() {
+            CompileResult::new(program, self.report)
+        } else {
+            self.report.error(SyntaxError::FailedToSynchronize);
+            CompileResult::fail(self.report)
         }
     }
 }
