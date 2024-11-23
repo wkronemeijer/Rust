@@ -1,50 +1,53 @@
+use std::borrow::Cow;
 use std::collections::HashMap;
 use std::fmt;
-use std::fmt::Display;
 use std::fmt::Write as _;
 
-use super::word::NativeFunction;
-use super::word::NativeFunctionBody;
-use super::word::Word;
+use crate::Interpreter;
 
+pub type NativeFn = fn(&mut Interpreter) -> crate::Result;
+// Still find it weird that fn types aren't !Sized
+// I mean, it's some region of code, right?
+// Function pointers would then just be &'static fn(...)
+// Equally usable
+// Also opens the door for JIT stuff
+// TODO: Reintroduce Word with ValueList variant
+
+#[derive(Debug, Clone)]
+pub enum Word {
+    Native(NativeFn),
+}
+
+#[derive(Debug, Clone)]
 pub struct Dictionary {
-    words: HashMap<String, Word>,
+    word_by_name: HashMap<Cow<'static, str>, Word>,
 }
 
 impl Dictionary {
-    pub fn new() -> Self { Dictionary { words: HashMap::new() } }
+    pub fn new() -> Self { Dictionary { word_by_name: HashMap::new() } }
 
-    pub fn define(&mut self, word: Word) -> crate::Result {
-        let name = word.name().to_owned();
-        if !self.words.contains_key(&name) {
-            // Some version of "provide if doesnt exist"
-            self.words.insert(name, word);
-            Ok(())
-        } else {
-            Err(crate::Error::NameAlreadyInUse(name.into()))
-        }
+    pub fn define(&mut self, name: Cow<'static, str>, word: Word) {
+        debug_assert!(
+            !self.word_by_name.contains_key(&name),
+            "'{name}' is defined more than once"
+        );
+        self.word_by_name.insert(name, word);
     }
 
-    pub(crate) fn define_native(
-        &mut self,
-        name: &'static str,
-        body: NativeFunctionBody,
-    ) -> crate::Result {
-        self.define(Word::native(name.to_string(), NativeFunction::new(body)))
+    pub fn has(&self, name: &str) -> bool {
+        self.word_by_name.contains_key(name)
     }
 
-    pub fn get(&self, name: &str) -> crate::Result<&Word> {
-        self.words.get(name).ok_or_else(|| {
+    pub fn get(&self, name: &str) -> crate::Result<Word> {
+        self.word_by_name.get(name).cloned().ok_or_else(|| {
             crate::Error::UnknownWord(format!("'{name}'").into())
         })
     }
-
-    pub fn has(&self, name: &str) -> bool { self.words.contains_key(name) }
 }
 
-impl Display for Dictionary {
+impl fmt::Display for Dictionary {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-        let iter = &mut self.words.values();
+        let iter = &mut self.word_by_name.keys();
         if let Some(first) = iter.next() {
             first.fmt(f)?;
             for rest in iter {

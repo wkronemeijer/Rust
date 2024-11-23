@@ -1,147 +1,134 @@
-use super::dictionary::Dictionary;
-use super::value::Value;
+use std::borrow::Cow;
 
-fn do_register(dict: &mut Dictionary) -> crate::Result {
-    use Value::*;
+use super::dictionary::NativeFn;
+use super::dictionary::Word;
+use super::interpreter::Interpreter;
+use super::value::Value::*;
 
-    ////////////////
-    // Primitives //
-    ////////////////
-
-    dict.define_native("null", |env| {
-        env.push(Null);
-        Ok(())
-    })?;
-
-    dict.define_native("true", |env| {
-        env.push(Bool(true));
-        Ok(())
-    })?;
-
-    dict.define_native("false", |env| {
-        env.push(Bool(false));
-        Ok(())
-    })?;
+fn do_register(ip: &mut Interpreter) -> crate::Result {
+    // TODO: this could really use a macro to pop values in stack order notation
+    // Would also fix pop().convert(), pop().convert() ordering issue
+    // a b -- r where (r == a + b)
 
     ///////////
     // Stack //
     ///////////
 
-    dict.define_native("dup", |env| {
-        let a = env.pop()?;
-        env.push(a.clone());
-        env.push(a);
+    ip.define_native("dup", |env| {
+        let a = env.stack.pop()?;
+        env.stack.push(a.clone());
+        env.stack.push(a);
         Ok(())
-    })?;
+    });
 
-    dict.define_native("swap", |env| {
-        let b = env.pop()?;
-        let a = env.pop()?;
-        env.push(b);
-        env.push(a);
+    ip.define_native("swap", |env| {
+        let b = env.stack.pop()?;
+        let a = env.stack.pop()?;
+        env.stack.push(b);
+        env.stack.push(a);
         Ok(())
-    })?;
+    });
 
-    dict.define_native("over", |env| {
-        let b = env.pop()?;
-        let a = env.pop()?;
-        env.push(a.clone());
-        env.push(b);
-        env.push(a);
+    ip.define_native("over", |env| {
+        let b = env.stack.pop()?;
+        let a = env.stack.pop()?;
+        env.stack.push(a.clone());
+        env.stack.push(b);
+        env.stack.push(a);
         Ok(())
-    })?;
+    });
 
-    dict.define_native("rot", |env| {
-        let c = env.pop()?;
-        let b = env.pop()?;
-        let a = env.pop()?;
-        env.push(b);
-        env.push(c);
-        env.push(a);
+    ip.define_native("rot", |env| {
+        let c = env.stack.pop()?;
+        let b = env.stack.pop()?;
+        let a = env.stack.pop()?;
+        env.stack.push(b);
+        env.stack.push(c);
+        env.stack.push(a);
         Ok(())
-    })?;
+    });
 
-    dict.define_native("drop", |env| {
-        env.pop()?;
+    ip.define_native("drop", |env| {
+        env.stack.pop()?;
         Ok(())
-    })?;
+    });
 
     //////////////////
     // Input/output //
     //////////////////
 
-    dict.define_native(".", |env| {
-        let a = env.pop()?;
-        env.println(&format!("{a}"))
-    })?;
+    ip.define_native(".", |env| {
+        let a = env.stack.pop()?;
+        env.host.println(&a.to_string())
+    });
 
-    dict.define_native("words", |env| {
-        let dict = env.dict();
-        env.println(&format!("{dict}"))
-    })?;
+    ip.define_native("words", |env| {
+        let words = &env.words;
+        env.host.println(&words.to_string())
+    });
 
     //////////
     // Math //
     //////////
 
-    dict.define_native("+", |env| {
-        let b = env.pop()?.into_int()?;
-        let a = env.pop()?.into_int()?;
-        env.push(Int(a.checked_add(b).ok_or(crate::Error::IntegerRange)?));
+    ip.define_native("+", |env| {
+        let b = env.stack.pop()?.into_number()?;
+        let a = env.stack.pop()?.into_number()?;
+        env.stack.push(Number(a + b));
         Ok(())
-    })?;
+    });
 
-    dict.define_native("-", |env| {
-        let b = env.pop()?.into_int()?;
-        let a = env.pop()?.into_int()?;
-        env.push(Int(a.checked_sub(b).ok_or(crate::Error::IntegerRange)?));
+    ip.define_native("-", |env| {
+        let b = env.stack.pop()?.into_number()?;
+        let a = env.stack.pop()?.into_number()?;
+        env.stack.push(Number(a - b));
         Ok(())
-    })?;
+    });
 
-    dict.define_native("*", |env| {
-        let b = env.pop()?.into_int()?;
-        let a = env.pop()?.into_int()?;
-        env.push(Int(a.checked_mul(b).ok_or(crate::Error::IntegerRange)?));
+    ip.define_native("*", |env| {
+        let b = env.stack.pop()?.into_number()?;
+        let a = env.stack.pop()?.into_number()?;
+        env.stack.push(Number(a * b));
         Ok(())
-    })?;
+    });
 
-    dict.define_native("/", |env| {
-        let b = env.pop()?.into_int()?;
-        let a = env.pop()?.into_int()?;
-        env.push(Int(a.checked_div(b).ok_or(crate::Error::IntegerRange)?));
+    ip.define_native("/", |env| {
+        let b = env.stack.pop()?.into_number()?;
+        let a = env.stack.pop()?.into_number()?;
+        env.stack.push(Number(a / b));
         Ok(())
-    })?;
+    });
 
     ///////////
     // Logic //
     ///////////
 
-    dict.define_native("not", |env| {
-        let value = env.pop()?.into_bool()?;
-        env.push(Bool(!value));
+    ip.define_native("not", |env| {
+        let value = env.stack.pop()?.into_bool()?;
+        env.stack.push(Bool(!value));
         Ok(())
-    })?;
+    });
 
-    dict.define_native("=", |env| {
-        let b = env.pop()?;
-        let a = env.pop()?;
-        env.push(Bool(a == b));
+    ip.define_native("=", |env| {
+        let b = env.stack.pop()?;
+        let a = env.stack.pop()?;
+        env.stack.push(Bool(a == b));
         Ok(())
-    })?;
+    });
 
-    dict.define_native("<", |env| {
-        let b = env.pop()?;
-        let a = env.pop()?;
-        env.push(Bool(a < b));
+    ip.define_native("<", |env| {
+        let b = env.stack.pop()?;
+        let a = env.stack.pop()?;
+        env.stack.push(Bool(a < b));
         Ok(())
-    })?;
+    });
 
-    dict.define_native(">", |env| {
-        let b = env.pop()?;
-        let a = env.pop()?;
-        env.push(Bool(a > b));
+    ip.define_native(">", |env| {
+        let b = env.stack.pop()?;
+        let a = env.stack.pop()?;
+        env.stack.push(Bool(a > b));
         Ok(())
-    })?;
+    });
 
     //////////////
     // Complete //
@@ -150,6 +137,16 @@ fn do_register(dict: &mut Dictionary) -> crate::Result {
     Ok(())
 }
 
-pub(crate) fn register_builtins(dict: &mut Dictionary) {
-    do_register(dict).expect("registering builtins failed");
+impl<'h> Interpreter<'h> {
+    pub(crate) fn define_native(
+        &mut self,
+        name: &'static str,
+        function: NativeFn,
+    ) {
+        self.words.define(Cow::Borrowed(name), Word::Native(function))
+    }
+
+    pub(crate) fn register_builtins(&mut self) {
+        do_register(self).expect("registering builtins failed");
+    }
 }

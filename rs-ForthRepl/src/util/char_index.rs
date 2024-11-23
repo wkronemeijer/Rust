@@ -1,8 +1,6 @@
-// There /was/ a
-//    fn char_at(usize) -> char
-// at some point
-// https://github.com/rust-lang/regex/blob/1a069b9232c607b34c4937122361aa075ef573fa/regex-syntax/src/ast/parse.rs#L483
 /// Re-implementation of the old `char_at`
+///
+/// See [this GitHub file](https://github.com/rust-lang/regex/blob/1a069b9232c607b34c4937122361aa075ef573fa/regex-syntax/src/ast/parse.rs#L483) for more info
 pub trait CharIndex {
     /// Indexes a string at a byte offset, extracting a complete char.
     /// Returns None if the index is out-of-bounds or not at a char boundary.

@@ -1,13 +1,15 @@
 use std::fmt;
 use std::ops::Deref;
 
+use thiserror::Error;
+
 use super::value::ValueKind;
 
 ///////////
 // Error //
 ///////////
 
-#[derive(thiserror::Error, Debug)]
+#[derive(Debug, Error)]
 pub enum Error {
     #[error("invalid word name: {0}")]
     InvalidWordName(CompactString),
@@ -23,8 +25,10 @@ pub enum Error {
     StackUnderflow,
     #[error("unknown word: {0}")]
     UnknownWord(CompactString),
-    #[error("cannot convert from {from} to {to}")]
+    #[error("cannot convert from '{from}' to '{to}'")]
     TypeConversion { from: ValueKind, to: ValueKind },
+    #[error("cannot execute a {0}")]
+    ExecuteTypeError(ValueKind),
     #[error("integer overflow")]
     IntegerRange,
     #[error("parse error: {0}")]

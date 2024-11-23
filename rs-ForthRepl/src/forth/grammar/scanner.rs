@@ -1,26 +1,33 @@
 use TokenKind::*;
 
+use super::error::DiagnosticList;
+use super::error::SyntaxError;
+use super::result::CompileResult;
 use super::token::Token;
 use super::token::TokenKind;
-use crate::core::CharIndex as _;
+use crate::util::char_index::CharIndex as _;
 
 /////////////
 // Scanner //
 /////////////
 
-pub struct Scanner<'source> {
-    source: &'source str,
+struct Scanner<'s> {
+    source: &'s str,
     start: usize,
     current: usize,
+    report: DiagnosticList,
 }
 
 // Domain-unspecific scanning methods
-impl<'source> Scanner<'source> {
+impl<'s> Scanner<'s> {
     pub fn new(source: &str) -> Scanner {
         let start = 0;
         let current = 0;
-        Scanner { source, start, current }
+        let report = DiagnosticList::new();
+        Scanner { source, start, current, report }
     }
+
+    pub fn source(&self) -> &str { self.source }
 
     fn lexeme(&self) -> &str { &self.source[self.start..self.current] }
 
@@ -98,7 +105,7 @@ impl<'source> Scanner<'source> {
         })
     }
 
-    fn scan(&mut self) -> Option<Token> {
+    fn scan_one(&mut self) -> Option<Token> {
         Some(loop {
             self.sync();
             let Some(c) = self.advance() else { return None };
@@ -112,23 +119,37 @@ impl<'source> Scanner<'source> {
                 _ if is_digit(c) => self.finish_number(),
                 _ if is_alphanum(c) => self.finish_identifier(),
                 _ => {
-                    // TODO: report unexpected token (replacing print)
-                    println!("unexpected char '{c}'");
+                    self.report.error(SyntaxError::UnexpectedCharacter(c));
                     continue;
                 }
             };
         })
+    }
+
+    fn scan(mut self) -> CompileResult<Vec<Token>> {
+        let mut tokens = Vec::new();
+        tokens.push(self.token(SOF));
+        while let Some(token) = self.scan_one() {
+            tokens.push(token);
+        }
+        tokens.push(self.token(EOF));
+        CompileResult::new(tokens, self.report)
     }
 }
 
 impl<'a> Iterator for Scanner<'a> {
     type Item = Token;
 
-    fn next(&mut self) -> Option<Self::Item> { self.scan() }
+    fn next(&mut self) -> Option<Self::Item> { self.scan_one() }
 }
 
+#[derive(Debug)]
+pub struct TokenList<'s>(pub &'s str, pub Vec<Token>);
+
 /// Synonym for [Scanner::new]
-pub fn scan(source: &str) -> Scanner { Scanner::new(source) }
+pub fn scan(source: &str) -> CompileResult<TokenList> {
+    Scanner::new(source).scan().map(|data| TokenList(source, data))
+}
 
 ///////////
 // Tests //
@@ -141,11 +162,10 @@ mod tests {
     #[test]
     fn scans() {
         let source = "3 dup 1 + [(a b -- a)] 5 * 35. 1.42 \n / .load 😀😂🤣";
-
         let ref mut scanner = Scanner::new(source);
 
         fn check(actual_token: Option<Token>, expected: Option<TokenKind>) {
-            let actual = actual_token.map(|token| token.kind);
+            let actual = actual_token.map(|t| t.kind());
             if actual != expected {
                 panic!("expected {expected:?}, encountered {actual:?}")
             }
