@@ -45,13 +45,36 @@ fn do_register(ip: &mut Interpreter) -> crate::Result {
         Ok(())
     });
 
+    //////////
+    // Char //
+    //////////
+
+    ip.define_native("chr", |env| {
+        let [a] = env.stack.parallel_pop()?;
+        let a = a.into_int()?;
+        env.stack.push(match char::from_u32(a as u32) {
+            Some(c) => Char(c),
+            None => Null,
+        });
+        Ok(())
+    });
+
+    ip.define_native("ord", |env| {
+        let [a] = env.stack.parallel_pop()?;
+        env.stack.push(match a {
+            Char(c) => Number(f64::from(u32::from(c))),
+            _ => Null,
+        });
+        Ok(())
+    });
+
     //////////////////
     // Input/output //
     //////////////////
 
     ip.define_native(".", |env| {
         let [a] = env.stack.parallel_pop()?;
-        env.host.println(&a.to_string())
+        env.host.println(&a.into_string()?)
     });
 
     ip.define_native("words", |env| {

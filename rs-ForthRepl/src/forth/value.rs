@@ -37,7 +37,19 @@ impl Value {
     }
 
     pub fn into_int(self) -> crate::Result<i32> {
-        todo!("meant for bitwise operators (like JS)");
+        Ok(match self {
+            Null => 0,
+            Bool(b) => {
+                if b {
+                    1
+                } else {
+                    0
+                }
+            }
+            Char(c) => u32::from(c) as i32, // NB: char::MAX <= i32::MAX
+            Number(x) => x.floor() as i32,
+            _ => return Err(self.type_err(ValueKind::Number)),
+        })
     }
 
     pub fn into_number(self) -> crate::Result<f64> {
@@ -104,14 +116,14 @@ impl Ord for Value {
 impl fmt::Display for Value {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         match self {
-            Null => write!(f, "null"),
-            Bool(b) => write!(f, "{b}"),
-            Char(c) => write!(f, "{c}"),
-            Number(x) => write!(f, "{x}"),
+            Null => f.write_str("null"),
+            Bool(b) => b.fmt(f),
+            Char(c) => write!(f, "'{c}'"),
+            Number(x) => x.fmt(f),
             Text(t) => write!(f, "\"{t}\""),
-            Symbol(s) => write!(f, "'{s}"),
+            Symbol(s) => s.fmt(f),
             List(l) => {
-                write!(f, "[")?;
+                f.write_str("[")?;
                 let mut iter = l.iter();
                 if let Some(first) = iter.next() {
                     write!(f, "{first}")?;
@@ -119,7 +131,7 @@ impl fmt::Display for Value {
                         write!(f, " {rest}")?;
                     }
                 }
-                write!(f, "]")?;
+                f.write_str("]")?;
                 Ok(())
             }
         }

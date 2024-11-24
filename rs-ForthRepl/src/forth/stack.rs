@@ -48,7 +48,7 @@ impl Stack {
     }
 }
 
-impl Display for Stack {
+impl fmt::Display for Stack {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         let iter = &mut self.list.iter();
         if let Some(first) = iter.next() {
