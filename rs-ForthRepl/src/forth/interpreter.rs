@@ -1,13 +1,15 @@
+use std::rc::Rc;
+
 use super::dictionary::Dictionary;
-use super::grammar::forestry::Cst;
+use super::grammar::ast::Ast;
 use super::grammar::scanner::scan;
 use super::host::Host;
 use super::stack::Stack;
+use super::value::Value;
 use crate::forth::grammar::parser::parse;
-use crate::Value;
 
 // TODO: Interpreter is really more of the equivalent of LuaState
-// ForthState?
+// ForthState? JoyState? StateOfJoy?
 pub struct Interpreter<'a> {
     pub stack: Stack,
     pub words: Dictionary,
@@ -25,10 +27,10 @@ impl<'a> Interpreter<'a> {
     }
 
     fn execute(&mut self, value: Value) -> crate::Result {
-        let Value::List(ref nodes) = value else {
+        let Value::List(nodes) = value else {
             return Err(crate::Error::ExecuteTypeError(value.kind()));
         };
-        for node in nodes.iter().cloned() {
+        for node in Rc::unwrap_or_clone(nodes).into_iter() {
             match node {
                 Value::Symbol(s) => {
                     self.words.get(&s)?.run(self)?;
@@ -40,11 +42,11 @@ impl<'a> Interpreter<'a> {
     }
 
     pub fn eval(&mut self, input: &str) -> crate::Result {
-        let result = scan(input).and_then(parse).map(Cst::lower);
+        let result = scan(input).and_then(parse);
         for diag in result.report().iter() {
             println!("{diag}");
         }
-        if let Some(value) = result.ok().map(Value::from_ast) {
+        if let Some(value) = result.ok().map(Ast::into_value) {
             self.execute(value)
         } else {
             // we have already printed the diagnostics

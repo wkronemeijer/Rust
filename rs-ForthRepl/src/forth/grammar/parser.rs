@@ -1,6 +1,6 @@
+use super::ast::Ast;
 use super::error::DiagnosticList;
 use super::error::SyntaxError;
-use super::forestry::Cst;
 use super::result::CompileResult;
 use super::scanner::TokenList;
 use super::token::Token;
@@ -10,6 +10,19 @@ use super::token::TokenKind::*;
 struct Sync;
 
 type CanThrow<T = ()> = std::result::Result<T, Sync>;
+
+/// Slice off the `"` on both ends
+fn unescape(mut lexeme: &str) -> &str {
+    if lexeme.starts_with('"') {
+        lexeme = &lexeme[1..];
+    }
+
+    if lexeme.ends_with('"') {
+        lexeme = &lexeme[..lexeme.len() - 1];
+    }
+    // TODO: interpret sequences like \n
+    lexeme
+}
 
 struct Parser<'s> {
     source: &'s str,
@@ -65,7 +78,7 @@ impl<'s> Parser<'s> {
 
 // domain-specific
 impl<'s> Parser<'s> {
-    fn list_body(&mut self) -> CanThrow<Vec<Cst<'s>>> {
+    fn list_body(&mut self) -> CanThrow<Vec<Ast>> {
         let mut elements = Vec::new();
         loop {
             if self.check(RIGHT_BRACKET) || self.check(END_OF_FILE) {
@@ -82,34 +95,34 @@ impl<'s> Parser<'s> {
         Ok(elements)
     }
 
-    fn list(&mut self) -> CanThrow<Cst<'s>> {
+    fn list(&mut self) -> CanThrow<Ast> {
         let nodes = self.list_body()?;
         self.consume(RIGHT_BRACKET)?;
-        Ok(Cst::List(nodes))
+        Ok(Ast::List(nodes))
     }
 
-    fn expr(&mut self) -> CanThrow<Cst<'s>> {
+    fn expr(&mut self) -> CanThrow<Ast> {
         if self.matches(LEFT_BRACKET) {
             self.list()
         } else if self.matches(NULL) {
-            Ok(Cst::Null)
+            Ok(Ast::Null)
         } else if self.matches(FALSE) {
-            Ok(Cst::False)
+            Ok(Ast::False)
         } else if self.matches(TRUE) {
-            Ok(Cst::True)
+            Ok(Ast::True)
         } else if self.check(NUMBER) {
             let token = self.consume(NUMBER)?;
             let lexeme = token.lexeme(self.source);
-            Ok(Cst::Number(lexeme))
+            let number = lexeme.parse::<f64>().map_err(|_| Sync)?;
+            Ok(Ast::Number(number))
         } else if self.check(IDENTIFIER) {
             let token = self.consume(IDENTIFIER)?;
             let lexeme = token.lexeme(self.source);
-            Ok(Cst::Identifier(lexeme))
+            Ok(Ast::Identifier(lexeme.to_owned()))
         } else if self.check(STRING) {
             let token = self.consume(STRING)?;
             let lexeme = token.lexeme(self.source);
-            // slice off the "..." on both ends
-            Ok(Cst::Text(&lexeme[1..(lexeme.len() - 1)]))
+            Ok(Ast::StringLiteral(unescape(lexeme).to_owned()))
         } else {
             let Some(token) = self.advance() else {
                 panic!("unexpected eof");
@@ -119,14 +132,14 @@ impl<'s> Parser<'s> {
         }
     }
 
-    fn inner_parse(&mut self) -> CanThrow<Cst<'s>> {
+    fn inner_parse(&mut self) -> CanThrow<Ast> {
         self.consume(START_OF_FILE)?;
         let nodes = self.list_body()?;
         self.consume(END_OF_FILE)?;
-        Ok(Cst::Program(nodes))
+        Ok(Ast::List(nodes))
     }
 
-    pub fn parse(mut self) -> CompileResult<Cst<'s>> {
+    pub fn parse(mut self) -> CompileResult<Ast> {
         if let Ok(program) = self.inner_parse() {
             CompileResult::new(program, self.report)
         } else {
@@ -136,6 +149,6 @@ impl<'s> Parser<'s> {
     }
 }
 
-pub fn parse(TokenList(source, tokens): TokenList) -> CompileResult<Cst> {
+pub fn parse(TokenList(source, tokens): TokenList) -> CompileResult<Ast> {
     Parser::new(source, tokens).parse()
 }

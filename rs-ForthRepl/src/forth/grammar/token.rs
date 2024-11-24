@@ -12,13 +12,12 @@ pub enum TokenKind {
 
     LEFT_BRACKET,
     RIGHT_BRACKET,
-
     NULL,
     FALSE,
     TRUE,
+
     NUMBER,
     STRING,
-
     IDENTIFIER,
     COMMENT,
 }

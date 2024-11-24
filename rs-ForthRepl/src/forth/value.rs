@@ -2,14 +2,11 @@ use std::cmp::Ordering;
 use std::fmt;
 use std::rc::Rc;
 
-use super::grammar::forestry::Ast;
-use crate::Error;
-use crate::Value::*;
+use super::value::Value::*;
 
 ///////////
 // Value //
 ///////////
-// TODO: Maybe extract the list as some general thing?
 
 #[derive(Debug, Clone, Default)]
 pub enum Value {
@@ -24,18 +21,8 @@ pub enum Value {
 }
 
 impl Value {
-    pub fn from_ast(ast: Ast) -> Value {
-        match ast {
-            Ast::Null => Value::Null,
-            Ast::False => Value::Bool(false),
-            Ast::True => Value::Bool(true),
-            Ast::Number(x) => Value::Number(x),
-            Ast::Text(s) => Value::Text(Rc::new(s)),
-            Ast::Identifier(i) => Value::Symbol(Rc::new(i)),
-            Ast::List(l) => Value::List(Rc::new(
-                l.into_iter().map(Value::from_ast).collect(),
-            )),
-        }
+    fn type_err(&self, goal: ValueKind) -> crate::Error {
+        crate::Error::TypeConversion { from: self.kind(), to: goal }
     }
 
     // as_X? into_X? try_into_X? open for suggestion
@@ -64,12 +51,7 @@ impl Value {
                 }
             }
             Number(x) => x,
-            _ => {
-                return Err(Error::TypeConversion {
-                    from: self.kind(),
-                    to: ValueKind::Number,
-                })
-            }
+            _ => return Err(self.type_err(ValueKind::Number)),
         })
     }
 
@@ -77,6 +59,13 @@ impl Value {
         Ok(match self {
             Text(rc) => Rc::unwrap_or_clone(rc),
             _ => self.to_string(),
+        })
+    }
+
+    pub fn into_list(self) -> crate::Result<Vec<Value>> {
+        Ok(match self {
+            List(nodes) => Rc::unwrap_or_clone(nodes),
+            _ => return Err(self.type_err(ValueKind::List)),
         })
     }
 }
