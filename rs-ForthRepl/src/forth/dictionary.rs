@@ -3,7 +3,7 @@ use std::collections::HashMap;
 use std::fmt;
 use std::fmt::Write as _;
 
-use crate::Interpreter;
+use crate::forth::interpreter::Interpreter;
 
 pub type NativeFn = fn(&mut Interpreter) -> crate::Result;
 // Still find it weird that fn types aren't !Sized

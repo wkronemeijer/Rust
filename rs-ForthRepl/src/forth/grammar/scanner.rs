@@ -5,7 +5,17 @@ use super::error::SyntaxError;
 use super::result::CompileResult;
 use super::token::Token;
 use super::token::TokenKind;
-use crate::util::char_index::CharIndex as _;
+
+/// Re-implementation of the old `char_at`
+///
+/// See [this GitHub file](https://github.com/rust-lang/regex/blob/1a069b9232c607b34c4937122361aa075ef573fa/regex-syntax/src/ast/parse.rs#L483) for more info
+fn try_char_at(this: &str, i: usize) -> Option<char> {
+    if this.is_char_boundary(i) {
+        this[i..].chars().next()
+    } else {
+        None
+    }
+}
 
 /////////////
 // Scanner //
@@ -29,7 +39,7 @@ impl<'s> Scanner<'s> {
 
     fn lexeme(&self) -> &str { &self.source[self.start..self.current] }
 
-    fn peek(&self) -> Option<char> { self.source.try_char_at(self.current) }
+    fn peek(&self) -> Option<char> { try_char_at(self.source, self.current) }
 
     fn advance(&mut self) -> Option<char> {
         let value = self.peek()?;

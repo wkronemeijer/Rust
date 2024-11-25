@@ -4,8 +4,8 @@ use std::io::stdout;
 use std::io::BufRead as _;
 use std::io::Write as _;
 
-use forth_repl::Interpreter;
-use forth_repl::StandardHost;
+use forth_repl::forth::host::StandardHost;
+use forth_repl::forth::interpreter::Interpreter;
 
 //////////////
 // Printing //

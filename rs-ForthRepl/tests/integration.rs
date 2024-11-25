@@ -1,6 +1,6 @@
-use forth_repl::Interpreter;
-use forth_repl::TestHost;
-use forth_repl::Value::*;
+use forth_repl::forth::host::TestHost;
+use forth_repl::forth::interpreter::Interpreter;
+use forth_repl::forth::value::Value::*;
 
 #[test]
 fn push_numbers() -> forth_repl::Result {
