@@ -26,7 +26,7 @@ impl Ast {
             Ast::Null => Value::Null,
             Ast::False => Value::Bool(false),
             Ast::True => Value::Bool(true),
-            Ast::Number(x) => Value::Number(x),
+            Ast::Number(x) => Value::Float(x),
             Ast::StringLiteral(s) => Value::Text(Rc::new(s)),
             Ast::Identifier(i) => Value::Symbol(Rc::new(i)),
             Ast::List(l) => Value::List(Rc::new(

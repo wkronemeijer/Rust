@@ -1,5 +1,4 @@
 use std::fmt;
-use std::fmt::Display;
 use std::fmt::Write;
 
 use super::value::Value;
@@ -20,6 +19,8 @@ impl Stack {
     pub fn pop(&mut self) -> crate::Result<Value> {
         self.list.pop().ok_or(crate::Error::StackUnderflow)
     }
+
+    pub fn clear(&mut self) { self.list.clear() }
 
     /// Pops multiple values in "visual" order to make implementing native
     /// functions easier.

@@ -6,9 +6,9 @@ use super::interpreter::Interpreter;
 use super::value::Value::*;
 
 fn do_register(ip: &mut Interpreter) -> crate::Result {
-    ///////////
-    // Stack //
-    ///////////
+    //////////////////////////
+    // Primitive operations //
+    //////////////////////////
 
     ip.define_native("dup", |env| {
         let [a] = env.stack.parallel_pop()?;
@@ -45,26 +45,36 @@ fn do_register(ip: &mut Interpreter) -> crate::Result {
         Ok(())
     });
 
-    //////////
-    // Char //
-    //////////
-
-    ip.define_native("chr", |env| {
-        let [a] = env.stack.parallel_pop()?;
-        let a = a.into_int()?;
-        env.stack.push(match char::from_u32(a as u32) {
-            Some(c) => Char(c),
-            None => Null,
-        });
+    ip.define_native("clear", |env| {
+        env.stack.clear();
         Ok(())
     });
 
-    ip.define_native("ord", |env| {
+    ip.define_native("exec", |env| {
         let [a] = env.stack.parallel_pop()?;
-        env.stack.push(match a {
-            Char(c) => Number(f64::from(u32::from(c))),
-            _ => Null,
-        });
+        env.exec(a)?;
+        Ok(())
+    });
+
+    //////////////////////
+    // Primitive values //
+    //////////////////////
+
+    ip.define_native("char", |env| {
+        let [a] = env.stack.parallel_pop()?;
+        env.stack.push(Char(a.into_char()?));
+        Ok(())
+    });
+
+    ip.define_native("int", |env| {
+        let [a] = env.stack.parallel_pop()?;
+        env.stack.push(Int(a.into_int()?));
+        Ok(())
+    });
+
+    ip.define_native("float", |env| {
+        let [a] = env.stack.parallel_pop()?;
+        env.stack.push(Float(a.into_float()?));
         Ok(())
     });
 
@@ -88,33 +98,33 @@ fn do_register(ip: &mut Interpreter) -> crate::Result {
 
     ip.define_native("+", |env| {
         let [a, b] = env.stack.parallel_pop()?;
-        let a = a.into_number()?;
-        let b = b.into_number()?;
-        env.stack.push(Number(a + b));
+        let a = a.into_float()?;
+        let b = b.into_float()?;
+        env.stack.push(Float(a + b));
         Ok(())
     });
 
     ip.define_native("-", |env| {
         let [a, b] = env.stack.parallel_pop()?;
-        let a = a.into_number()?;
-        let b = b.into_number()?;
-        env.stack.push(Number(a - b));
+        let a = a.into_float()?;
+        let b = b.into_float()?;
+        env.stack.push(Float(a - b));
         Ok(())
     });
 
     ip.define_native("*", |env| {
         let [a, b] = env.stack.parallel_pop()?;
-        let a = a.into_number()?;
-        let b = b.into_number()?;
-        env.stack.push(Number(a * b));
+        let a = a.into_float()?;
+        let b = b.into_float()?;
+        env.stack.push(Float(a * b));
         Ok(())
     });
 
     ip.define_native("/", |env| {
         let [a, b] = env.stack.parallel_pop()?;
-        let a = a.into_number()?;
-        let b = b.into_number()?;
-        env.stack.push(Number(a / b));
+        let a = a.into_float()?;
+        let b = b.into_float()?;
+        env.stack.push(Float(a / b));
         Ok(())
     });
 

@@ -26,16 +26,15 @@ impl<'a> Interpreter<'a> {
         interpreter
     }
 
-    fn execute(&mut self, value: Value) -> crate::Result {
+    pub fn exec(&mut self, value: Value) -> crate::Result {
         let Value::List(nodes) = value else {
             return Err(crate::Error::ExecuteTypeError(value.kind()));
         };
         for node in Rc::unwrap_or_clone(nodes).into_iter() {
-            match node {
-                Value::Symbol(s) => {
-                    self.words.get(&s)?.run(self)?;
-                }
-                _ => self.stack.push(node.clone()),
+            if let Value::Symbol(s) = node {
+                self.words.get(&s)?.run(self)?;
+            } else {
+                self.stack.push(node.clone())
             }
         }
         Ok(())
@@ -47,7 +46,7 @@ impl<'a> Interpreter<'a> {
             println!("{diag}");
         }
         if let Some(value) = result.ok().map(Ast::into_value) {
-            self.execute(value)
+            self.exec(value)
         } else {
             // we have already printed the diagnostics
             Ok(())

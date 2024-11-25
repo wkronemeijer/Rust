@@ -14,9 +14,10 @@ pub enum Value {
     Null,
     Bool(bool),
     Char(char),
-    Number(f64),
-    Text(Rc<String>),
+    Int(i32),
+    Float(f64),
     Symbol(Rc<String>),
+    Text(Rc<String>),
     List(Rc<Vec<Value>>),
 }
 
@@ -31,8 +32,24 @@ impl Value {
             Null => false,
             Bool(b) => b,
             Char(c) => c != '\0',
-            Number(x) => !(x.is_nan() || x == 0.0),
-            _ => true,
+            Int(i) => i != 0,
+            Float(x) => !(x.is_nan() || x == 0.0),
+            Symbol(_) => true,
+            Text(_) => true,
+            List(_) => true,
+        })
+    }
+
+    // as_X? into_X? try_into_X? open for suggestion
+    pub fn into_char(self) -> crate::Result<char> {
+        Ok(match self {
+            Null => '\0',
+            Char(c) => c,
+            Int(i) => char::try_from(i as u32)
+                .map_err(|_| crate::Error::IntegerRange)?,
+            Float(x) => char::try_from(x as u32)
+                .map_err(|_| crate::Error::IntegerRange)?,
+            _ => return Err(self.type_err(ValueKind::Char)),
         })
     }
 
@@ -46,13 +63,14 @@ impl Value {
                     0
                 }
             }
+            Int(i) => i,
             Char(c) => u32::from(c) as i32, // NB: char::MAX <= i32::MAX
-            Number(x) => x.floor() as i32,
-            _ => return Err(self.type_err(ValueKind::Number)),
+            Float(x) => x.floor() as i32,
+            _ => return Err(self.type_err(ValueKind::Float)),
         })
     }
 
-    pub fn into_number(self) -> crate::Result<f64> {
+    pub fn into_float(self) -> crate::Result<f64> {
         Ok(match self {
             Null => 0.0,
             Bool(b) => {
@@ -62,8 +80,8 @@ impl Value {
                     0.0
                 }
             }
-            Number(x) => x,
-            _ => return Err(self.type_err(ValueKind::Number)),
+            Float(x) => x,
+            _ => Err(self.type_err(ValueKind::Float))?,
         })
     }
 
@@ -83,7 +101,11 @@ impl Value {
 }
 
 impl PartialEq for Value {
-    fn eq(&self, other: &Self) -> bool { self.cmp(other) == Ordering::Equal }
+    fn eq(&self, other: &Self) -> bool {
+        // Right now, 0.0 != -0.0
+        // SameValueZero is valid for Eq, but not sure about Ord
+        self.cmp(other) == Ordering::Equal
+    }
 }
 
 impl Eq for Value {}
@@ -103,11 +125,19 @@ impl Ord for Value {
             (Null, Null) => Ordering::Equal,
             (Bool(a), Bool(b)) => a.cmp(b),
             (Char(a), Char(b)) => a.cmp(b),
-            (Number(a), Number(b)) => a.total_cmp(b),
+            (Float(a), Float(b)) => a.total_cmp(b),
             (Text(a), Text(b)) => a.cmp(b),
             (List(a), List(b)) => a.cmp(b),
             // Inter-kind
-            _ => self.kind().cmp(&other.kind()),
+            _ => {
+                let self_kind = self.kind();
+                let other_kind = other.kind();
+                debug_assert!(
+                    self_kind != other_kind,
+                    "missing a case for '{self_kind}'"
+                );
+                self_kind.cmp(&other_kind)
+            }
         }
     }
 }
@@ -119,7 +149,8 @@ impl fmt::Display for Value {
             Null => f.write_str("null"),
             Bool(b) => b.fmt(f),
             Char(c) => write!(f, "'{c}'"),
-            Number(x) => x.fmt(f),
+            Int(i) => i.fmt(f),
+            Float(x) => x.fmt(f),
             Text(t) => write!(f, "\"{t}\""),
             Symbol(s) => s.fmt(f),
             List(l) => {
@@ -150,9 +181,10 @@ pub enum ValueKind {
     Null,
     Bool,
     Char,
-    Number,
-    Text,
+    Int,
+    Float,
     Symbol,
+    Text,
     List,
 }
 
@@ -163,9 +195,10 @@ impl Value {
             Value::Null => ValueKind::Null,
             Value::Bool(_) => ValueKind::Bool,
             Value::Char(_) => ValueKind::Char,
-            Value::Number(_) => ValueKind::Number,
-            Value::Text(_) => ValueKind::Text,
+            Value::Int(_) => ValueKind::Int,
+            Value::Float(_) => ValueKind::Float,
             Value::Symbol(_) => ValueKind::Symbol,
+            Value::Text(_) => ValueKind::Text,
             Value::List(_) => ValueKind::List,
         }
     }
@@ -174,13 +207,14 @@ impl Value {
 impl fmt::Display for ValueKind {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         match self {
-            Self::Null => write!(f, "null"),
-            Self::Bool => write!(f, "boolean"),
-            Self::Char => write!(f, "character"),
-            Self::Number => write!(f, "number"),
-            Self::Text => write!(f, "string"),
-            Self::Symbol => write!(f, "symbol"),
-            Self::List => write!(f, "list"),
+            Self::Null => f.write_str("null"),
+            Self::Bool => f.write_str("bool"),
+            Self::Char => f.write_str("char"),
+            Self::Int => f.write_str("int"),
+            Self::Float => f.write_str("float"),
+            Self::Text => f.write_str("string"),
+            Self::Symbol => f.write_str("symbol"),
+            Self::List => f.write_str("list"),
         }
     }
 }
@@ -202,13 +236,13 @@ mod tests {
         assert_eq!(Bool(false).into_bool()?, false);
         assert_eq!(Bool(true).into_bool()?, true);
 
-        assert_eq!(Number(0.0).into_bool()?, false);
-        assert_eq!(Number(-0.0).into_bool()?, false);
-        assert_eq!(Number(f64::NAN).into_bool()?, false);
-        assert_eq!(Number(1.0).into_bool()?, true);
-        assert_eq!(Number(-0.1).into_bool()?, true);
-        assert_eq!(Number(f64::INFINITY).into_bool()?, true);
-        assert_eq!(Number(528491.117).into_bool()?, true);
+        assert_eq!(Float(0.0).into_bool()?, false);
+        assert_eq!(Float(-0.0).into_bool()?, false);
+        assert_eq!(Float(f64::NAN).into_bool()?, false);
+        assert_eq!(Float(1.0).into_bool()?, true);
+        assert_eq!(Float(-0.1).into_bool()?, true);
+        assert_eq!(Float(f64::INFINITY).into_bool()?, true);
+        assert_eq!(Float(528491.117).into_bool()?, true);
 
         Ok(())
     }
