@@ -120,6 +120,9 @@ impl<'source> Scanner<'source> {
                 ']' => self.token(RIGHT_BRACKET),
                 '(' => self.finish_comment(),
                 '"' => self.finish_string(),
+                '-' if self.peek().is_some_and(is_digit) => {
+                    self.finish_number()
+                }
                 _ if is_digit(c) => self.finish_number(),
                 _ if is_alphanum(c) => self.finish_identifier(),
                 _ => {
