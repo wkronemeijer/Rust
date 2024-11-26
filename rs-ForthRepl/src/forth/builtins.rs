@@ -4,27 +4,32 @@ use super::dictionary::NativeFn;
 use super::dictionary::Word;
 use super::interpreter::Interpreter;
 use super::value::Value::*;
+use super::value::ValueKind;
 
 fn do_register(ip: &mut Interpreter) -> crate::Result {
+    let mut define = |name: &'static str, function: NativeFn| {
+        ip.words.define(Cow::Borrowed(name), Word::Native(function))
+    };
+
     //////////////////////////
     // Primitive operations //
     //////////////////////////
 
-    ip.define_native("dup", |env| {
+    define("dup", |env| {
         let [a] = env.stack.parallel_pop()?;
         env.stack.push(a.clone());
         env.stack.push(a);
         Ok(())
     });
 
-    ip.define_native("swap", |env| {
+    define("swap", |env| {
         let [a, b] = env.stack.parallel_pop()?;
         env.stack.push(b);
         env.stack.push(a);
         Ok(())
     });
 
-    ip.define_native("over", |env| {
+    define("over", |env| {
         let [a, b] = env.stack.parallel_pop()?;
         env.stack.push(a.clone());
         env.stack.push(b);
@@ -32,7 +37,7 @@ fn do_register(ip: &mut Interpreter) -> crate::Result {
         Ok(())
     });
 
-    ip.define_native("rot", |env| {
+    define("rot", |env| {
         let [a, b, c] = env.stack.parallel_pop()?;
         env.stack.push(b);
         env.stack.push(c);
@@ -40,19 +45,32 @@ fn do_register(ip: &mut Interpreter) -> crate::Result {
         Ok(())
     });
 
-    ip.define_native("drop", |env| {
+    define("drop", |env| {
         env.stack.pop()?;
         Ok(())
     });
 
-    ip.define_native("clear", |env| {
+    define("clear", |env| {
         env.stack.clear();
         Ok(())
     });
 
-    ip.define_native("exec", |env| {
+    define("exec", |env| {
         let [a] = env.stack.parallel_pop()?;
         env.exec(a)?;
+        Ok(())
+    });
+
+    define("defun", |env| {
+        let [name, body] = env.stack.parallel_pop()?;
+        let name = name.into_string()?;
+        let List(body) = body else {
+            return Err(crate::Error::TypeConversion {
+                from: body.kind(),
+                to: ValueKind::List,
+            });
+        };
+        env.words.define(Cow::Owned(name), Word::User(body));
         Ok(())
     });
 
@@ -60,19 +78,19 @@ fn do_register(ip: &mut Interpreter) -> crate::Result {
     // Primitive values //
     //////////////////////
 
-    ip.define_native("char", |env| {
+    define("char", |env| {
         let [a] = env.stack.parallel_pop()?;
         env.stack.push(Char(a.into_char()?));
         Ok(())
     });
 
-    ip.define_native("int", |env| {
+    define("int", |env| {
         let [a] = env.stack.parallel_pop()?;
         env.stack.push(Int(a.into_int()?));
         Ok(())
     });
 
-    ip.define_native("float", |env| {
+    define("float", |env| {
         let [a] = env.stack.parallel_pop()?;
         env.stack.push(Float(a.into_float()?));
         Ok(())
@@ -82,12 +100,12 @@ fn do_register(ip: &mut Interpreter) -> crate::Result {
     // Input/output //
     //////////////////
 
-    ip.define_native(".", |env| {
+    define(".", |env| {
         let [a] = env.stack.parallel_pop()?;
         env.host.println(&a.into_string()?)
     });
 
-    ip.define_native("words", |env| {
+    define("words", |env| {
         let words = &env.words;
         env.host.println(&words.to_string())
     });
@@ -96,7 +114,7 @@ fn do_register(ip: &mut Interpreter) -> crate::Result {
     // Math //
     //////////
 
-    ip.define_native("+", |env| {
+    define("+", |env| {
         let [a, b] = env.stack.parallel_pop()?;
         let a = a.into_float()?;
         let b = b.into_float()?;
@@ -104,7 +122,7 @@ fn do_register(ip: &mut Interpreter) -> crate::Result {
         Ok(())
     });
 
-    ip.define_native("-", |env| {
+    define("-", |env| {
         let [a, b] = env.stack.parallel_pop()?;
         let a = a.into_float()?;
         let b = b.into_float()?;
@@ -112,7 +130,7 @@ fn do_register(ip: &mut Interpreter) -> crate::Result {
         Ok(())
     });
 
-    ip.define_native("*", |env| {
+    define("*", |env| {
         let [a, b] = env.stack.parallel_pop()?;
         let a = a.into_float()?;
         let b = b.into_float()?;
@@ -120,7 +138,7 @@ fn do_register(ip: &mut Interpreter) -> crate::Result {
         Ok(())
     });
 
-    ip.define_native("/", |env| {
+    define("/", |env| {
         let [a, b] = env.stack.parallel_pop()?;
         let a = a.into_float()?;
         let b = b.into_float()?;
@@ -132,26 +150,26 @@ fn do_register(ip: &mut Interpreter) -> crate::Result {
     // Logic //
     ///////////
 
-    ip.define_native("not", |env| {
+    define("not", |env| {
         let [a] = env.stack.parallel_pop()?;
         let a = a.into_bool()?;
         env.stack.push(Bool(!a));
         Ok(())
     });
 
-    ip.define_native("=", |env| {
+    define("=", |env| {
         let [a, b] = env.stack.parallel_pop()?;
         env.stack.push(Bool(a == b));
         Ok(())
     });
 
-    ip.define_native("<", |env| {
+    define("<", |env| {
         let [a, b] = env.stack.parallel_pop()?;
         env.stack.push(Bool(a < b));
         Ok(())
     });
 
-    ip.define_native(">", |env| {
+    define(">", |env| {
         let [a, b] = env.stack.parallel_pop()?;
         env.stack.push(Bool(a > b));
         Ok(())
@@ -165,14 +183,6 @@ fn do_register(ip: &mut Interpreter) -> crate::Result {
 }
 
 impl<'h> Interpreter<'h> {
-    pub(crate) fn define_native(
-        &mut self,
-        name: &'static str,
-        function: NativeFn,
-    ) {
-        self.words.define(Cow::Borrowed(name), Word::Native(function))
-    }
-
     pub(crate) fn register_builtins(&mut self) {
         do_register(self).expect("registering builtins failed");
     }

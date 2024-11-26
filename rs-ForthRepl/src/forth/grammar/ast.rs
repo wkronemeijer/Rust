@@ -1,6 +1,7 @@
 use std::rc::Rc;
 
 use super::super::value::Value;
+use crate::forth::value::ValueList;
 
 // no CST this time
 // formatting Forth/Joy code can be done but it does extremely little for clarity
@@ -29,9 +30,9 @@ impl Ast {
             Ast::Number(x) => Value::Float(x),
             Ast::StringLiteral(s) => Value::Text(Rc::new(s)),
             Ast::Identifier(i) => Value::Symbol(Rc::new(i)),
-            Ast::List(l) => Value::List(Rc::new(
-                l.into_iter().map(Ast::into_value).collect(),
-            )),
+            Ast::List(l) => {
+                Value::List(l.into_iter().map(Ast::into_value).collect())
+            }
         }
     }
 }

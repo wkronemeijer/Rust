@@ -18,9 +18,10 @@ pub enum Value {
     Float(f64),
     Symbol(Rc<String>),
     Text(Rc<String>),
-    List(Rc<Vec<Value>>),
+    List(ValueList),
 }
 
+// Idea: use some traits and associated types to make these conversion simpler
 impl Value {
     fn type_err(&self, goal: ValueKind) -> crate::Error {
         crate::Error::TypeConversion { from: self.kind(), to: goal }
@@ -94,18 +95,15 @@ impl Value {
 
     pub fn into_list(self) -> crate::Result<Vec<Value>> {
         Ok(match self {
-            List(nodes) => Rc::unwrap_or_clone(nodes),
+            List(nodes) => nodes.into_list(),
+            // TODO: string -> list
             _ => return Err(self.type_err(ValueKind::List)),
         })
     }
 }
 
 impl PartialEq for Value {
-    fn eq(&self, other: &Self) -> bool {
-        // Right now, 0.0 != -0.0
-        // SameValueZero is valid for Eq, but not sure about Ord
-        self.cmp(other) == Ordering::Equal
-    }
+    fn eq(&self, other: &Self) -> bool { self.cmp(other) == Ordering::Equal }
 }
 
 impl Eq for Value {}
@@ -166,6 +164,29 @@ impl fmt::Display for Value {
                 Ok(())
             }
         }
+    }
+}
+
+///////////////
+// ValueList //
+///////////////
+
+#[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord)]
+pub struct ValueList {
+    values: Rc<Vec<Value>>,
+}
+
+impl ValueList {
+    pub fn new() -> Self { ValueList { values: Rc::new(Vec::new()) } }
+
+    pub fn iter(&self) -> impl Iterator<Item = &Value> { self.values.iter() }
+
+    pub fn into_list(self) -> Vec<Value> { Rc::unwrap_or_clone(self.values) }
+}
+
+impl FromIterator<Value> for ValueList {
+    fn from_iter<T: IntoIterator<Item = Value>>(iter: T) -> Self {
+        ValueList { values: Rc::new(Vec::from_iter(iter)) }
     }
 }
 

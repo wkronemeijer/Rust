@@ -1,12 +1,11 @@
-use std::rc::Rc;
-
 use super::dictionary::Dictionary;
 use super::grammar::ast::Ast;
+use super::grammar::parser::parse;
 use super::grammar::scanner::scan;
 use super::host::Host;
 use super::stack::Stack;
 use super::value::Value;
-use crate::forth::grammar::parser::parse;
+use super::value::ValueList;
 
 // TODO: Interpreter is really more of the equivalent of LuaState
 // ForthState? JoyState? StateOfJoy?
@@ -26,18 +25,22 @@ impl<'a> Interpreter<'a> {
         interpreter
     }
 
-    pub fn exec(&mut self, value: Value) -> crate::Result {
-        let Value::List(nodes) = value else {
-            return Err(crate::Error::ExecuteTypeError(value.kind()));
-        };
-        for node in Rc::unwrap_or_clone(nodes).into_iter() {
-            if let Value::Symbol(s) = node {
+    pub fn exec_list(&mut self, list: &ValueList) -> crate::Result {
+        for item in list.iter() {
+            if let Value::Symbol(s) = item {
                 self.words.get(&s)?.run(self)?;
             } else {
-                self.stack.push(node.clone())
+                self.stack.push(item.clone())
             }
         }
         Ok(())
+    }
+
+    pub fn exec(&mut self, value: Value) -> crate::Result {
+        let Value::List(ref nodes) = value else {
+            return Err(crate::Error::ExecuteTypeError(value.kind()));
+        };
+        self.exec_list(nodes)
     }
 
     pub fn eval(&mut self, input: &str) -> crate::Result {
@@ -52,4 +55,6 @@ impl<'a> Interpreter<'a> {
             Ok(())
         }
     }
+
+    pub fn close(self) -> &'a mut dyn Host { self.host }
 }

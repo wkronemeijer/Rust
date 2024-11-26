@@ -3,30 +3,32 @@ use std::collections::HashMap;
 use std::fmt;
 use std::fmt::Write as _;
 
-use crate::forth::interpreter::Interpreter;
+use super::interpreter::Interpreter;
+use super::value::ValueList;
 
-pub type NativeFn = fn(&mut Interpreter) -> crate::Result;
 // Still find it weird that fn types aren't !Sized
 // I mean, it's some region of code, right?
 // Function pointers would then just be &'static fn(...)
 // Equally usable
 // Also opens the door for JIT stuff
-// TODO: Reintroduce Word with ValueList variant
+pub type NativeFn = fn(&mut Interpreter) -> crate::Result;
+pub type UserFn = ValueList;
 
 #[derive(Debug, Clone)]
 pub enum Word {
     Native(NativeFn),
+    User(UserFn),
 }
 
 impl Word {
     pub fn run(&self, ip: &mut Interpreter) -> crate::Result {
         match self {
             Word::Native(func) => func(ip),
+            Word::User(list) => ip.exec_list(list),
         }
     }
 }
 
-#[derive(Debug, Clone)]
 pub struct Dictionary {
     word_by_name: HashMap<Cow<'static, str>, Word>,
 }
