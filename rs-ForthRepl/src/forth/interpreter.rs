@@ -11,7 +11,7 @@ use super::value::ValueList;
 // ForthState? JoyState? StateOfJoy?
 pub struct Interpreter<'a> {
     pub stack: Stack,
-    pub words: Dictionary,
+    pub dict: Dictionary,
     // TODO: Use H, replace with fn close<H: Host>(self) -> H
     pub host: &'a mut dyn Host,
 }
@@ -19,8 +19,8 @@ pub struct Interpreter<'a> {
 impl<'a> Interpreter<'a> {
     pub fn new(host: &'a mut dyn Host) -> Self {
         let stack = Stack::new();
-        let words = Dictionary::new();
-        let mut interpreter = Interpreter { stack, words, host };
+        let dict = Dictionary::new();
+        let mut interpreter = Interpreter { stack, dict, host };
         interpreter.register_builtins();
         interpreter
     }
@@ -28,7 +28,7 @@ impl<'a> Interpreter<'a> {
     pub fn exec_list(&mut self, list: &ValueList) -> crate::Result {
         for item in list.iter() {
             if let Value::Symbol(s) = item {
-                self.words.get(&s)?.run(self)?;
+                self.dict.get(&s)?.run(self)?;
             } else {
                 self.stack.push(item.clone())
             }

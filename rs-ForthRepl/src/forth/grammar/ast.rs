@@ -1,7 +1,6 @@
 use std::rc::Rc;
 
 use super::super::value::Value;
-use crate::forth::value::ValueList;
 
 // no CST this time
 // formatting Forth/Joy code can be done but it does extremely little for clarity

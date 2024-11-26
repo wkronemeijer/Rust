@@ -6,11 +6,11 @@ use std::fmt::Write as _;
 use super::interpreter::Interpreter;
 use super::value::ValueList;
 
-// Still find it weird that fn types aren't !Sized
-// I mean, it's some region of code, right?
-// Function pointers would then just be &'static fn(...)
-// Equally usable
-// Also opens the door for JIT stuff
+//////////
+// Word //
+//////////
+
+// Still find it weird that fn(...) types aren't !Sized
 pub type NativeFn = fn(&mut Interpreter) -> crate::Result;
 pub type UserFn = ValueList;
 
@@ -29,6 +29,10 @@ impl Word {
     }
 }
 
+////////////////
+// Dictionary //
+////////////////
+
 pub struct Dictionary {
     word_by_name: HashMap<Cow<'static, str>, Word>,
 }
@@ -36,12 +40,21 @@ pub struct Dictionary {
 impl Dictionary {
     pub fn new() -> Self { Dictionary { word_by_name: HashMap::new() } }
 
-    pub fn define(&mut self, name: Cow<'static, str>, word: Word) {
-        debug_assert!(
-            !self.word_by_name.contains_key(&name),
-            "'{name}' is defined more than once"
-        );
-        self.word_by_name.insert(name, word);
+    pub fn define(
+        &mut self,
+        name: Cow<'static, str>,
+        word: Word,
+    ) -> crate::Result {
+        use std::collections::hash_map::Entry::*;
+        match self.word_by_name.entry(name) {
+            Occupied(slot) => {
+                return Err(crate::Error::NameAlreadyInUse(
+                    slot.key().to_string().into(),
+                ))
+            }
+            Vacant(slot) => slot.insert(word),
+        };
+        Ok(())
     }
 
     pub fn has(&self, name: &str) -> bool {

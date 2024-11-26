@@ -22,6 +22,8 @@ pub enum Value {
 }
 
 // Idea: use some traits and associated types to make these conversion simpler
+// well..."""simpler"""
+// Also ripe for try_into implementations
 impl Value {
     fn type_err(&self, goal: ValueKind) -> crate::Error {
         crate::Error::TypeConversion { from: self.kind(), to: goal }
@@ -93,9 +95,9 @@ impl Value {
         })
     }
 
-    pub fn into_list(self) -> crate::Result<Vec<Value>> {
+    pub fn into_list(self) -> crate::Result<ValueList> {
         Ok(match self {
-            List(nodes) => nodes.into_list(),
+            List(nodes) => nodes,
             // TODO: string -> list
             _ => return Err(self.type_err(ValueKind::List)),
         })
