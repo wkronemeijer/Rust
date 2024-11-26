@@ -167,6 +167,18 @@ fn do_register(interpreter: &mut Interpreter) -> crate::Result {
         Ok(())
     })?;
 
+    ////////
+    // IO //
+    ////////
+
+    define("fs.read", |env| {
+        let [filename] = env.stack.parallel_pop()?;
+        let filename = filename.into_string()?;
+        let contents = env.host.read_file(&filename)?;
+        env.stack.push(Text(contents.into()));
+        Ok(())
+    })?;
+
     //////////////
     // Complete //
     //////////////

@@ -33,6 +33,8 @@ pub enum Error {
     IntegerRange,
     #[error("parse error: {0}")]
     ParseError(CompactString),
+    #[error("io error: {0}")]
+    IoError(CompactString),
 }
 
 ////////////

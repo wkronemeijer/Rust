@@ -12,7 +12,10 @@ use super::value::ValueList;
 pub struct Interpreter<'a> {
     pub stack: Stack,
     pub dict: Dictionary,
-    // TODO: Use H, replace with fn close<H: Host>(self) -> H
+    // I've considered using a type parameter H: Host
+    // But that would spray a little tiny type parameter over
+    // the entire code and I didn't like that
+    // Maybe I'll revisit at some point.
     pub host: &'a mut dyn Host,
 }
 
