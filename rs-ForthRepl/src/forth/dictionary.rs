@@ -29,22 +29,29 @@ impl Word {
     }
 }
 
+impl fmt::Display for Word {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        match self {
+            Word::Native(_) => f.write_str("<native code>"),
+            Word::User(list) => list.fmt(f),
+        }
+    }
+}
+
 ////////////////
 // Dictionary //
 ////////////////
 
+pub type WordName = Cow<'static, str>;
+
 pub struct Dictionary {
-    word_by_name: HashMap<Cow<'static, str>, Word>,
+    word_by_name: HashMap<WordName, Word>,
 }
 
 impl Dictionary {
     pub fn new() -> Self { Dictionary { word_by_name: HashMap::new() } }
 
-    pub fn define(
-        &mut self,
-        name: Cow<'static, str>,
-        word: Word,
-    ) -> crate::Result {
+    pub fn define(&mut self, name: WordName, word: Word) -> crate::Result {
         use std::collections::hash_map::Entry::*;
         match self.word_by_name.entry(name) {
             Occupied(slot) => {
@@ -70,12 +77,32 @@ impl Dictionary {
 
 impl fmt::Display for Dictionary {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-        let iter = &mut self.word_by_name.keys();
+        let mut keys = Vec::from_iter(self.word_by_name.keys());
+        keys.sort();
+        let max_len = keys.iter().map(|k| k.chars().count()).max().unwrap_or(0);
+
+        let fmt_entry = |n: &WordName, f: &mut fmt::Formatter| -> fmt::Result {
+            let key = n.to_string();
+            let value = self.word_by_name.get(n).unwrap();
+
+            let key_len = key.chars().count();
+            let padding_len = (max_len - key_len).max(0);
+            let padding = " ".repeat(padding_len + 1);
+            // TODO: refactor ↑ into left_pad
+
+            key.fmt(f)?;
+            padding.fmt(f)?;
+            value.fmt(f)?;
+
+            Ok(())
+        };
+
+        let mut iter = keys.into_iter();
         if let Some(first) = iter.next() {
-            first.fmt(f)?;
+            fmt_entry(first, f)?;
             for rest in iter {
                 f.write_char('\n')?;
-                rest.fmt(f)?;
+                fmt_entry(rest, f)?;
             }
         }
         Ok(())

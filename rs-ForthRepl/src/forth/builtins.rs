@@ -8,7 +8,9 @@ use super::grammar::scanner::scan;
 use super::interpreter::Interpreter;
 use super::value::Value::*;
 
-fn do_register(interpreter: &mut Interpreter) -> crate::Result {
+pub(crate) fn register_builtins(
+    interpreter: &mut Interpreter,
+) -> crate::Result {
     let mut define = |name: &'static str, func: NativeFn| -> crate::Result {
         interpreter.dict.define(Cow::Borrowed(name), Word::Native(func))
     };
@@ -52,7 +54,7 @@ fn do_register(interpreter: &mut Interpreter) -> crate::Result {
         Ok(())
     })?;
 
-    define("clear", |env| {
+    define("drop.all", |env| {
         env.stack.clear();
         Ok(())
     })?;
@@ -202,15 +204,21 @@ fn do_register(interpreter: &mut Interpreter) -> crate::Result {
         Ok(())
     })?;
 
+    /////////////////////
+    // In-code defined //
+    /////////////////////
+
+    interpreter.eval(
+        r#"
+"import" [fs.read eval exec] defun
+    
+    
+    "#,
+    )?;
+
     //////////////
     // Complete //
     //////////////
 
     Ok(())
-}
-
-impl<'h> Interpreter<'h> {
-    pub(crate) fn register_builtins(&mut self) {
-        do_register(self).expect("registering builtins failed");
-    }
 }

@@ -1,3 +1,4 @@
+use super::builtins::register_builtins;
 use super::dictionary::Dictionary;
 use super::grammar::ast::Ast;
 use super::grammar::parser::parse;
@@ -10,13 +11,13 @@ use super::value::ValueList;
 // TODO: Interpreter is really more of the equivalent of LuaState
 // ForthState? JoyState? StateOfJoy?
 pub struct Interpreter<'a> {
-    pub stack: Stack,
-    pub dict: Dictionary,
+    pub(crate) stack: Stack,
+    pub(crate) dict: Dictionary,
     // I've considered using a type parameter H: Host
     // But that would spray a little tiny type parameter over
     // the entire code and I didn't like that
     // Maybe I'll revisit at some point.
-    pub host: &'a mut dyn Host,
+    pub(crate) host: &'a mut dyn Host,
 }
 
 impl<'a> Interpreter<'a> {
@@ -24,9 +25,14 @@ impl<'a> Interpreter<'a> {
         let stack = Stack::new();
         let dict = Dictionary::new();
         let mut interpreter = Interpreter { stack, dict, host };
-        interpreter.register_builtins();
+        register_builtins(&mut interpreter)
+            .expect("registering builtins failed");
         interpreter
     }
+
+    pub fn stack(&self) -> &Stack { &self.stack }
+
+    pub fn dict(&self) -> &Dictionary { &self.dict }
 
     pub fn exec_list(&mut self, list: &ValueList) -> crate::Result {
         for item in list.iter() {

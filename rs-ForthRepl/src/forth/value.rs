@@ -153,18 +153,7 @@ impl fmt::Display for Value {
             Float(x) => x.fmt(f),
             Text(t) => write!(f, "\"{t}\""),
             Symbol(s) => s.fmt(f),
-            List(l) => {
-                f.write_str("[")?;
-                let mut iter = l.iter();
-                if let Some(first) = iter.next() {
-                    write!(f, "{first}")?;
-                    for rest in iter {
-                        write!(f, " {rest}")?;
-                    }
-                }
-                f.write_str("]")?;
-                Ok(())
-            }
+            List(l) => l.fmt(f),
         }
     }
 }
@@ -189,6 +178,22 @@ impl ValueList {
 impl FromIterator<Value> for ValueList {
     fn from_iter<T: IntoIterator<Item = Value>>(iter: T) -> Self {
         ValueList { values: Rc::new(Vec::from_iter(iter)) }
+    }
+}
+
+impl fmt::Display for ValueList {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        f.write_str("[")?;
+        let mut iter = self.iter();
+        if let Some(first) = iter.next() {
+            first.fmt(f)?;
+            for rest in iter {
+                f.write_str(" ")?;
+                rest.fmt(f)?;
+            }
+        }
+        f.write_str("]")?;
+        Ok(())
     }
 }
 

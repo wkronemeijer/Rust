@@ -21,7 +21,7 @@ fn print_prompt() {
 }
 
 fn print_stack(interpreter: &Interpreter) {
-    let stack = &interpreter.stack;
+    let stack = interpreter.stack();
     if stack.depth() > 0 {
         print!("\x1b[34m");
         print!("{}", stack);
