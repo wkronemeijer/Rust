@@ -2,6 +2,9 @@ use std::borrow::Cow;
 
 use super::dictionary::NativeFn;
 use super::dictionary::Word;
+use super::grammar::ast::Ast;
+use super::grammar::parser::parse;
+use super::grammar::scanner::scan;
 use super::interpreter::Interpreter;
 use super::value::Value::*;
 
@@ -57,6 +60,26 @@ fn do_register(interpreter: &mut Interpreter) -> crate::Result {
     define("exec", |env| {
         let [a] = env.stack.parallel_pop()?;
         env.exec(a)
+    })?;
+
+    define("eval", |env| {
+        let [source] = env.stack.parallel_pop()?;
+        let source = source.into_string()?;
+
+        let result = scan(&source).and_then(parse);
+        for diag in result.report().iter() {
+            println!("{diag}");
+
+            if let Some(first) = result.report().iter().next() {
+                return Err(crate::Error::ParseError(first.to_string().into()));
+            }
+        }
+        if let Some(value) = result.ok().map(Ast::into_value) {
+            env.stack.push(value);
+        } else {
+            // any diagnostics have already been thrown at this point
+        }
+        Ok(())
     })?;
 
     define("defun", |env| {
