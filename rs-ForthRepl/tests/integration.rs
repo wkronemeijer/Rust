@@ -10,7 +10,7 @@ fn push_numbers() -> forth_repl::Result {
     assert_eq!(interpreter.stack().depth(), 2);
     interpreter.eval("+")?;
     let result = interpreter.stack().peek().cloned();
-    assert_eq!(result, Some(Float(36.0)));
+    assert_eq!(result, Some(Number(36.0)));
     // TODO: check for output here
     Ok(())
 }

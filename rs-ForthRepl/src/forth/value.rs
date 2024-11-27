@@ -14,8 +14,7 @@ pub enum Value {
     Null,
     Bool(bool),
     Char(char),
-    Int(i32),
-    Float(f64),
+    Number(f64),
     Symbol(Rc<String>),
     Text(Rc<String>),
     List(ValueList),
@@ -35,8 +34,7 @@ impl Value {
             Null => false,
             Bool(b) => b,
             Char(c) => c != '\0',
-            Int(i) => i != 0,
-            Float(x) => !(x.is_nan() || x == 0.0),
+            Number(x) => !(x.is_nan() || x == 0.0),
             Symbol(_) => true,
             Text(_) => true,
             List(_) => true,
@@ -48,9 +46,7 @@ impl Value {
         Ok(match self {
             Null => '\0',
             Char(c) => c,
-            Int(i) => char::try_from(i as u32)
-                .map_err(|_| crate::Error::IntegerRange)?,
-            Float(x) => char::try_from(x as u32)
+            Number(x) => char::try_from(x as u32)
                 .map_err(|_| crate::Error::IntegerRange)?,
             _ => return Err(self.type_err(ValueKind::Char)),
         })
@@ -66,10 +62,9 @@ impl Value {
                     0
                 }
             }
-            Int(i) => i,
             Char(c) => u32::from(c) as i32, // NB: char::MAX <= i32::MAX
-            Float(x) => x.floor() as i32,
-            _ => return Err(self.type_err(ValueKind::Float)),
+            Number(x) => x.trunc() as i32,
+            _ => return Err(self.type_err(ValueKind::Number)),
         })
     }
 
@@ -83,8 +78,8 @@ impl Value {
                     0.0
                 }
             }
-            Float(x) => x,
-            _ => Err(self.type_err(ValueKind::Float))?,
+            Number(x) => x,
+            _ => Err(self.type_err(ValueKind::Number))?,
         })
     }
 
@@ -125,7 +120,7 @@ impl Ord for Value {
             (Null, Null) => Ordering::Equal,
             (Bool(a), Bool(b)) => a.cmp(b),
             (Char(a), Char(b)) => a.cmp(b),
-            (Float(a), Float(b)) => a.total_cmp(b),
+            (Number(a), Number(b)) => a.total_cmp(b),
             (Text(a), Text(b)) => a.cmp(b),
             (List(a), List(b)) => a.cmp(b),
             // Inter-kind
@@ -149,8 +144,7 @@ impl fmt::Display for Value {
             Null => f.write_str("null"),
             Bool(b) => b.fmt(f),
             Char(c) => write!(f, "'{c}'"),
-            Int(i) => i.fmt(f),
-            Float(x) => x.fmt(f),
+            Number(x) => x.fmt(f),
             Text(t) => write!(f, "\"{t}\""),
             Symbol(s) => s.fmt(f),
             List(l) => l.fmt(f),
@@ -209,8 +203,7 @@ pub enum ValueKind {
     Null,
     Bool,
     Char,
-    Int,
-    Float,
+    Number,
     Symbol,
     Text,
     List,
@@ -223,8 +216,7 @@ impl Value {
             Value::Null => ValueKind::Null,
             Value::Bool(_) => ValueKind::Bool,
             Value::Char(_) => ValueKind::Char,
-            Value::Int(_) => ValueKind::Int,
-            Value::Float(_) => ValueKind::Float,
+            Value::Number(_) => ValueKind::Number,
             Value::Symbol(_) => ValueKind::Symbol,
             Value::Text(_) => ValueKind::Text,
             Value::List(_) => ValueKind::List,
@@ -238,8 +230,7 @@ impl fmt::Display for ValueKind {
             Self::Null => f.write_str("null"),
             Self::Bool => f.write_str("bool"),
             Self::Char => f.write_str("char"),
-            Self::Int => f.write_str("int"),
-            Self::Float => f.write_str("float"),
+            Self::Number => f.write_str("number"),
             Self::Text => f.write_str("string"),
             Self::Symbol => f.write_str("symbol"),
             Self::List => f.write_str("list"),
@@ -264,13 +255,13 @@ mod tests {
         assert_eq!(Bool(false).into_bool()?, false);
         assert_eq!(Bool(true).into_bool()?, true);
 
-        assert_eq!(Float(0.0).into_bool()?, false);
-        assert_eq!(Float(-0.0).into_bool()?, false);
-        assert_eq!(Float(f64::NAN).into_bool()?, false);
-        assert_eq!(Float(1.0).into_bool()?, true);
-        assert_eq!(Float(-0.1).into_bool()?, true);
-        assert_eq!(Float(f64::INFINITY).into_bool()?, true);
-        assert_eq!(Float(528491.117).into_bool()?, true);
+        assert_eq!(Number(0.0).into_bool()?, false);
+        assert_eq!(Number(-0.0).into_bool()?, false);
+        assert_eq!(Number(f64::NAN).into_bool()?, false);
+        assert_eq!(Number(1.0).into_bool()?, true);
+        assert_eq!(Number(-0.1).into_bool()?, true);
+        assert_eq!(Number(f64::INFINITY).into_bool()?, true);
+        assert_eq!(Number(528491.117).into_bool()?, true);
 
         Ok(())
     }

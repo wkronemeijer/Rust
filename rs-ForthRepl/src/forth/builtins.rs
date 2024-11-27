@@ -59,6 +59,10 @@ pub(crate) fn register_builtins(
         Ok(())
     })?;
 
+    ////////////////
+    // Reflection //
+    ////////////////
+
     define("exec", |env| {
         let [a] = env.stack.parallel_pop()?;
         env.exec(a)
@@ -91,9 +95,35 @@ pub(crate) fn register_builtins(
         env.dict.define(Cow::Owned(name), Word::User(body))
     })?;
 
+    //////////////////
+    // Control flow //
+    //////////////////
+
+    define("branch", |env| {
+        let [bool, if_true, if_false] = env.stack.parallel_pop()?;
+        let bool = bool.into_bool()?;
+        env.exec(if bool { if_true } else { if_false })
+    })?;
+
+    define("ifte", |env| {
+        let [bool_body, if_true, if_false] = env.stack.parallel_pop()?;
+        let top = env.stack.pop()?;
+        env.stack.push(top.clone());
+        env.stack.push(top);
+        env.exec(bool_body)?;
+        let bool = env.stack.pop()?.into_bool()?;
+        env.exec(if bool { if_true } else { if_false })
+    })?;
+
     //////////////////////
     // Primitive values //
     //////////////////////
+
+    define("bool", |env| {
+        let [a] = env.stack.parallel_pop()?;
+        env.stack.push(Bool(a.into_bool()?));
+        Ok(())
+    })?;
 
     define("char", |env| {
         let [a] = env.stack.parallel_pop()?;
@@ -103,13 +133,13 @@ pub(crate) fn register_builtins(
 
     define("int", |env| {
         let [a] = env.stack.parallel_pop()?;
-        env.stack.push(Int(a.into_int()?));
+        env.stack.push(Number(a.into_int()? as f64));
         Ok(())
     })?;
 
-    define("float", |env| {
+    define("number", |env| {
         let [a] = env.stack.parallel_pop()?;
-        env.stack.push(Float(a.into_float()?));
+        env.stack.push(Number(a.into_float()?));
         Ok(())
     })?;
 
@@ -135,7 +165,7 @@ pub(crate) fn register_builtins(
         let [a, b] = env.stack.parallel_pop()?;
         let a = a.into_float()?;
         let b = b.into_float()?;
-        env.stack.push(Float(a + b));
+        env.stack.push(Number(a + b));
         Ok(())
     })?;
 
@@ -143,7 +173,7 @@ pub(crate) fn register_builtins(
         let [a, b] = env.stack.parallel_pop()?;
         let a = a.into_float()?;
         let b = b.into_float()?;
-        env.stack.push(Float(a - b));
+        env.stack.push(Number(a - b));
         Ok(())
     })?;
 
@@ -151,7 +181,7 @@ pub(crate) fn register_builtins(
         let [a, b] = env.stack.parallel_pop()?;
         let a = a.into_float()?;
         let b = b.into_float()?;
-        env.stack.push(Float(a * b));
+        env.stack.push(Number(a * b));
         Ok(())
     })?;
 
@@ -159,7 +189,7 @@ pub(crate) fn register_builtins(
         let [a, b] = env.stack.parallel_pop()?;
         let a = a.into_float()?;
         let b = b.into_float()?;
-        env.stack.push(Float(a / b));
+        env.stack.push(Number(a / b));
         Ok(())
     })?;
 
@@ -174,9 +204,15 @@ pub(crate) fn register_builtins(
         Ok(())
     })?;
 
-    define("=", |env| {
+    define("==", |env| {
         let [a, b] = env.stack.parallel_pop()?;
         env.stack.push(Bool(a == b));
+        Ok(())
+    })?;
+
+    define("!=", |env| {
+        let [a, b] = env.stack.parallel_pop()?;
+        env.stack.push(Bool(a != b));
         Ok(())
     })?;
 
@@ -211,8 +247,6 @@ pub(crate) fn register_builtins(
     interpreter.eval(
         r#"
 "import" [fs.read eval exec] defun
-    
-    
     "#,
     )?;
 
