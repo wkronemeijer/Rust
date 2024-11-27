@@ -1,10 +1,9 @@
-use TokenKind::*;
-
 use super::error::DiagnosticList;
 use super::error::SyntaxError;
 use super::result::CompileResult;
 use super::token::Token;
 use super::token::TokenKind;
+use super::token::TokenKind::*;
 
 /// Re-implementation of the old `char_at`
 ///
@@ -71,11 +70,16 @@ fn is_digit(c: char) -> bool { matches!(c, '0'..='9') }
 // Forth is pretty tolerant when it comes to identifiers
 // Safe because it is always matched last
 fn is_alphanum(c: char) -> bool {
-    !matches!(c, ' ' | '\t' | '\r' | '\n' | '"' | ']')
+    !matches!(c, 
+        // Whitespace
+        | ' ' | '\t' | '\r' | '\n' 
+        // (Other) delimiters
+        | '(' | ')' | '[' | ']' | '{' | '}' | '"' | '`' | '\''
+    )
 }
 
 // Domain-specific scanning methods
-impl<'source> Scanner<'source> {
+impl<'s> Scanner<'s> {
     fn finish_number(&mut self) -> Token {
         self.advance_while(is_digit);
         if let Some('.') = self.peek() {
