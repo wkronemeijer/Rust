@@ -2,10 +2,10 @@ use std::borrow::Cow;
 
 use super::dictionary::NativeFn;
 use super::dictionary::Word;
-use super::grammar::parser::parse;
-use super::grammar::scanner::scan;
 use super::state::State;
 use super::value::Value::*;
+use crate::parsing::parser::parse;
+use crate::parsing::scanner::scan;
 
 pub(crate) fn register_builtins(interpreter: &mut State) -> crate::Result {
     let mut define = |name: &'static str, func: NativeFn| -> crate::Result {

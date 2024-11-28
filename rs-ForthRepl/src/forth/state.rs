@@ -1,11 +1,11 @@
 use super::builtins::register_builtins;
 use super::dictionary::Dictionary;
-use super::grammar::parser::parse;
-use super::grammar::scanner::scan;
 use super::host::Host;
 use super::stack::Stack;
 use super::value::Value;
 use super::value::ValueList;
+use crate::parsing::parser::parse;
+use crate::parsing::scanner::scan;
 
 // TODO: Interpreter is really more of the equivalent of LuaState
 // ForthState? JoyState? StateOfJoy?

@@ -3,10 +3,10 @@ use std::fmt;
 use std::rc::Rc;
 use std::str::FromStr;
 
-use super::grammar::error::DiagnosticList;
-use super::grammar::parser::parse;
-use super::grammar::scanner::scan;
 use super::value::Value::*;
+use crate::parsing::error::DiagnosticList;
+use crate::parsing::parser::parse;
+use crate::parsing::scanner::scan;
 
 ///////////
 // Value //
