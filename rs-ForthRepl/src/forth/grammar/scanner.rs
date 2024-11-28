@@ -111,6 +111,13 @@ impl<'s> Scanner<'s> {
         Some(self.token(STRING))
     }
 
+    fn finish_character(&mut self) -> Option<Token> {
+        // TODO: Choose to restrict strings to a single line
+        self.advance_until(|c| c == '\'')?;
+        self.advance(); // consume the "
+        Some(self.token(CHARACTER))
+    }
+
     fn finish_identifier(&mut self) -> Token {
         self.advance_while(is_alphanum);
         self.token(match self.lexeme() {
@@ -132,6 +139,7 @@ impl<'s> Scanner<'s> {
                 ']' => self.token(RIGHT_BRACKET),
                 '(' => self.finish_comment()?,
                 '"' => self.finish_string()?,
+                '\'' => self.finish_character()?,
                 '-' if self.peek().is_some_and(is_digit) => {
                     self.finish_number()
                 }

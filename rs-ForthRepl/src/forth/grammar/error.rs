@@ -22,6 +22,11 @@ pub enum SyntaxError {
     #[error("unterminated literal")]
     UnterminatedLiteral,
 
+    #[error("character literal is too short")]
+    CharTooShort,
+    #[error("character literal is too long")]
+    CharTooLong,
+
     #[error("expected token '{expected}', received '{actual}'")]
     ExpectedToken { expected: TokenKind, actual: TokenKind },
 

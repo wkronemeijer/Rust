@@ -18,6 +18,8 @@ pub enum TokenKind {
 
     NUMBER,
     STRING,
+    /// Note that a character token might be (a lot) longer
+    CHARACTER,
     IDENTIFIER,
     COMMENT,
 }

@@ -9,8 +9,9 @@ pub enum Ast {
     Null,
     False,
     True,
+    Char(char),
     Number(f64),
-    StringLiteral(String),
+    String(String),
     Identifier(String),
     List(Vec<Ast>),
 }
@@ -24,8 +25,9 @@ impl Ast {
             Ast::Null => Value::Null,
             Ast::False => Value::Bool(false),
             Ast::True => Value::Bool(true),
+            Ast::Char(c) => Value::Char(c),
             Ast::Number(x) => Value::Number(x),
-            Ast::StringLiteral(s) => Value::Text(Box::new(s)),
+            Ast::String(s) => Value::Text(Box::new(s)),
             Ast::Identifier(i) => Value::Symbol(Box::new(i)),
             Ast::List(l) => {
                 Value::List(l.into_iter().map(Ast::into_value).collect())

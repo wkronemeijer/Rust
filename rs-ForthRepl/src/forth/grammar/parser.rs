@@ -10,18 +10,31 @@ use super::token::TokenKind::*;
 struct Sync;
 
 type CanThrow<T = ()> = std::result::Result<T, Sync>;
+// ...this is just Option<T>...
 
 /// Slice off the `"` on both ends
-fn unescape(mut lexeme: &str) -> &str {
-    if lexeme.starts_with('"') {
+fn extract_string<'s>(mut lexeme: &'s str, delim: char) -> &'s str {
+    if lexeme.starts_with(delim) {
         lexeme = &lexeme[1..];
     }
-
-    if lexeme.ends_with('"') {
+    if lexeme.ends_with(delim) {
         lexeme = &lexeme[..lexeme.len() - 1];
     }
-    // TODO: interpret sequences like \n
+    // TODO: interpret escape sequences like \n
     lexeme
+}
+
+fn extract_char(lexeme: &str, report: &mut DiagnosticList) -> CanThrow<char> {
+    let mut chars = extract_string(lexeme, '\'').chars();
+    let Some(c) = chars.next() else {
+        report.error(SyntaxError::CharTooShort);
+        return Err(Sync);
+    };
+    let None = chars.next() else {
+        report.error(SyntaxError::CharTooLong);
+        return Err(Sync);
+    };
+    Ok(c)
 }
 
 struct Parser<'s> {
@@ -126,9 +139,14 @@ impl<'s> Parser<'s> {
                 let lexeme = token.lexeme(self.source);
                 Ok(Ast::Identifier(lexeme.to_owned()))
             }
+            CHARACTER => {
+                let lexeme = token.lexeme(self.source);
+                let c = extract_char(lexeme, &mut self.report)?;
+                Ok(Ast::Char(c))
+            }
             STRING => {
                 let lexeme = token.lexeme(self.source);
-                Ok(Ast::StringLiteral(unescape(lexeme).to_owned()))
+                Ok(Ast::String(extract_string(lexeme, '"').to_owned()))
             }
             _ => {
                 self.report.error(SyntaxError::UnexpectedToken(token.kind()));
