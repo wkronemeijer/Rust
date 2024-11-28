@@ -3,7 +3,7 @@
 "square" [dup *] defun
 
 "factorial" (x -- fact) [
-    [0 ==] 
+    [0 <=] 
     [drop 1] 
     [dup 1 - factorial *] 
     ifte

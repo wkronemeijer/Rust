@@ -1,4 +1,3 @@
-use super::ast::Ast;
 use super::error::DiagnosticList;
 use super::error::SyntaxError;
 use super::result::CompileResult;
@@ -6,6 +5,8 @@ use super::scanner::TokenList;
 use super::token::Token;
 use super::token::TokenKind;
 use super::token::TokenKind::*;
+use crate::forth::value::Value;
+use crate::forth::value::ValueList;
 
 /// Slice off the `"` on both ends
 fn extract_string<'s>(mut lexeme: &'s str, delim: char) -> &'s str {
@@ -86,7 +87,7 @@ impl<'s> Parser<'s> {
 
 // domain-specific
 impl<'s> Parser<'s> {
-    fn list_body(&mut self) -> Option<Vec<Ast>> {
+    fn list_body(&mut self) -> Option<ValueList> {
         let mut elements = Vec::new();
         loop {
             if self.check(RIGHT_BRACKET) || self.check(END_OF_FILE) {
@@ -100,46 +101,46 @@ impl<'s> Parser<'s> {
             }
             elements.push(self.expr()?);
         }
-        Some(elements)
+        Some(ValueList::from_vec(elements))
     }
 
-    fn list(&mut self) -> Option<Ast> {
-        let nodes = self.list_body()?;
+    fn list(&mut self) -> Option<Value> {
+        let body = self.list_body()?;
         self.consume(RIGHT_BRACKET)?;
-        Some(Ast::List(nodes))
+        Some(Value::List(body))
     }
 
-    fn program(&mut self) -> Option<Ast> {
+    fn program(&mut self) -> Option<Value> {
         self.consume(START_OF_FILE)?;
-        let nodes = self.list_body()?;
+        let body = self.list_body()?;
         self.consume(END_OF_FILE)?;
-        Some(Ast::List(nodes))
+        Some(Value::List(body))
     }
 
-    fn expr(&mut self) -> Option<Ast> {
+    fn expr(&mut self) -> Option<Value> {
         let token = self.advance().expect("unexpected eof");
         match token.kind() {
             LEFT_BRACKET => self.list(),
-            NULL => Some(Ast::Null),
-            FALSE => Some(Ast::False),
-            TRUE => Some(Ast::True),
+            NULL => Some(Value::Null),
+            FALSE => Some(Value::Bool(false)),
+            TRUE => Some(Value::Bool(true)),
             NUMBER => {
                 let lexeme = token.lexeme(self.source);
                 let number = lexeme.parse::<f64>().ok()?;
-                Some(Ast::Number(number))
+                Some(Value::Number(number))
             }
             IDENTIFIER => {
                 let lexeme = token.lexeme(self.source);
-                Some(Ast::Identifier(lexeme.to_owned()))
+                Some(Value::Symbol(lexeme.to_owned().into()))
             }
             CHARACTER => {
                 let lexeme = token.lexeme(self.source);
                 let c = extract_char(lexeme, &mut self.report)?;
-                Some(Ast::Char(c))
+                Some(Value::Char(c))
             }
             STRING => {
                 let lexeme = token.lexeme(self.source);
-                Some(Ast::String(extract_string(lexeme, '"').to_owned()))
+                Some(Value::Text(extract_string(lexeme, '"').to_owned().into()))
             }
             _ => {
                 self.report.error(SyntaxError::UnexpectedToken(token.kind()));
@@ -148,7 +149,7 @@ impl<'s> Parser<'s> {
         }
     }
 
-    pub fn parse(mut self) -> CompileResult<Ast> {
+    pub fn parse(mut self) -> CompileResult<Value> {
         if let Some(program) = self.program() {
             CompileResult::new(program, self.report)
         } else {
@@ -158,6 +159,6 @@ impl<'s> Parser<'s> {
     }
 }
 
-pub fn parse(TokenList(source, tokens): TokenList) -> CompileResult<Ast> {
+pub fn parse(TokenList(source, tokens): TokenList) -> CompileResult<Value> {
     Parser::new(source, tokens).parse()
 }

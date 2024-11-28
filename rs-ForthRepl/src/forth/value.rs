@@ -1,6 +1,11 @@
 use std::cmp::Ordering;
 use std::fmt;
+use std::rc::Rc;
+use std::str::FromStr;
 
+use super::grammar::error::DiagnosticList;
+use super::grammar::parser::parse;
+use super::grammar::scanner::scan;
 use super::value::Value::*;
 
 ///////////
@@ -151,26 +156,38 @@ impl fmt::Display for Value {
     }
 }
 
+impl FromStr for Value {
+    type Err = DiagnosticList;
+
+    fn from_str(source: &str) -> Result<Self, Self::Err> {
+        scan(source).and_then(parse).into_result()
+    }
+}
+
 ///////////////
 // ValueList //
 ///////////////
 
 #[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord)]
 pub struct ValueList {
-    values: Box<Vec<Value>>,
+    values: Rc<Vec<Value>>,
 }
 
 impl ValueList {
-    pub fn new() -> Self { ValueList { values: Box::new(Vec::new()) } }
+    pub fn from_vec(values: Vec<Value>) -> Self {
+        ValueList { values: Rc::new(values) }
+    }
+
+    pub fn new() -> Self { Self::from_vec(Vec::new()) }
 
     pub fn iter(&self) -> impl Iterator<Item = &Value> { self.values.iter() }
 
-    pub fn into_list(self) -> Vec<Value> { *self.values }
+    pub fn into_list(self) -> Vec<Value> { Rc::unwrap_or_clone(self.values) }
 }
 
 impl FromIterator<Value> for ValueList {
     fn from_iter<T: IntoIterator<Item = Value>>(iter: T) -> Self {
-        ValueList { values: Box::new(Vec::from_iter(iter)) }
+        Self::from_vec(Vec::from_iter(iter))
     }
 }
 

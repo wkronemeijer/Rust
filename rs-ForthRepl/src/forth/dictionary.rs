@@ -54,14 +54,13 @@ impl Dictionary {
     pub fn define(&mut self, name: WordName, word: Word) -> crate::Result {
         use std::collections::hash_map::Entry::*;
         match self.word_by_name.entry(name) {
-            Occupied(slot) => {
-                return Err(crate::Error::NameAlreadyInUse(
-                    slot.key().to_string().into(),
-                ))
-            }
-            Vacant(slot) => slot.insert(word),
-        };
-        Ok(())
+            Occupied(slot) => Err(crate::Error::NameAlreadyInUse(
+                slot.key().to_string().into(),
+            )),
+            Vacant(slot) => Ok({
+                slot.insert(word);
+            }),
+        }
     }
 
     pub fn has(&self, name: &str) -> bool {
@@ -87,14 +86,12 @@ impl fmt::Display for Dictionary {
 
             let key_len = key.chars().count();
             let padding_len = (max_len - key_len).max(0);
-            let padding = " ".repeat(padding_len + 1);
-            // TODO: refactor ↑ into left_pad
+            let padding = " ".repeat(padding_len);
 
             key.fmt(f)?;
             padding.fmt(f)?;
-            value.fmt(f)?;
-
-            Ok(())
+            " ".fmt(f)?;
+            value.fmt(f)
         };
 
         let mut iter = keys.into_iter();

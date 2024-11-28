@@ -24,6 +24,14 @@ impl<T> CompileResult<T> {
 
     pub fn ok(self) -> Option<T> { self.value }
 
+    pub fn into_result(self) -> Result<T, DiagnosticList> {
+        let CompileResult { value, report } = self;
+        match value {
+            Some(inner) => Ok(inner),
+            None => Err(report),
+        }
+    }
+
     pub fn report(&self) -> &DiagnosticList { &self.report }
 
     pub fn map<U, F>(self, func: F) -> CompileResult<U>
@@ -68,7 +76,7 @@ impl<T> CompileResult<CompileResult<T>> {
     }
 }
 
-#[allow(unused)]
+#[expect(unused)]
 fn test() {
     // Little sandbox for finding the appropriate result methods to copy
     let result: Result<i32, bool> = Ok(42);

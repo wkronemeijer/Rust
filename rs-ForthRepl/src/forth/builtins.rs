@@ -2,7 +2,6 @@ use std::borrow::Cow;
 
 use super::dictionary::NativeFn;
 use super::dictionary::Word;
-use super::grammar::ast::Ast;
 use super::grammar::parser::parse;
 use super::grammar::scanner::scan;
 use super::interpreter::Interpreter;
@@ -80,7 +79,7 @@ pub(crate) fn register_builtins(
                 return Err(crate::Error::ParseError(first.to_string().into()));
             }
         }
-        if let Some(value) = result.ok().map(Ast::into_value) {
+        if let Some(value) = result.ok() {
             env.stack.push(value);
         } else {
             // any diagnostics have already been thrown at this point
@@ -147,7 +146,7 @@ pub(crate) fn register_builtins(
     // Input/output //
     //////////////////
 
-    define(".", |env| {
+    define("put", |env| {
         let [a] = env.stack.parallel_pop()?;
         env.host.println(&a.into_string()?)
     })?;

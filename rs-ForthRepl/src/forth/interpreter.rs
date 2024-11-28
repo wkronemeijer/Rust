@@ -1,6 +1,5 @@
 use super::builtins::register_builtins;
 use super::dictionary::Dictionary;
-use super::grammar::ast::Ast;
 use super::grammar::parser::parse;
 use super::grammar::scanner::scan;
 use super::host::Host;
@@ -46,10 +45,10 @@ impl<'a> Interpreter<'a> {
     }
 
     pub fn exec(&mut self, value: Value) -> crate::Result {
-        let Value::List(ref nodes) = value else {
-            return Err(crate::Error::ExecuteTypeError(value.kind()));
-        };
-        self.exec_list(nodes)
+        match value {
+            Value::List(ref nodes) => self.exec_list(nodes),
+            _ => Err(crate::Error::ExecuteTypeError(value.kind())),
+        }
     }
 
     pub fn eval(&mut self, input: &str) -> crate::Result {
@@ -57,13 +56,11 @@ impl<'a> Interpreter<'a> {
         for diag in result.report().iter() {
             println!("{diag}");
         }
-        if let Some(value) = result.ok().map(Ast::into_value) {
+        if let Some(value) = result.ok() {
             self.exec(value)
         } else {
             // we have already printed the diagnostics
             Ok(())
         }
     }
-
-    pub fn close(self) -> &'a mut dyn Host { self.host }
 }
