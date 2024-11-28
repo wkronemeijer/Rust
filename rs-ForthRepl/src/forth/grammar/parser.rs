@@ -7,11 +7,6 @@ use super::token::Token;
 use super::token::TokenKind;
 use super::token::TokenKind::*;
 
-struct Sync;
-
-type CanThrow<T = ()> = std::result::Result<T, Sync>;
-// ...this is just Option<T>...
-
 /// Slice off the `"` on both ends
 fn extract_string<'s>(mut lexeme: &'s str, delim: char) -> &'s str {
     if lexeme.starts_with(delim) {
@@ -24,17 +19,17 @@ fn extract_string<'s>(mut lexeme: &'s str, delim: char) -> &'s str {
     lexeme
 }
 
-fn extract_char(lexeme: &str, report: &mut DiagnosticList) -> CanThrow<char> {
+fn extract_char(lexeme: &str, report: &mut DiagnosticList) -> Option<char> {
     let mut chars = extract_string(lexeme, '\'').chars();
     let Some(c) = chars.next() else {
-        report.error(SyntaxError::CharTooShort);
-        return Err(Sync);
+        report.error(SyntaxError::CharEmpty);
+        return None;
     };
     let None = chars.next() else {
         report.error(SyntaxError::CharTooLong);
-        return Err(Sync);
+        return None;
     };
-    Ok(c)
+    Some(c)
 }
 
 struct Parser<'s> {
@@ -74,24 +69,24 @@ impl<'s> Parser<'s> {
         matches
     }
 
-    fn consume(&mut self, expected_kind: TokenKind) -> CanThrow<Token> {
+    fn consume(&mut self, expected_kind: TokenKind) -> Option<Token> {
         let previous = self.advance();
-        let Some(actual) = previous else { return Err(Sync) };
+        let Some(actual) = previous else { return None };
         let actual_kind = actual.kind();
         if actual_kind != expected_kind {
             self.report.error(SyntaxError::ExpectedToken {
                 expected: expected_kind,
                 actual: actual_kind,
             });
-            return Err(Sync);
+            return None;
         }
-        Ok(actual)
+        Some(actual)
     }
 }
 
 // domain-specific
 impl<'s> Parser<'s> {
-    fn list_body(&mut self) -> CanThrow<Vec<Ast>> {
+    fn list_body(&mut self) -> Option<Vec<Ast>> {
         let mut elements = Vec::new();
         loop {
             if self.check(RIGHT_BRACKET) || self.check(END_OF_FILE) {
@@ -101,62 +96,60 @@ impl<'s> Parser<'s> {
                 continue;
             }
             if self.is_at_end() {
-                return Err(Sync);
+                return None;
             }
             elements.push(self.expr()?);
         }
-        Ok(elements)
+        Some(elements)
     }
 
-    fn list(&mut self) -> CanThrow<Ast> {
+    fn list(&mut self) -> Option<Ast> {
         let nodes = self.list_body()?;
         self.consume(RIGHT_BRACKET)?;
-        Ok(Ast::List(nodes))
+        Some(Ast::List(nodes))
     }
 
-    fn program(&mut self) -> CanThrow<Ast> {
+    fn program(&mut self) -> Option<Ast> {
         self.consume(START_OF_FILE)?;
         let nodes = self.list_body()?;
         self.consume(END_OF_FILE)?;
-        Ok(Ast::List(nodes))
+        Some(Ast::List(nodes))
     }
 
-    fn expr(&mut self) -> CanThrow<Ast> {
-        let Some(token) = self.advance() else {
-            panic!("unexpected eof");
-        };
+    fn expr(&mut self) -> Option<Ast> {
+        let token = self.advance().expect("unexpected eof");
         match token.kind() {
             LEFT_BRACKET => self.list(),
-            NULL => Ok(Ast::Null),
-            FALSE => Ok(Ast::False),
-            TRUE => Ok(Ast::True),
+            NULL => Some(Ast::Null),
+            FALSE => Some(Ast::False),
+            TRUE => Some(Ast::True),
             NUMBER => {
                 let lexeme = token.lexeme(self.source);
-                let number = lexeme.parse::<f64>().map_err(|_| Sync)?;
-                Ok(Ast::Number(number))
+                let number = lexeme.parse::<f64>().ok()?;
+                Some(Ast::Number(number))
             }
             IDENTIFIER => {
                 let lexeme = token.lexeme(self.source);
-                Ok(Ast::Identifier(lexeme.to_owned()))
+                Some(Ast::Identifier(lexeme.to_owned()))
             }
             CHARACTER => {
                 let lexeme = token.lexeme(self.source);
                 let c = extract_char(lexeme, &mut self.report)?;
-                Ok(Ast::Char(c))
+                Some(Ast::Char(c))
             }
             STRING => {
                 let lexeme = token.lexeme(self.source);
-                Ok(Ast::String(extract_string(lexeme, '"').to_owned()))
+                Some(Ast::String(extract_string(lexeme, '"').to_owned()))
             }
             _ => {
                 self.report.error(SyntaxError::UnexpectedToken(token.kind()));
-                Err(Sync)
+                None
             }
         }
     }
 
     pub fn parse(mut self) -> CompileResult<Ast> {
-        if let Ok(program) = self.program() {
+        if let Some(program) = self.program() {
             CompileResult::new(program, self.report)
         } else {
             self.report.error(SyntaxError::FailedToSynchronize);

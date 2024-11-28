@@ -22,9 +22,10 @@ pub enum SyntaxError {
     #[error("unterminated literal")]
     UnterminatedLiteral,
 
-    #[error("character literal is too short")]
-    CharTooShort,
-    #[error("character literal is too long")]
+    #[error("empty character literal")]
+    CharEmpty,
+
+    #[error("character literal may only contain 1 character")]
     CharTooLong,
 
     #[error("expected token '{expected}', received '{actual}'")]
