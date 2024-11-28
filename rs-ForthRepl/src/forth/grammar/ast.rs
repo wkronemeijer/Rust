@@ -1,5 +1,3 @@
-use std::rc::Rc;
-
 use crate::forth::value::Value;
 
 // no CST this time
@@ -27,8 +25,8 @@ impl Ast {
             Ast::False => Value::Bool(false),
             Ast::True => Value::Bool(true),
             Ast::Number(x) => Value::Number(x),
-            Ast::StringLiteral(s) => Value::Text(Rc::new(s)),
-            Ast::Identifier(i) => Value::Symbol(Rc::new(i)),
+            Ast::StringLiteral(s) => Value::Text(Box::new(s)),
+            Ast::Identifier(i) => Value::Symbol(Box::new(i)),
             Ast::List(l) => {
                 Value::List(l.into_iter().map(Ast::into_value).collect())
             }

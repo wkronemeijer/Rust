@@ -101,46 +101,44 @@ impl<'s> Parser<'s> {
         Ok(Ast::List(nodes))
     }
 
-    fn expr(&mut self) -> CanThrow<Ast> {
-        if self.matches(LEFT_BRACKET) {
-            self.list()
-        } else if self.matches(NULL) {
-            Ok(Ast::Null)
-        } else if self.matches(FALSE) {
-            Ok(Ast::False)
-        } else if self.matches(TRUE) {
-            Ok(Ast::True)
-        } else if self.check(NUMBER) {
-            let token = self.consume(NUMBER)?;
-            let lexeme = token.lexeme(self.source);
-            let number = lexeme.parse::<f64>().map_err(|_| Sync)?;
-            Ok(Ast::Number(number))
-        } else if self.check(IDENTIFIER) {
-            let token = self.consume(IDENTIFIER)?;
-            let lexeme = token.lexeme(self.source);
-            Ok(Ast::Identifier(lexeme.to_owned()))
-        } else if self.check(STRING) {
-            let token = self.consume(STRING)?;
-            let lexeme = token.lexeme(self.source);
-            Ok(Ast::StringLiteral(unescape(lexeme).to_owned()))
-        } else {
-            let Some(token) = self.advance() else {
-                panic!("unexpected eof");
-            };
-            self.report.error(SyntaxError::UnexpectedToken(token.kind()));
-            Err(Sync)
-        }
-    }
-
-    fn inner_parse(&mut self) -> CanThrow<Ast> {
+    fn program(&mut self) -> CanThrow<Ast> {
         self.consume(START_OF_FILE)?;
         let nodes = self.list_body()?;
         self.consume(END_OF_FILE)?;
         Ok(Ast::List(nodes))
     }
 
+    fn expr(&mut self) -> CanThrow<Ast> {
+        let Some(token) = self.advance() else {
+            panic!("unexpected eof");
+        };
+        match token.kind() {
+            LEFT_BRACKET => self.list(),
+            NULL => Ok(Ast::Null),
+            FALSE => Ok(Ast::False),
+            TRUE => Ok(Ast::True),
+            NUMBER => {
+                let lexeme = token.lexeme(self.source);
+                let number = lexeme.parse::<f64>().map_err(|_| Sync)?;
+                Ok(Ast::Number(number))
+            }
+            IDENTIFIER => {
+                let lexeme = token.lexeme(self.source);
+                Ok(Ast::Identifier(lexeme.to_owned()))
+            }
+            STRING => {
+                let lexeme = token.lexeme(self.source);
+                Ok(Ast::StringLiteral(unescape(lexeme).to_owned()))
+            }
+            _ => {
+                self.report.error(SyntaxError::UnexpectedToken(token.kind()));
+                Err(Sync)
+            }
+        }
+    }
+
     pub fn parse(mut self) -> CompileResult<Ast> {
-        if let Ok(program) = self.inner_parse() {
+        if let Ok(program) = self.program() {
             CompileResult::new(program, self.report)
         } else {
             self.report.error(SyntaxError::FailedToSynchronize);

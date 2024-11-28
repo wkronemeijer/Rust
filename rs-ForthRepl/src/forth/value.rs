@@ -1,6 +1,5 @@
 use std::cmp::Ordering;
 use std::fmt;
-use std::rc::Rc;
 
 use super::value::Value::*;
 
@@ -15,8 +14,8 @@ pub enum Value {
     Bool(bool),
     Char(char),
     Number(f64),
-    Symbol(Rc<String>),
-    Text(Rc<String>),
+    Symbol(Box<String>),
+    Text(Box<String>),
     List(ValueList),
 }
 
@@ -85,7 +84,7 @@ impl Value {
 
     pub fn into_string(self) -> crate::Result<String> {
         Ok(match self {
-            Text(rc) => Rc::unwrap_or_clone(rc),
+            Text(rc) => *rc,
             _ => self.to_string(),
         })
     }
@@ -158,20 +157,20 @@ impl fmt::Display for Value {
 
 #[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord)]
 pub struct ValueList {
-    values: Rc<Vec<Value>>,
+    values: Box<Vec<Value>>,
 }
 
 impl ValueList {
-    pub fn new() -> Self { ValueList { values: Rc::new(Vec::new()) } }
+    pub fn new() -> Self { ValueList { values: Box::new(Vec::new()) } }
 
     pub fn iter(&self) -> impl Iterator<Item = &Value> { self.values.iter() }
 
-    pub fn into_list(self) -> Vec<Value> { Rc::unwrap_or_clone(self.values) }
+    pub fn into_list(self) -> Vec<Value> { *self.values }
 }
 
 impl FromIterator<Value> for ValueList {
     fn from_iter<T: IntoIterator<Item = Value>>(iter: T) -> Self {
-        ValueList { values: Rc::new(Vec::from_iter(iter)) }
+        ValueList { values: Box::new(Vec::from_iter(iter)) }
     }
 }
 
