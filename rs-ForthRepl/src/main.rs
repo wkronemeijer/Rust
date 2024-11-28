@@ -5,7 +5,7 @@ use std::io::BufRead as _;
 use std::io::Write as _;
 
 use forth_repl::forth::host::StandardHost;
-use forth_repl::forth::interpreter::Interpreter;
+use forth_repl::forth::state::State;
 
 //////////////
 // Printing //
@@ -20,8 +20,8 @@ fn print_prompt() {
     stdout().flush().expect("couldn't flush 🤢");
 }
 
-fn print_stack(interpreter: &Interpreter) {
-    let stack = interpreter.stack();
+fn print_stack(state: &State) {
+    let stack = state.stack();
     if stack.depth() > 0 {
         print!("\x1b[34m");
         print!("{}", stack);
@@ -29,12 +29,12 @@ fn print_stack(interpreter: &Interpreter) {
     }
 }
 
-fn print_stack_after_eval(interpreter: &mut Interpreter, line: &str) {
-    let result = interpreter.eval(line);
+fn print_stack_after_eval(state: &mut State, line: &str) {
+    let result = state.eval(line);
     if let Err(ref error) = result {
         eprintln!("\x1b[31merror: {error}\x1b[39m");
     }
-    print_stack(interpreter);
+    print_stack(state);
 }
 
 ///////////
@@ -43,7 +43,7 @@ fn print_stack_after_eval(interpreter: &mut Interpreter, line: &str) {
 
 fn run_line(line: &str) {
     let ref mut host = StandardHost::new();
-    let ref mut interpreter = Interpreter::new(host);
+    let ref mut interpreter = State::new(host);
     print_stack_after_eval(interpreter, line);
 }
 
@@ -52,17 +52,17 @@ const END_OF_TRANSMISSION: &str = "\x04"; // ^D in the terminal
 
 fn run_repl() {
     let ref mut host = StandardHost::new();
-    let ref mut interpreter = Interpreter::new(host);
-    let ref mut stdin_lines = stdin().lock().lines();
+    let ref mut state = State::new(host);
+    let ref mut lines = stdin().lock().lines();
 
     print_motd();
     loop {
         print_prompt();
-        let Some(Ok(ref line)) = stdin_lines.next() else { break };
+        let Some(Ok(ref line)) = lines.next() else { break };
         match line.trim() {
             ".exit" | END_OF_TRANSMISSION => break,
             ".help" => println!("{HELP_TEXT}"),
-            _ => print_stack_after_eval(interpreter, line),
+            _ => print_stack_after_eval(state, line),
         }
     }
 }

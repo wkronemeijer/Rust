@@ -4,12 +4,10 @@ use super::dictionary::NativeFn;
 use super::dictionary::Word;
 use super::grammar::parser::parse;
 use super::grammar::scanner::scan;
-use super::interpreter::Interpreter;
+use super::state::State;
 use super::value::Value::*;
 
-pub(crate) fn register_builtins(
-    interpreter: &mut Interpreter,
-) -> crate::Result {
+pub(crate) fn register_builtins(interpreter: &mut State) -> crate::Result {
     let mut define = |name: &'static str, func: NativeFn| -> crate::Result {
         interpreter.dict.define(Cow::Borrowed(name), Word::Native(func))
     };

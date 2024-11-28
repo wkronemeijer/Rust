@@ -9,7 +9,7 @@ use super::value::ValueList;
 
 // TODO: Interpreter is really more of the equivalent of LuaState
 // ForthState? JoyState? StateOfJoy?
-pub struct Interpreter<'a> {
+pub struct State<'a> {
     pub(crate) stack: Stack,
     pub(crate) dict: Dictionary,
     // I've considered using a type parameter H: Host
@@ -19,11 +19,11 @@ pub struct Interpreter<'a> {
     pub(crate) host: &'a mut dyn Host,
 }
 
-impl<'a> Interpreter<'a> {
+impl<'a> State<'a> {
     pub fn new(host: &'a mut dyn Host) -> Self {
         let stack = Stack::new();
         let dict = Dictionary::new();
-        let mut interpreter = Interpreter { stack, dict, host };
+        let mut interpreter = State { stack, dict, host };
         register_builtins(&mut interpreter)
             .expect("registering builtins failed");
         interpreter

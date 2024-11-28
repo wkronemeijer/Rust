@@ -3,7 +3,7 @@ use std::collections::HashMap;
 use std::fmt;
 use std::fmt::Write as _;
 
-use super::interpreter::Interpreter;
+use super::state::State;
 use super::value::ValueList;
 
 //////////
@@ -11,7 +11,7 @@ use super::value::ValueList;
 //////////
 
 // Still find it weird that fn(...) types aren't !Sized
-pub type NativeFn = fn(&mut Interpreter) -> crate::Result;
+pub type NativeFn = fn(&mut State) -> crate::Result;
 pub type UserFn = ValueList;
 
 #[derive(Debug, Clone)]
@@ -21,7 +21,7 @@ pub enum Word {
 }
 
 impl Word {
-    pub fn run(&self, ip: &mut Interpreter) -> crate::Result {
+    pub fn run(&self, ip: &mut State) -> crate::Result {
         match self {
             Word::Native(func) => func(ip),
             Word::User(list) => ip.exec_list(list),
