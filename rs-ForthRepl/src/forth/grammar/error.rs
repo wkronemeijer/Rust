@@ -19,7 +19,10 @@ pub enum SyntaxError {
     #[error("unexpected character '{0}'")]
     UnexpectedCharacter(char),
 
-    #[error("expected token '{expected}', received {actual}")]
+    #[error("unterminated literal")]
+    UnterminatedLiteral,
+
+    #[error("expected token '{expected}', received '{actual}'")]
     ExpectedToken { expected: TokenKind, actual: TokenKind },
 
     #[error("unexpected token '{0}'")]

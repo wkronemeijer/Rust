@@ -58,6 +58,19 @@ impl<'s> Scanner<'s> {
         }
     }
 
+    fn advance_until(&mut self, pred: fn(char) -> bool) -> Option<()> {
+        loop {
+            let Some(c) = self.peek() else {
+                self.report.error(SyntaxError::UnterminatedLiteral);
+                break None;
+            };
+            if pred(c) {
+                break Some(());
+            };
+            self.advance();
+        }
+    }
+
     fn sync(&mut self) { self.start = self.current }
 
     fn token(&mut self, kind: TokenKind) -> Token {
@@ -65,18 +78,14 @@ impl<'s> Scanner<'s> {
     }
 }
 
+// TODO: Use is_ascii_??? directly
 fn is_whitespace(c: char) -> bool { matches!(c, ' ' | '\t' | '\r' | '\n') }
 fn is_digit(c: char) -> bool { matches!(c, '0'..='9') }
-// Forth is pretty tolerant when it comes to identifiers
-// Safe because it is always matched last
-fn is_alphanum(c: char) -> bool {
-    !matches!(c, 
-        // Whitespace
-        | ' ' | '\t' | '\r' | '\n' 
-        // (Other) delimiters
-        | '(' | ')' | '[' | ']' | '{' | '}' | '"' | '`' | '\''
-    )
+fn is_delimiter(c: char) -> bool {
+    matches!(c, '(' | ')' | '[' | ']' | '{' | '}' | '"' | '\'' | '`')
 }
+// TODO: Support emoji names
+fn is_alphanum(c: char) -> bool { !(is_whitespace(c) || is_delimiter(c)) }
 
 // Domain-specific scanning methods
 impl<'s> Scanner<'s> {
@@ -89,18 +98,17 @@ impl<'s> Scanner<'s> {
         self.token(NUMBER)
     }
 
-    fn finish_comment(&mut self) -> Token {
-        self.advance_while(|c| c != ')');
+    fn finish_comment(&mut self) -> Option<Token> {
+        self.advance_until(|c| c == ')')?;
         self.advance(); // consume the )
-        self.token(COMMENT)
+        Some(self.token(COMMENT))
     }
 
-    fn finish_string(&mut self) -> Token {
+    fn finish_string(&mut self) -> Option<Token> {
         // TODO: Choose to restrict strings to a single line
-        self.advance_while(|c| c != '"');
-        self.advance();
-        // FIXME: EOF might mean we get a ["abc] as the token
-        self.token(STRING)
+        self.advance_until(|c| c == '"')?;
+        self.advance(); // consume the "
+        Some(self.token(STRING))
     }
 
     fn finish_identifier(&mut self) -> Token {
@@ -122,8 +130,8 @@ impl<'s> Scanner<'s> {
                 _ if is_whitespace(c) => continue,
                 '[' => self.token(LEFT_BRACKET),
                 ']' => self.token(RIGHT_BRACKET),
-                '(' => self.finish_comment(),
-                '"' => self.finish_string(),
+                '(' => self.finish_comment()?,
+                '"' => self.finish_string()?,
                 '-' if self.peek().is_some_and(is_digit) => {
                     self.finish_number()
                 }
