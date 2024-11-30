@@ -26,9 +26,11 @@ use winit::window::WindowId;
 
 use crate::assets::load_terrain_png;
 use crate::manifest::APPLICATION_NAME;
-use crate::shaders::block_program;
-use crate::shaders::screen_quad;
-use crate::shaders::VertexAttributes;
+use crate::render::shader::chunk_program;
+use crate::render::shader::screen_mesh;
+use crate::render::shader::screen_program;
+use crate::render::shader::ScreenVertex;
+use crate::render::Mesh;
 
 /////////////////
 // Application //
@@ -41,7 +43,7 @@ struct Application {
     program: Program,
     options: DrawParameters<'static>,
 
-    vertices: VertexBuffer<VertexAttributes>,
+    vertices: VertexBuffer<ScreenVertex>,
     indices: NoIndices,
 
     terrain_tex: CompressedTexture2d,
@@ -52,9 +54,9 @@ impl Application {
         window: Window,
         display: Display<WindowSurface>,
     ) -> crate::Result<Self> {
-        let program = block_program(&display)?;
+        let program = screen_program(&display)?;
         let options = DrawParameters { ..Default::default() };
-        let (vertices, indices) = screen_quad(&display);
+        let Mesh { vertices, indices } = screen_mesh(&display)?;
         let terrain_tex = load_terrain_png(&display)?;
         Ok(Application {
             window,

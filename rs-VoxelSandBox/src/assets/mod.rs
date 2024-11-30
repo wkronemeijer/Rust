@@ -1,3 +1,5 @@
+//! Functions as an asset manifest.
+
 use std::io::Cursor;
 
 use glium::backend::Facade;
@@ -7,6 +9,8 @@ use image::load;
 use image::ImageFormat;
 
 const TERRAIN_PNG: &[u8] = include_bytes!("../../assets/textures/terrain.png");
+
+pub const TERRAIN_PNG_PIXEL_LEN: usize = 256; // px
 
 pub fn load_terrain_png(
     display: &impl Facade,
