@@ -1,0 +1,14 @@
+[package]
+name = "voxelsandbox"
+version = "0.1.0"
+edition = "2021"
+
+[dependencies]
+anyhow = "1.0.93"
+arrayvec = "0.7.6"
+glam = "0.29.2"
+glium = "0.36.0"
+image = { version = "0.25.5", features = ["png"] }
+serde = "1.0.215"
+thiserror = "2.0.3"
+winit = "0.30.5"
