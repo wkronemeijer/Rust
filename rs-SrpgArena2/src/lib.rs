@@ -1,10 +1,8 @@
-// #![allow(incomplete_features)]
-// #![feature(generic_const_exprs)]
-// #![feature(custom_inner_attributes)]
-// #![feature(type_alias_impl_trait)]
-// #![rustfmt::skip::attributes(derive)]
-
 pub mod core;
 pub mod game;
 pub mod idea;
+pub mod idea2;
 pub mod prelude;
+
+pub type Result<T = (), E = Box<dyn std::error::Error>> =
+    std::result::Result<T, E>;

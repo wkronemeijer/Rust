@@ -1,3 +1,4 @@
+#![expect(unused)]
 /*
 Trick with CLI parameters was to make the parameter an object, and put the type there
 
