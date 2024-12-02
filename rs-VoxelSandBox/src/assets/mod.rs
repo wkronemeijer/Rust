@@ -10,7 +10,7 @@ use image::ImageFormat;
 
 const TERRAIN_PNG: &[u8] = include_bytes!("../../assets/textures/terrain.png");
 
-pub const TERRAIN_PNG_PIXEL_LEN: usize = 256; // px
+pub const TERRAIN_PNG_PIXEL_DIM: usize = 256; // px
 
 pub fn load_terrain_png(
     display: &impl Facade,

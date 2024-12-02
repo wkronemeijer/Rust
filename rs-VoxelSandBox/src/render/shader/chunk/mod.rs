@@ -12,7 +12,7 @@ use glium::uniforms::Uniforms;
 use glium::Program;
 use glium::VertexBuffer;
 
-use crate::assets::TERRAIN_PNG_PIXEL_LEN;
+use crate::assets::TERRAIN_PNG_PIXEL_DIM;
 use crate::ivec3;
 use crate::mat4;
 use crate::render::Mesh;
@@ -62,14 +62,15 @@ fn chunk_pos(pos: ivec3) -> vec3 {
 }
 
 const TILE_PIXEL_DIM: f32 = 8.0;
-const TILE_UV_STEP: f32 = TILE_PIXEL_DIM / (TERRAIN_PNG_PIXEL_LEN as f32);
+const TILE_UV_STEP: f32 = TILE_PIXEL_DIM / (TERRAIN_PNG_PIXEL_DIM as f32);
 
+/// Returns the bottom left corner of the tiles UV
 fn tile_uv(tile: &Tile) -> vec2 {
     // OpenGL (0,0) as UV is bottom left
     // Tile tex_index 0 is top left
     let index = tile.tex_index();
-    let x = (index % TERRAIN_PNG_PIXEL_LEN) as f32;
-    let y = (index / TERRAIN_PNG_PIXEL_LEN) as f32;
+    let x = (index % TERRAIN_PNG_PIXEL_DIM) as f32;
+    let y = (index / TERRAIN_PNG_PIXEL_DIM) as f32;
     vec2(x * TILE_UV_STEP, 1.0 - y * TILE_UV_STEP)
 }
 
@@ -81,7 +82,7 @@ fn add_block_vertices(
     pos: ivec3,
     tile: &Tile,
     vertices: &mut Vec<ChunkVertex>,
-) -> crate::Result {
+) {
     let mut push = |xyz: vec3, uv: vec2| {
         vertices.push(ChunkVertex { pos: xyz.into(), tex: uv.into() });
     };
@@ -144,19 +145,18 @@ fn add_block_vertices(
     push_quad(b, c, g, f, p, q, r, s); // right
     push_quad(c, d, h, g, p, q, r, s); // back
     push_quad(d, a, e, h, p, q, r, s); // left
-
-    Ok(())
 }
 
 /// Generates a mesh for entire chunk.
 /// Maps (0,0,0) to (0f,0f,0f), so still needs a model transform.
 pub fn chunk_mesh(chunk: &Chunk, gl: &impl Facade) -> crate::Result<ChunkMesh> {
-    let mut vertices = Vec::<ChunkVertex>::new();
-    for (ipos, tile) in chunk.iter() {
+    let ref mut vertices = Vec::<ChunkVertex>::new();
+    chunk.for_each_tile(|ipos, tile| {
+        // TODO: check nearby tiles are all opaque
         if tile.is_visible() {
-            add_block_vertices(ipos, tile, &mut vertices)?;
+            add_block_vertices(ipos, tile, vertices);
         }
-    }
+    });
     let vertices = VertexBuffer::new(gl, &vertices)?;
     let indices = NoIndices(PrimitiveType::TrianglesList);
     Ok(Mesh { vertices, indices })

@@ -3,16 +3,14 @@ use std::ops::IndexMut;
 
 use super::tile::Tile;
 use crate::core::spread;
-use crate::core::spread_indices;
 use crate::ivec3;
 
 /// The length in one dimension of a 3D chunk.
-pub const CHUNK_LEN: usize = 16;
+pub const CHUNK_DIM: usize = 16;
 /// The volume of a 3D chunk.
-pub const CHUNK_VOLUME: usize = CHUNK_LEN * CHUNK_LEN * CHUNK_LEN;
-
-fn chunk_spread(index: ivec3) -> Option<usize> { spread(index, CHUNK_LEN) }
-fn chunk_indices() -> impl Iterator<Item = ivec3> { spread_indices(CHUNK_LEN) }
+pub const CHUNK_VOLUME: usize = CHUNK_DIM * CHUNK_DIM * CHUNK_DIM;
+/// Converts a 3D chunk index into a linear index.
+const CHUNK_SPREAD: fn(index: ivec3) -> Option<usize> = spread::<CHUNK_DIM>;
 
 // UPPER_SNAKE makes it look like a macro lol
 
@@ -35,11 +33,11 @@ impl Chunk {
     }
 
     pub fn get(&self, pos: ivec3) -> Option<&Tile> {
-        self.tiles.get(chunk_spread(pos)?)
+        self.tiles.get(CHUNK_SPREAD(pos)?)
     }
 
     pub fn get_mut(&mut self, pos: ivec3) -> Option<&mut Tile> {
-        self.tiles.get_mut(chunk_spread(pos)?)
+        self.tiles.get_mut(CHUNK_SPREAD(pos)?)
     }
 }
 
@@ -47,22 +45,40 @@ impl Index<ivec3> for Chunk {
     type Output = Tile;
 
     fn index(&self, index: ivec3) -> &Self::Output {
-        &self.tiles[chunk_spread(index).expect("chunk index out of bounds")]
+        &self.tiles[CHUNK_SPREAD(index).expect("chunk index out of bounds")]
     }
 }
 
 impl IndexMut<ivec3> for Chunk {
     fn index_mut(&mut self, index: ivec3) -> &mut Self::Output {
-        &mut self.tiles[chunk_spread(index).expect("chunk index out of bounds")]
+        &mut self.tiles[CHUNK_SPREAD(index).expect("chunk index out of bounds")]
     }
 }
 
-impl Chunk {
-    pub fn keys() -> impl Iterator<Item = ivec3> { chunk_indices() }
+fn pos_from_usize(x: usize, y: usize, z: usize) -> ivec3 {
+    ivec3(x as i32, y as i32, z as i32)
+}
 
-    // TODO: Use foreach instead, this iterator is turbo-ugly
-    pub fn iter(&self) -> impl Iterator<Item = (ivec3, &Tile)> {
-        // Is there something like Kotlin's `associateWith`?
-        chunk_indices().map(|p| (p, &self[p]))
+impl Chunk {
+    pub fn for_each_tile<F: FnMut(ivec3, &Tile)>(&self, mut op: F) {
+        for z in 0..CHUNK_DIM {
+            for y in 0..CHUNK_DIM {
+                for x in 0..CHUNK_DIM {
+                    let pos = pos_from_usize(x, y, z);
+                    op(pos, &self[pos])
+                }
+            }
+        }
+    }
+
+    pub fn for_each_tile_mut<F: FnMut(ivec3, &mut Tile)>(&mut self, mut op: F) {
+        for z in 0..CHUNK_DIM {
+            for y in 0..CHUNK_DIM {
+                for x in 0..CHUNK_DIM {
+                    let pos = pos_from_usize(x, y, z);
+                    op(pos, &mut self[pos])
+                }
+            }
+        }
     }
 }
