@@ -60,6 +60,7 @@ impl IndexMut<ivec3> for Chunk {
 impl Chunk {
     pub fn keys() -> impl Iterator<Item = ivec3> { chunk_indices() }
 
+    // TODO: Use foreach instead, this iterator is turbo-ugly
     pub fn iter(&self) -> impl Iterator<Item = (ivec3, &Tile)> {
         // Is there something like Kotlin's `associateWith`?
         chunk_indices().map(|p| (p, &self[p]))

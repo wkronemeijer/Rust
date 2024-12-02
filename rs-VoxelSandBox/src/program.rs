@@ -132,12 +132,7 @@ impl ApplicationHandler for Application {
             KeyboardInput { event, .. } => match event.physical_key {
                 PhysicalKey::Code(code) => {
                     match (code, event.state) {
-                        (KeyCode::Escape, Pressed) => {
-                            println!(
-                                "TODO: close menus (don't toggle pause menu)"
-                            );
-                        }
-                        //
+                        // Game input
                         (KeyCode::KeyW, Pressed) => {
                             self.position += vec3::Y;
                         }
@@ -150,13 +145,13 @@ impl ApplicationHandler for Application {
                         (KeyCode::KeyD, Pressed) => {
                             self.position += vec3::X;
                         }
-                        (KeyCode::KeyE, Pressed) => {
+                        (KeyCode::KeyE | KeyCode::Space, Pressed) => {
                             self.position += vec3::Z;
                         }
-                        (KeyCode::KeyC, Pressed) => {
+                        (KeyCode::KeyQ | KeyCode::KeyC, Pressed) => {
                             self.position += vec3::NEG_Z;
                         }
-
+                        // Debug
                         #[cfg(debug_assertions)]
                         (KeyCode::F8, Pressed) => {
                             // [Stop debugging] is mapped to F8 on my setup

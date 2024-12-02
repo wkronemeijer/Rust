@@ -61,14 +61,16 @@ fn chunk_pos(pos: ivec3) -> vec3 {
     vec3(x, y, z)
 }
 
-const TILE_UV_SIZE: f32 = 8.0;
-const TILE_UV_STEP: f32 = TILE_UV_SIZE / (TERRAIN_PNG_PIXEL_LEN as f32);
+const TILE_PIXEL_DIM: f32 = 8.0;
+const TILE_UV_STEP: f32 = TILE_PIXEL_DIM / (TERRAIN_PNG_PIXEL_LEN as f32);
 
 fn tile_uv(tile: &Tile) -> vec2 {
+    // OpenGL (0,0) as UV is bottom left
+    // Tile tex_index 0 is top left
     let index = tile.tex_index();
     let x = (index % TERRAIN_PNG_PIXEL_LEN) as f32;
     let y = (index / TERRAIN_PNG_PIXEL_LEN) as f32;
-    vec2(x * TILE_UV_STEP, y * TILE_UV_STEP)
+    vec2(x * TILE_UV_STEP, 1.0 - y * TILE_UV_STEP)
 }
 
 // TODO: Use indices
@@ -151,13 +153,8 @@ fn add_block_vertices(
 pub fn chunk_mesh(chunk: &Chunk, gl: &impl Facade) -> crate::Result<ChunkMesh> {
     let mut vertices = Vec::<ChunkVertex>::new();
     for (ipos, tile) in chunk.iter() {
-        let is_visible = tile.is_visible();
-
-        println!("{:?} at {} is visible: {}", tile, ipos, is_visible);
-
-        if is_visible {
+        if tile.is_visible() {
             add_block_vertices(ipos, tile, &mut vertices)?;
-            println!("added vertices for {:?} at {}", tile, ipos);
         }
     }
     let vertices = VertexBuffer::new(gl, &vertices)?;
