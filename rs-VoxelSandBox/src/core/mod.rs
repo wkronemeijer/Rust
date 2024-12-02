@@ -10,13 +10,13 @@ pub fn spread(ivec3 { x, y, z }: ivec3, dim: usize) -> Option<usize> {
 }
 
 pub fn spread_indices(dim: usize) -> impl Iterator<Item = ivec3> {
-    let xs = 0..dim;
-    let ys = 0..dim;
-    let zs = 0..dim;
-    zs.zip(ys).zip(xs).map(|((z, y), x)| {
-        let x = i32::try_from(x).unwrap();
-        let y = i32::try_from(y).unwrap();
-        let z = i32::try_from(z).unwrap();
-        ivec3(x, y, z)
-    })
+    (0..dim)
+        .flat_map(move |z| (0..dim).map(move |y| ((z, y))))
+        .flat_map(move |(z, y)| (0..dim).map(move |x| ((z, y, x))))
+        .map(|(z, y, x)| {
+            let x = i32::try_from(x).unwrap();
+            let y = i32::try_from(y).unwrap();
+            let z = i32::try_from(z).unwrap();
+            ivec3(x, y, z)
+        })
 }

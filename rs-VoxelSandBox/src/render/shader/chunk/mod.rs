@@ -4,6 +4,10 @@ use glium::index::NoIndices;
 use glium::index::PrimitiveType;
 use glium::texture::CompressedTexture2d;
 use glium::uniform;
+use glium::uniforms::MagnifySamplerFilter;
+use glium::uniforms::MinifySamplerFilter;
+use glium::uniforms::Sampler;
+use glium::uniforms::SamplerBehavior;
 use glium::uniforms::Uniforms;
 use glium::Program;
 use glium::VertexBuffer;
@@ -31,14 +35,20 @@ pub fn chunk_uniforms<'a>(
     texture: &'a CompressedTexture2d,
     mvp: &'a mat4,
 ) -> impl Uniforms + use<'a> {
+    let sampler = Sampler(texture, SamplerBehavior {
+        minify_filter: MinifySamplerFilter::Nearest,
+        magnify_filter: MagnifySamplerFilter::Nearest,
+        ..Default::default()
+    });
+    let matrix_array = mvp.to_cols_array_2d();
     uniform! {
-        tex: texture,
-        mvp: mvp.to_cols_array_2d(),
+        tex: sampler,
+        mvp: matrix_array,
     }
 }
 
 pub fn chunk_program(gl: &impl Facade) -> crate::Result<Program> {
-    println!("loading chunk program");
+    println!("compiling chunk program");
     Ok(Program::from_source(gl, VERTEX_SHADER, FRAGMENT_SHADER, None)?)
 }
 
@@ -51,7 +61,8 @@ fn chunk_pos(pos: ivec3) -> vec3 {
     vec3(x, y, z)
 }
 
-const TILE_UV_STEP: f32 = 1.0 / (TERRAIN_PNG_PIXEL_LEN as f32);
+const TILE_UV_SIZE: f32 = 8.0;
+const TILE_UV_STEP: f32 = TILE_UV_SIZE / (TERRAIN_PNG_PIXEL_LEN as f32);
 
 fn tile_uv(tile: &Tile) -> vec2 {
     let index = tile.tex_index();
@@ -140,8 +151,13 @@ fn add_block_vertices(
 pub fn chunk_mesh(chunk: &Chunk, gl: &impl Facade) -> crate::Result<ChunkMesh> {
     let mut vertices = Vec::<ChunkVertex>::new();
     for (ipos, tile) in chunk.iter() {
-        if tile.is_visible() {
+        let is_visible = tile.is_visible();
+
+        println!("{:?} at {} is visible: {}", tile, ipos, is_visible);
+
+        if is_visible {
             add_block_vertices(ipos, tile, &mut vertices)?;
+            println!("added vertices for {:?} at {}", tile, ipos);
         }
     }
     let vertices = VertexBuffer::new(gl, &vertices)?;

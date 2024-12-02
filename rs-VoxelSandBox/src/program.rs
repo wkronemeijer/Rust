@@ -5,6 +5,8 @@ use anyhow::Context;
 use glium::backend::glutin::SimpleWindowBuilder;
 use glium::glutin::surface::WindowSurface;
 use glium::texture::CompressedTexture2d;
+use glium::Depth;
+use glium::DepthTest;
 use glium::Display;
 use glium::DrawParameters;
 use glium::Program;
@@ -16,7 +18,6 @@ use winit::event::WindowEvent;
 use winit::event_loop::ActiveEventLoop;
 use winit::event_loop::ControlFlow;
 use winit::event_loop::EventLoop;
-use winit::keyboard::Key;
 use winit::keyboard::KeyCode;
 use winit::keyboard::PhysicalKey;
 use winit::window::Fullscreen;
@@ -48,6 +49,7 @@ struct Application {
     mesh: ChunkMesh,
     terrain: CompressedTexture2d,
 
+    #[expect(dead_code, reason = "just rendering for now")]
     world: World,
     position: vec3,
 }
@@ -58,7 +60,14 @@ impl Application {
         display: Display<WindowSurface>,
     ) -> crate::Result<Self> {
         let program = chunk_program(&display)?;
-        let options = DrawParameters { ..Default::default() };
+        let options = DrawParameters {
+            depth: Depth {
+                test: DepthTest::IfLess,
+                write: true,
+                ..Default::default()
+            },
+            ..Default::default()
+        };
         let world = World::new();
 
         let mesh = chunk_mesh(&world.chunk, &display)?;
@@ -79,6 +88,7 @@ impl Application {
     pub fn draw(&self) -> crate::Result {
         let mut frame = self.display.draw();
         frame.clear_color(0.0, 0.0, 0.0, 1.0);
+        frame.clear_depth(1.0);
         let Mesh { vertices, indices } = &self.mesh;
 
         let model = mat4::IDENTITY; // just in place for now
@@ -163,7 +173,9 @@ impl ApplicationHandler for Application {
                         ),
                         _ => {}
                     };
-                    println!("pos = {}", self.position)
+                    if let Pressed = event.state {
+                        println!("current position = {}", self.position)
+                    }
                 }
                 _ => {}
             },
