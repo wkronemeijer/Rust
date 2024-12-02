@@ -40,7 +40,7 @@ pub fn screen_program(gl: &impl Facade) -> crate::Result<Program> {
     Ok(Program::from_source(gl, VERTEX_SHADER, FRAGMENT_SHADER, None)?)
 }
 
-type ScreenMesh = Mesh<VertexBuffer<ScreenVertex>, NoIndices>;
+pub type ScreenMesh = Mesh<VertexBuffer<ScreenVertex>, NoIndices>;
 
 pub fn screen_mesh(gl: &impl Facade) -> crate::Result<ScreenMesh> {
     let top_right = ScreenVertex { pos: [1.0, 1.0], tex: [1.0, 1.0] };

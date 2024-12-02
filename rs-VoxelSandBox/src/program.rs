@@ -1,16 +1,14 @@
 use std::default::Default;
+use std::f32::consts::PI;
 
 use anyhow::Context;
 use glium::backend::glutin::SimpleWindowBuilder;
 use glium::glutin::surface::WindowSurface;
-use glium::index::NoIndices;
 use glium::texture::CompressedTexture2d;
-use glium::uniform;
 use glium::Display;
 use glium::DrawParameters;
 use glium::Program;
 use glium::Surface;
-use glium::VertexBuffer;
 use winit::application::ApplicationHandler;
 use winit::dpi::PhysicalSize;
 use winit::event::ElementState::Pressed;
@@ -18,6 +16,7 @@ use winit::event::WindowEvent;
 use winit::event_loop::ActiveEventLoop;
 use winit::event_loop::ControlFlow;
 use winit::event_loop::EventLoop;
+use winit::keyboard::Key;
 use winit::keyboard::KeyCode;
 use winit::keyboard::PhysicalKey;
 use winit::window::Fullscreen;
@@ -26,11 +25,14 @@ use winit::window::WindowId;
 
 use crate::assets::load_terrain_png;
 use crate::manifest::APPLICATION_NAME;
+use crate::mat4;
+use crate::render::shader::chunk_mesh;
 use crate::render::shader::chunk_program;
-use crate::render::shader::screen_mesh;
-use crate::render::shader::screen_program;
-use crate::render::shader::ScreenVertex;
+use crate::render::shader::chunk_uniforms;
+use crate::render::shader::ChunkMesh;
 use crate::render::Mesh;
+use crate::vec3;
+use crate::world::World;
 
 /////////////////
 // Application //
@@ -43,10 +45,11 @@ struct Application {
     program: Program,
     options: DrawParameters<'static>,
 
-    vertices: VertexBuffer<ScreenVertex>,
-    indices: NoIndices,
+    mesh: ChunkMesh,
+    terrain: CompressedTexture2d,
 
-    terrain_tex: CompressedTexture2d,
+    world: World,
+    position: vec3,
 }
 
 impl Application {
@@ -54,28 +57,48 @@ impl Application {
         window: Window,
         display: Display<WindowSurface>,
     ) -> crate::Result<Self> {
-        let program = screen_program(&display)?;
+        let program = chunk_program(&display)?;
         let options = DrawParameters { ..Default::default() };
-        let Mesh { vertices, indices } = screen_mesh(&display)?;
-        let terrain_tex = load_terrain_png(&display)?;
+        let world = World::new();
+
+        let mesh = chunk_mesh(&world.chunk, &display)?;
+        let terrain = load_terrain_png(&display)?;
+        let position = vec3(10.0, 10.0, 10.0);
         Ok(Application {
             window,
             display,
             program,
             options,
-            vertices,
-            indices,
-            terrain_tex,
+            mesh,
+            terrain,
+            world,
+            position,
         })
     }
 
     pub fn draw(&self) -> crate::Result {
         let mut frame = self.display.draw();
         frame.clear_color(0.0, 0.0, 0.0, 1.0);
-        let uniforms = uniform! { tex: &self.terrain_tex };
+        let Mesh { vertices, indices } = &self.mesh;
+
+        let model = mat4::IDENTITY; // just in place for now
+        let view = mat4::look_at_rh(self.position, vec3::ZERO, vec3::Z);
+
+        let fov_y_radians = 90.0 * PI / 180.0;
+        let inner_size = self.window.inner_size();
+        let aspect_ratio = inner_size.width as f32 / inner_size.height as f32;
+        let z_near = 0.001;
+        let z_far = 1000.0;
+        let projection =
+            mat4::perspective_rh_gl(fov_y_radians, aspect_ratio, z_near, z_far);
+
+        let mvp = projection * view * model;
+
+        let uniforms = chunk_uniforms(&self.terrain, &mvp);
+
         frame.draw(
-            &self.vertices,
-            &self.indices,
+            vertices,
+            indices,
             &self.program,
             &uniforms,
             &self.options,
@@ -97,26 +120,51 @@ impl ApplicationHandler for Application {
             RedrawRequested => self.draw().expect("drawing failed"),
             Resized(inner_size) => self.display.resize(inner_size.into()),
             KeyboardInput { event, .. } => match event.physical_key {
-                PhysicalKey::Code(code) => match (code, event.state) {
-                    (KeyCode::Escape, Pressed) => {
-                        println!("TODO: close menus (don't toggle pause menu)");
-                    }
-                    #[cfg(debug_assertions)]
-                    (KeyCode::F8, Pressed) => {
-                        // [Stop debugging] is mapped to F8 on my setup
-                        event_loop.exit();
-                    }
-                    (KeyCode::F10, Pressed) => {
-                        println!("TODO: toggle menu")
-                    }
-                    (KeyCode::F11, Pressed) => self.window.set_fullscreen(
-                        match self.window.fullscreen() {
-                            None => Some(Fullscreen::Borderless(None)),
-                            Some(_) => None,
-                        },
-                    ),
-                    _ => {}
-                },
+                PhysicalKey::Code(code) => {
+                    match (code, event.state) {
+                        (KeyCode::Escape, Pressed) => {
+                            println!(
+                                "TODO: close menus (don't toggle pause menu)"
+                            );
+                        }
+                        //
+                        (KeyCode::KeyW, Pressed) => {
+                            self.position += vec3::Y;
+                        }
+                        (KeyCode::KeyA, Pressed) => {
+                            self.position += vec3::NEG_X;
+                        }
+                        (KeyCode::KeyS, Pressed) => {
+                            self.position += vec3::NEG_Y;
+                        }
+                        (KeyCode::KeyD, Pressed) => {
+                            self.position += vec3::X;
+                        }
+                        (KeyCode::KeyE, Pressed) => {
+                            self.position += vec3::Z;
+                        }
+                        (KeyCode::KeyC, Pressed) => {
+                            self.position += vec3::NEG_Z;
+                        }
+
+                        #[cfg(debug_assertions)]
+                        (KeyCode::F8, Pressed) => {
+                            // [Stop debugging] is mapped to F8 on my setup
+                            event_loop.exit();
+                        }
+                        (KeyCode::F10, Pressed) => {
+                            println!("TODO: toggle menu")
+                        }
+                        (KeyCode::F11, Pressed) => self.window.set_fullscreen(
+                            match self.window.fullscreen() {
+                                None => Some(Fullscreen::Borderless(None)),
+                                Some(_) => None,
+                            },
+                        ),
+                        _ => {}
+                    };
+                    println!("pos = {}", self.position)
+                }
                 _ => {}
             },
             CloseRequested => {

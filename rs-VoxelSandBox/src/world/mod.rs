@@ -16,7 +16,7 @@ use crate::ivec3;
 
 pub struct World {
     // One chunk for now
-    pub chunk: Chunk,
+    pub(crate) chunk: Chunk,
 }
 
 impl World {

@@ -90,7 +90,7 @@ fn add_block_vertices(
     };
 
     /*
-    Legend:
+    Model:
                +Z
                 |
                 |
@@ -103,7 +103,7 @@ fn add_block_vertices(
     | /      | /
     |/       |/
     A--------B--+X
-
+    Texture:
     S---R
     |   |
     |   |
