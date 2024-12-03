@@ -1,16 +1,5 @@
-// (0, 0, 0) is
-// positive coords is the world
-// negative coords is the tiled world
-
-pub mod chunk;
-pub mod tile;
-
-use chunk::Chunk;
-use tile::Tile;
-
-///////////
-// World //
-///////////
+use super::chunk::Chunk;
+use super::tile::Tile;
 
 pub struct World {
     // One chunk for now

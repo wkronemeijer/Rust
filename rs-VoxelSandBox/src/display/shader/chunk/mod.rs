@@ -13,13 +13,13 @@ use glium::Program;
 use glium::VertexBuffer;
 
 use crate::assets::TERRAIN_PNG_PIXEL_DIM;
+use crate::display::Mesh;
+use crate::domain::chunk::Chunk;
+use crate::domain::tile::Tile;
 use crate::ivec3;
 use crate::mat4;
-use crate::render::Mesh;
 use crate::vec2;
 use crate::vec3;
-use crate::world::chunk::Chunk;
-use crate::world::tile::Tile;
 
 const VERTEX_SHADER: &str = include_str!("chunk.vert");
 const FRAGMENT_SHADER: &str = include_str!("chunk.frag");

@@ -25,15 +25,15 @@ use winit::window::Window;
 use winit::window::WindowId;
 
 use crate::assets::load_terrain_png;
+use crate::display::shader::chunk_mesh;
+use crate::display::shader::chunk_program;
+use crate::display::shader::chunk_uniforms;
+use crate::display::shader::ChunkMesh;
+use crate::display::Mesh;
+use crate::domain::world::World;
 use crate::manifest::APPLICATION_NAME;
 use crate::mat4;
-use crate::render::shader::chunk_mesh;
-use crate::render::shader::chunk_program;
-use crate::render::shader::chunk_uniforms;
-use crate::render::shader::ChunkMesh;
-use crate::render::Mesh;
 use crate::vec3;
-use crate::world::World;
 
 /////////////////
 // Application //
@@ -91,7 +91,7 @@ impl Application {
         frame.clear_depth(1.0);
         let Mesh { vertices, indices } = &self.mesh;
 
-        let model = mat4::IDENTITY; // just in place for now
+        let model = mat4::IDENTITY; // just in place (for now)
         let view = mat4::look_at_rh(self.position, vec3::ZERO, vec3::Z);
 
         let fov_y_radians = 90.0 * PI / 180.0;
