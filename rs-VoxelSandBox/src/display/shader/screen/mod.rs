@@ -12,7 +12,7 @@ use glium::uniforms::Uniforms;
 use glium::Program;
 use glium::VertexBuffer;
 
-use crate::render::Mesh;
+use crate::display::Mesh;
 
 const VERTEX_SHADER: &str = include_str!("shader.vert");
 const FRAGMENT_SHADER: &str = include_str!("shader.frag");
