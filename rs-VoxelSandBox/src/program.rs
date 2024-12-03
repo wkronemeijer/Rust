@@ -1,7 +1,10 @@
 use std::default::Default;
+use std::f32::consts::FRAC_PI_2;
 use std::f32::consts::PI;
+use std::f32::consts::TAU;
 
 use anyhow::Context;
+use glam::EulerRot;
 use glium::backend::glutin::SimpleWindowBuilder;
 use glium::glutin::surface::WindowSurface;
 use glium::texture::CompressedTexture2d;
@@ -12,6 +15,7 @@ use glium::DrawParameters;
 use glium::Program;
 use glium::Surface;
 use winit::application::ApplicationHandler;
+use winit::dpi::PhysicalPosition;
 use winit::dpi::PhysicalSize;
 use winit::event::ElementState::Pressed;
 use winit::event::WindowEvent;
@@ -32,8 +36,65 @@ use crate::display::shader::ChunkMesh;
 use crate::display::Mesh;
 use crate::domain::world::World;
 use crate::manifest::APPLICATION_NAME;
+use crate::mat3;
 use crate::mat4;
 use crate::vec3;
+
+////////////
+// Camera //
+////////////
+
+struct Camera {
+    position: vec3,
+    // default looks down +Y
+    yaw: f32,
+    pitch: f32,
+    // no roll!
+}
+
+impl Camera {
+    pub fn new() -> Self {
+        Camera { position: vec3::ZERO, pitch: 0.0, yaw: 0.0 }
+    }
+
+    pub fn view(&self) -> mat4 {
+        let Camera { yaw, pitch, .. } = *self;
+        let dir = mat3::from_euler(EulerRot::ZXY, yaw, pitch, 0.0) * vec3::Y;
+        mat4::look_to_rh(self.position, dir, vec3::Z)
+    }
+
+    fn position(&self) -> vec3 { self.position }
+
+    fn change_position(&mut self, delta: vec3) { self.position += delta; }
+
+    fn yaw(&self) -> f32 { self.yaw }
+
+    fn change_yaw(&mut self, delta: f32) {
+        self.yaw = (self.yaw + delta).rem_euclid(TAU)
+    }
+
+    fn pitch(&self) -> f32 { self.pitch }
+
+    fn change_pitch(&mut self, delta: f32) {
+        self.pitch = (self.pitch + delta).clamp(-FRAC_PI_2, FRAC_PI_2);
+    }
+}
+
+///////////
+// Input //
+///////////
+
+struct InputState {
+    pub forward: bool,
+    pub backward: bool,
+    pub left: bool,
+    pub right: bool,
+
+    pub rotate_up: bool,
+    pub rotate_down: bool,
+    pub rotate_left: bool,
+    pub rotate_right: bool,
+}
 
 /////////////////
 // Application //
@@ -47,11 +108,11 @@ struct Application {
     options: DrawParameters<'static>,
 
     mesh: ChunkMesh,
-    terrain: CompressedTexture2d,
+    texture: CompressedTexture2d,
 
     #[expect(dead_code, reason = "just rendering for now")]
     world: World,
-    position: vec3,
+    camera: Camera,
 }
 
 impl Application {
@@ -69,19 +130,19 @@ impl Application {
             ..Default::default()
         };
         let world = World::new();
+        let camera = Camera::new();
 
         let mesh = chunk_mesh(&world.chunk, &display)?;
-        let terrain = load_terrain_png(&display)?;
-        let position = vec3(10.0, 10.0, 10.0);
+        let texture = load_terrain_png(&display)?;
         Ok(Application {
             window,
             display,
             program,
             options,
             mesh,
-            terrain,
+            texture,
             world,
-            position,
+            camera,
         })
     }
 
@@ -92,7 +153,7 @@ impl Application {
         let Mesh { vertices, indices } = &self.mesh;
 
         let model = mat4::IDENTITY; // just in place (for now)
-        let view = mat4::look_at_rh(self.position, vec3::ZERO, vec3::Z);
+        let view = self.camera.view();
 
         let fov_y_radians = 90.0 * PI / 180.0;
         let inner_size = self.window.inner_size();
@@ -104,7 +165,7 @@ impl Application {
 
         let mvp = projection * view * model;
 
-        let uniforms = chunk_uniforms(&self.terrain, &mvp);
+        let uniforms = chunk_uniforms(&self.texture, &mvp);
 
         frame.draw(
             vertices,
@@ -129,27 +190,45 @@ impl ApplicationHandler for Application {
         match event {
             RedrawRequested => self.draw().expect("drawing failed"),
             Resized(inner_size) => self.display.resize(inner_size.into()),
+            CursorMoved { position, .. } => {
+                let PhysicalPosition { x, y } = position;
+
+                println!("cursor moved: {x} {y}");
+            }
             KeyboardInput { event, .. } => match event.physical_key {
                 PhysicalKey::Code(code) => {
                     match (code, event.state) {
                         // Game input
                         (KeyCode::KeyW, Pressed) => {
-                            self.position += vec3::Y;
+                            self.camera.position += vec3::Y;
                         }
                         (KeyCode::KeyA, Pressed) => {
-                            self.position += vec3::NEG_X;
+                            self.camera.position += vec3::NEG_X;
                         }
                         (KeyCode::KeyS, Pressed) => {
-                            self.position += vec3::NEG_Y;
+                            self.camera.position += vec3::NEG_Y;
                         }
                         (KeyCode::KeyD, Pressed) => {
-                            self.position += vec3::X;
+                            self.camera.position += vec3::X;
                         }
                         (KeyCode::KeyE | KeyCode::Space, Pressed) => {
-                            self.position += vec3::Z;
+                            self.camera.position += vec3::Z;
                         }
                         (KeyCode::KeyQ | KeyCode::KeyC, Pressed) => {
-                            self.position += vec3::NEG_Z;
+                            self.camera.position += vec3::NEG_Z;
+                        }
+
+                        (KeyCode::ArrowUp, Pressed) => {
+                            self.camera.change_pitch(PI / 16.0);
+                        }
+                        (KeyCode::ArrowDown, Pressed) => {
+                            self.camera.change_pitch(-PI / 16.0);
+                        }
+                        (KeyCode::ArrowLeft, Pressed) => {
+                            self.camera.change_yaw(PI / 16.0);
+                        }
+                        (KeyCode::ArrowRight, Pressed) => {
+                            self.camera.change_yaw(-PI / 16.0);
                         }
                         // Debug
                         #[cfg(debug_assertions)]
@@ -169,7 +248,7 @@ impl ApplicationHandler for Application {
                         _ => {}
                     };
                     if let Pressed = event.state {
-                        println!("current position = {}", self.position)
+                        println!("current position = {}", self.camera.position)
                     }
                 }
                 _ => {}

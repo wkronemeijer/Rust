@@ -20,6 +20,9 @@ pub use glam::vec3;
 pub type vec4 = glam::Vec4;
 pub use glam::vec4;
 
+pub type mat3 = glam::Mat3;
+pub use glam::mat3;
+
 pub type mat4 = glam::Mat4;
 pub use glam::mat4;
 
