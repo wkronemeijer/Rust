@@ -44,10 +44,12 @@ use crate::vec3;
 // Camera //
 ////////////
 
+/// By default looks down +Y
 struct Camera {
     position: vec3,
-    // default looks down +Y
+    /// + is left, - is right
     yaw: f32,
+    /// + is up, - is down
     pitch: f32,
     // no roll!
 }
@@ -67,10 +69,18 @@ impl Camera {
 
     fn change_position(&mut self, delta: vec3) { self.position += delta; }
 
+    /// Rotates movement so it is in accordance with an unrotated camera. So with:
+    /// * yaw == 0, it goes through unchanged  
+    /// * yaw == &tau;/4 it is rotated to the left  
+    /// * yaw == &tau;/2 it goes in reverse  
+    fn change_rotated_position(&mut self, delta: vec3) {
+        self.position += mat3::from_rotation_z(self.yaw) * delta;
+    }
+
     fn yaw(&self) -> f32 { self.yaw }
 
     fn change_yaw(&mut self, delta: f32) {
-        self.yaw = (self.yaw + delta).rem_euclid(TAU)
+        self.yaw = (self.yaw + delta).rem_euclid(TAU);
     }
 
     fn pitch(&self) -> f32 { self.pitch }
@@ -103,6 +113,7 @@ struct InputState {
 struct Application {
     window: Window,
     display: Display<WindowSurface>,
+    last_cursor: PhysicalPosition<f64>,
 
     program: Program,
     options: DrawParameters<'static>,
@@ -120,6 +131,8 @@ impl Application {
         window: Window,
         display: Display<WindowSurface>,
     ) -> crate::Result<Self> {
+        let last_cursor = PhysicalPosition { x: 0.0, y: 0.0 };
+
         let program = chunk_program(&display)?;
         let options = DrawParameters {
             depth: Depth {
@@ -137,6 +150,7 @@ impl Application {
         Ok(Application {
             window,
             display,
+            last_cursor,
             program,
             options,
             mesh,
@@ -146,27 +160,29 @@ impl Application {
         })
     }
 
-    pub fn draw(&self) -> crate::Result {
-        let mut frame = self.display.draw();
-        frame.clear_color(0.0, 0.0, 0.0, 1.0);
-        frame.clear_depth(1.0);
-        let Mesh { vertices, indices } = &self.mesh;
-
-        let model = mat4::IDENTITY; // just in place (for now)
-        let view = self.camera.view();
-
+    fn projection(&self) -> mat4 {
         let fov_y_radians = 90.0 * PI / 180.0;
         let inner_size = self.window.inner_size();
         let aspect_ratio = inner_size.width as f32 / inner_size.height as f32;
         let z_near = 0.001;
         let z_far = 1000.0;
-        let projection =
-            mat4::perspective_rh_gl(fov_y_radians, aspect_ratio, z_near, z_far);
 
+        mat4::perspective_rh_gl(fov_y_radians, aspect_ratio, z_near, z_far)
+    }
+
+    pub fn draw(&self) -> crate::Result {
+        let mut frame = self.display.draw();
+
+        frame.clear_color(0.0, 0.0, 0.0, 1.0);
+        frame.clear_depth(1.0);
+
+        let Mesh { vertices, indices } = &self.mesh;
+        let model = mat4::IDENTITY; // just in place (for now)
+        let view = self.camera.view();
+        let projection = self.projection();
         let mvp = projection * view * model;
 
         let uniforms = chunk_uniforms(&self.texture, &mvp);
-
         frame.draw(
             vertices,
             indices,
@@ -174,8 +190,13 @@ impl Application {
             &uniforms,
             &self.options,
         )?;
-        frame.finish()?;
-        Ok(())
+
+        Ok(frame.finish()?)
+    }
+
+    pub fn tick(&mut self) {
+        self.world.tick();
+        // update camera pos
     }
 }
 
@@ -191,31 +212,33 @@ impl ApplicationHandler for Application {
             RedrawRequested => self.draw().expect("drawing failed"),
             Resized(inner_size) => self.display.resize(inner_size.into()),
             CursorMoved { position, .. } => {
-                let PhysicalPosition { x, y } = position;
-
-                println!("cursor moved: {x} {y}");
+                let PhysicalPosition { x: old_x, y: old_y } = self.last_cursor;
+                let PhysicalPosition { x: new_x, y: new_y } = &position;
+                let delta = (new_x - old_x, new_y - old_y);
+                println!("cursor moved: {delta:?}");
+                self.last_cursor = position;
             }
             KeyboardInput { event, .. } => match event.physical_key {
                 PhysicalKey::Code(code) => {
                     match (code, event.state) {
                         // Game input
                         (KeyCode::KeyW, Pressed) => {
-                            self.camera.position += vec3::Y;
+                            self.camera.change_rotated_position(vec3::Y);
                         }
                         (KeyCode::KeyA, Pressed) => {
-                            self.camera.position += vec3::NEG_X;
+                            self.camera.change_rotated_position(vec3::NEG_X);
                         }
                         (KeyCode::KeyS, Pressed) => {
-                            self.camera.position += vec3::NEG_Y;
+                            self.camera.change_rotated_position(vec3::NEG_Y);
                         }
                         (KeyCode::KeyD, Pressed) => {
-                            self.camera.position += vec3::X;
+                            self.camera.change_rotated_position(vec3::X);
                         }
                         (KeyCode::KeyE | KeyCode::Space, Pressed) => {
-                            self.camera.position += vec3::Z;
+                            self.camera.change_position(vec3::Z);
                         }
                         (KeyCode::KeyQ | KeyCode::KeyC, Pressed) => {
-                            self.camera.position += vec3::NEG_Z;
+                            self.camera.change_position(vec3::NEG_Z);
                         }
 
                         (KeyCode::ArrowUp, Pressed) => {

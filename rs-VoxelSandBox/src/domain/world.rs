@@ -22,4 +22,6 @@ impl World {
 
         world
     }
+
+    pub fn tick(&mut self) { println!("tick") }
 }
