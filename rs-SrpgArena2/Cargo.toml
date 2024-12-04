@@ -8,6 +8,7 @@ edition = "2021"
 [dependencies]
 arrayvec = "0.7.6"
 derive_more = "0.99.18"
+num-traits = "0.2.19"
 rand = "0.8.5"
 
 [profile.release]
