@@ -1,3 +1,5 @@
+use std::marker::PhantomData;
+
 use super::builtins::register_builtins;
 use super::dictionary::Dictionary;
 use super::host::Host;
@@ -17,16 +19,19 @@ pub struct State<'a> {
     // the entire code and I didn't like that
     // Maybe I'll revisit at some point.
     pub(crate) host: &'a mut dyn Host,
+    /// Prevents others in this crate from constructing a [State]
+    /// (without running the builtin registration)
+    private: PhantomData<()>,
 }
 
 impl<'a> State<'a> {
     pub fn new(host: &'a mut dyn Host) -> Self {
         let stack = Stack::new();
         let dict = Dictionary::new();
-        let mut interpreter = State { stack, dict, host };
-        register_builtins(&mut interpreter)
-            .expect("registering builtins failed");
-        interpreter
+        let private = PhantomData;
+        let mut state = State { stack, dict, host, private };
+        register_builtins(&mut state).expect("registering builtins failed");
+        state
     }
 
     pub fn stack(&self) -> &Stack { &self.stack }
