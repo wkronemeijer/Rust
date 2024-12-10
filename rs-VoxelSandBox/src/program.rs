@@ -2,6 +2,8 @@ use std::default::Default;
 use std::f32::consts::FRAC_PI_2;
 use std::f32::consts::PI;
 use std::f32::consts::TAU;
+use std::time::Duration;
+use std::time::Instant;
 
 use anyhow::Context;
 use glam::EulerRot;
@@ -17,6 +19,9 @@ use glium::Surface;
 use winit::application::ApplicationHandler;
 use winit::dpi::PhysicalPosition;
 use winit::dpi::PhysicalSize;
+use winit::event::DeviceEvent;
+use winit::event::DeviceId;
+use winit::event::ElementState;
 use winit::event::ElementState::Pressed;
 use winit::event::WindowEvent;
 use winit::event_loop::ActiveEventLoop;
@@ -24,6 +29,7 @@ use winit::event_loop::ControlFlow;
 use winit::event_loop::EventLoop;
 use winit::keyboard::KeyCode;
 use winit::keyboard::PhysicalKey;
+use winit::window::CursorGrabMode;
 use winit::window::Fullscreen;
 use winit::window::Window;
 use winit::window::WindowId;
@@ -45,6 +51,7 @@ use crate::vec3;
 ////////////
 
 /// By default looks down +Y
+#[derive(Debug)]
 struct Camera {
     position: vec3,
     /// + is left, - is right
@@ -67,6 +74,10 @@ impl Camera {
 
     fn position(&self) -> vec3 { self.position }
 
+    fn yaw(&self) -> f32 { self.yaw }
+
+    fn pitch(&self) -> f32 { self.pitch }
+
     fn change_position(&mut self, delta: vec3) { self.position += delta; }
 
     /// Rotates movement so it is in accordance with an unrotated camera. So with:
@@ -77,33 +88,62 @@ impl Camera {
         self.position += mat3::from_rotation_z(self.yaw) * delta;
     }
 
-    fn yaw(&self) -> f32 { self.yaw }
-
     fn change_yaw(&mut self, delta: f32) {
         self.yaw = (self.yaw + delta).rem_euclid(TAU);
     }
 
-    fn pitch(&self) -> f32 { self.pitch }
+    const LOOK_UP_ANGLE: f32 = FRAC_PI_2 - f32::EPSILON;
 
     fn change_pitch(&mut self, delta: f32) {
-        self.pitch = (self.pitch + delta).clamp(-FRAC_PI_2, FRAC_PI_2);
+        self.pitch = (self.pitch + delta)
+            .clamp(-Self::LOOK_UP_ANGLE, Self::LOOK_UP_ANGLE);
     }
 }
 
 ///////////
 // Input //
 ///////////
+// TODO: Split between "continous" input checked every frame (like moving forward)
+// And "event" input anywhere during the frame (like jumping)
 
+#[derive(Debug, Default, Clone)]
 struct InputState {
-    pub forward: bool,
-    pub backward: bool,
-    pub left: bool,
-    pub right: bool,
+    pub move_forward: bool,
+    pub move_backward: bool,
+    pub move_left: bool,
+    pub move_right: bool,
+    pub move_up: bool,
+    pub move_down: bool,
 
     pub rotate_up: bool,
     pub rotate_down: bool,
     pub rotate_left: bool,
     pub rotate_right: bool,
+}
+
+impl InputState {
+    pub fn new() -> Self { Default::default() }
+
+    /// Updates state based on pressed key.
+    /// Returns [Some] if state was updated, [None] if the key was not recognized.
+    pub fn process(&mut self, key: KeyCode, state: ElementState) -> Option<()> {
+        let is_pressed = matches!(state, Pressed);
+        Some(match key {
+            KeyCode::KeyW => self.move_forward = is_pressed,
+            KeyCode::KeyS => self.move_backward = is_pressed,
+            KeyCode::KeyA => self.move_left = is_pressed,
+            KeyCode::KeyD => self.move_right = is_pressed,
+            KeyCode::KeyE => self.move_up = is_pressed,
+            KeyCode::KeyQ => self.move_down = is_pressed,
+
+            KeyCode::ArrowUp => self.rotate_up = is_pressed,
+            KeyCode::ArrowDown => self.rotate_down = is_pressed,
+            KeyCode::ArrowLeft => self.rotate_left = is_pressed,
+            KeyCode::ArrowRight => self.rotate_right = is_pressed,
+
+            _ => return None,
+        })
+    }
 }
 
 /////////////////
@@ -121,9 +161,13 @@ struct Application {
     mesh: ChunkMesh,
     texture: CompressedTexture2d,
 
-    #[expect(dead_code, reason = "just rendering for now")]
     world: World,
     camera: Camera,
+
+    input: InputState,
+
+    tick_no: u64,
+    last_tick: Instant,
 }
 
 impl Application {
@@ -132,6 +176,10 @@ impl Application {
         display: Display<WindowSurface>,
     ) -> crate::Result<Self> {
         let last_cursor = PhysicalPosition { x: 0.0, y: 0.0 };
+
+        let world = World::new();
+        let camera = Camera::new();
+        let input = InputState::new();
 
         let program = chunk_program(&display)?;
         let options = DrawParameters {
@@ -142,11 +190,9 @@ impl Application {
             },
             ..Default::default()
         };
-        let world = World::new();
-        let camera = Camera::new();
-
         let mesh = chunk_mesh(&world.chunk, &display)?;
         let texture = load_terrain_png(&display)?;
+
         Ok(Application {
             window,
             display,
@@ -157,9 +203,15 @@ impl Application {
             texture,
             world,
             camera,
+            input,
+            tick_no: 1,
+            last_tick: Instant::now(),
         })
     }
+}
 
+// Drawing logic
+impl Application {
     fn projection(&self) -> mat4 {
         let fov_y_radians = 90.0 * PI / 180.0;
         let inner_size = self.window.inner_size();
@@ -171,6 +223,8 @@ impl Application {
     }
 
     pub fn draw(&self) -> crate::Result {
+        // I need to put it somewhere else
+
         let mut frame = self.display.draw();
 
         frame.clear_color(0.0, 0.0, 0.0, 1.0);
@@ -193,10 +247,61 @@ impl Application {
 
         Ok(frame.finish()?)
     }
+}
+
+// Tick logic
+impl Application {
+    /// Tries to tick at most once.
+    pub fn try_tick(&mut self) {
+        let seconds_per_tick = Duration::from_secs_f64(1.0 / 20.0);
+        let now = Instant::now();
+        if (now - self.last_tick) >= seconds_per_tick {
+            self.tick();
+            self.last_tick = now;
+            self.tick_no += 1;
+        }
+    }
 
     pub fn tick(&mut self) {
+        println!("tick #{}", self.tick_no);
+
         self.world.tick();
-        // update camera pos
+        // TODO: Do we do self.camera.tick()?
+        // Or tie it to an entity
+
+        // Movement
+        if self.input.move_forward {
+            self.camera.change_rotated_position(vec3::Y);
+        }
+        if self.input.move_left {
+            self.camera.change_rotated_position(vec3::NEG_X);
+        }
+        if self.input.move_backward {
+            self.camera.change_rotated_position(vec3::NEG_Y);
+        }
+        if self.input.move_right {
+            self.camera.change_rotated_position(vec3::X);
+        }
+        if self.input.move_up {
+            self.camera.change_position(vec3::Z);
+        }
+        if self.input.move_down {
+            self.camera.change_position(vec3::NEG_Z);
+        }
+
+        // Camera
+        if self.input.rotate_up {
+            self.camera.change_pitch(PI / 16.0);
+        }
+        if self.input.rotate_down {
+            self.camera.change_pitch(-PI / 16.0);
+        }
+        if self.input.rotate_left {
+            self.camera.change_yaw(PI / 16.0);
+        }
+        if self.input.rotate_right {
+            self.camera.change_yaw(-PI / 16.0);
+        }
     }
 }
 
@@ -209,8 +314,17 @@ impl ApplicationHandler for Application {
     ) {
         use WindowEvent::*;
         match event {
-            RedrawRequested => self.draw().expect("drawing failed"),
+            /////////////
+            // Drawing //
+            /////////////
+            RedrawRequested => {
+                self.try_tick();
+                self.draw().expect("drawing failed");
+            }
             Resized(inner_size) => self.display.resize(inner_size.into()),
+            ///////////
+            // Input //
+            ///////////
             CursorMoved { position, .. } => {
                 let PhysicalPosition { x: old_x, y: old_y } = self.last_cursor;
                 let PhysicalPosition { x: new_x, y: new_y } = &position;
@@ -219,65 +333,55 @@ impl ApplicationHandler for Application {
                 self.last_cursor = position;
             }
             KeyboardInput { event, .. } => match event.physical_key {
-                PhysicalKey::Code(code) => {
-                    match (code, event.state) {
-                        // Game input
-                        (KeyCode::KeyW, Pressed) => {
-                            self.camera.change_rotated_position(vec3::Y);
+                PhysicalKey::Code(code) => match (code, event.state) {
+                    ///////////
+                    // Debug //
+                    ///////////
+                    (KeyCode::Escape, Pressed) => {
+                        if let Err(e) =
+                            self.window.set_cursor_grab(CursorGrabMode::None)
+                        {
+                            eprintln!("failed to set cursor: {e}");
                         }
-                        (KeyCode::KeyA, Pressed) => {
-                            self.camera.change_rotated_position(vec3::NEG_X);
-                        }
-                        (KeyCode::KeyS, Pressed) => {
-                            self.camera.change_rotated_position(vec3::NEG_Y);
-                        }
-                        (KeyCode::KeyD, Pressed) => {
-                            self.camera.change_rotated_position(vec3::X);
-                        }
-                        (KeyCode::KeyE | KeyCode::Space, Pressed) => {
-                            self.camera.change_position(vec3::Z);
-                        }
-                        (KeyCode::KeyQ | KeyCode::KeyC, Pressed) => {
-                            self.camera.change_position(vec3::NEG_Z);
-                        }
-
-                        (KeyCode::ArrowUp, Pressed) => {
-                            self.camera.change_pitch(PI / 16.0);
-                        }
-                        (KeyCode::ArrowDown, Pressed) => {
-                            self.camera.change_pitch(-PI / 16.0);
-                        }
-                        (KeyCode::ArrowLeft, Pressed) => {
-                            self.camera.change_yaw(PI / 16.0);
-                        }
-                        (KeyCode::ArrowRight, Pressed) => {
-                            self.camera.change_yaw(-PI / 16.0);
-                        }
-                        // Debug
-                        #[cfg(debug_assertions)]
-                        (KeyCode::F8, Pressed) => {
-                            // [Stop debugging] is mapped to F8 on my setup
-                            event_loop.exit();
-                        }
-                        (KeyCode::F10, Pressed) => {
-                            println!("TODO: toggle menu")
-                        }
-                        (KeyCode::F11, Pressed) => self.window.set_fullscreen(
-                            match self.window.fullscreen() {
-                                None => Some(Fullscreen::Borderless(None)),
-                                Some(_) => None,
-                            },
-                        ),
-                        _ => {}
-                    };
-                    if let Pressed = event.state {
-                        println!("current position = {}", self.camera.position)
                     }
+                    #[cfg(debug_assertions)]
+                    (KeyCode::F8, Pressed) => event_loop.exit(),
+                    (KeyCode::F10, Pressed) => {
+                        println!("TODO: toggle menu")
+                    }
+                    (KeyCode::F11, Pressed) => self.window.set_fullscreen(
+                        match self.window.fullscreen() {
+                            None => Some(Fullscreen::Borderless(None)),
+                            Some(_) => None,
+                        },
+                    ),
+                    _ => {
+                        if let None = self.input.process(code, event.state) {
+                            println!("warning: ignoring {code:?}");
+                        }
+                    }
+                },
+                PhysicalKey::Unidentified(c) => {
+                    println!("warning: unidentified key {c:?}");
                 }
-                _ => {}
             },
             CloseRequested => {
                 event_loop.exit();
+            }
+            _ => {}
+        }
+    }
+
+    fn device_event(
+        &mut self,
+        _: &ActiveEventLoop,
+        device_id: DeviceId,
+        event: DeviceEvent,
+    ) {
+        use DeviceEvent::*;
+        match event {
+            MouseMotion { delta: (dx, dy) } => {
+                println!("device event: {dx} {dy} under {device_id:?}")
             }
             _ => {}
         }

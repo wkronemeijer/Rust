@@ -1,6 +1,7 @@
 use super::chunk::Chunk;
 use super::tile::Tile;
 
+#[derive(Debug)]
 pub struct World {
     // One chunk for now
     pub(crate) chunk: Chunk,
@@ -15,6 +16,9 @@ impl World {
                 *tile = Tile::Stone;
             }
             8 => {
+                *tile = Tile::Dirt;
+            }
+            9 if (pos.x + pos.y) % 2 == 0 => {
                 *tile = Tile::Grass;
             }
             _ => {}
@@ -23,5 +27,5 @@ impl World {
         world
     }
 
-    pub fn tick(&mut self) { println!("tick") }
+    pub fn tick(&mut self) {}
 }
