@@ -16,7 +16,6 @@ use glium::DrawParameters;
 use glium::Program;
 use glium::Surface;
 use winit::application::ApplicationHandler;
-use winit::dpi::PhysicalPosition;
 use winit::dpi::PhysicalSize;
 use winit::event::DeviceEvent;
 use winit::event::DeviceId;
@@ -34,6 +33,7 @@ use winit::window::Window;
 use winit::window::WindowId;
 
 use crate::assets::load_terrain_png;
+use crate::core::AspectRatioExt as _;
 use crate::display::shader::chunk_mesh;
 use crate::display::shader::chunk_program;
 use crate::display::shader::chunk_uniforms;
@@ -45,6 +45,7 @@ use crate::domain::TICK_DURATION;
 use crate::manifest::APPLICATION_NAME;
 use crate::mat3;
 use crate::mat4;
+use crate::vec2;
 use crate::vec3;
 
 ////////////
@@ -73,19 +74,11 @@ impl Camera {
         mat4::look_to_rh(self.position, dir, vec3::Z)
     }
 
-    fn position(&self) -> vec3 { self.position }
-
-    fn yaw(&self) -> f32 { self.yaw }
-
-    fn pitch(&self) -> f32 { self.pitch }
-
-    fn change_position(&mut self, delta: vec3) { self.position += delta; }
-
     /// Rotates movement so it is in accordance with an unrotated camera. So with:
     /// * yaw == 0, it goes through unchanged  
     /// * yaw == &tau;/4 it is rotated to the left  
     /// * yaw == &tau;/2 it goes in reverse  
-    fn change_rotated_position(&mut self, wish_displacement: vec3) {
+    fn change_camera_position(&mut self, wish_displacement: vec3) {
         self.position += mat3::from_rotation_z(self.yaw) * wish_displacement;
     }
 
@@ -158,19 +151,15 @@ impl InputState {
 struct Application {
     window: Window,
     display: Display<WindowSurface>,
-    last_cursor: PhysicalPosition<f64>,
 
     program: Program,
     options: DrawParameters<'static>,
-
     mesh: ChunkMesh,
     texture: CompressedTexture2d,
 
     world: World,
     camera: Camera,
-
     input: InputState,
-
     tick_no: u64,
     last_tick: Instant,
 }
@@ -180,12 +169,7 @@ impl Application {
         window: Window,
         display: Display<WindowSurface>,
     ) -> crate::Result<Self> {
-        let last_cursor = PhysicalPosition { x: 0.0, y: 0.0 };
-
-        let world = World::new();
-        let camera = Camera::new();
-        let input = InputState::new();
-
+        // TODO: Move to RenderState
         let program = chunk_program(&display)?;
         let options = DrawParameters {
             depth: Depth {
@@ -195,20 +179,19 @@ impl Application {
             },
             ..Default::default()
         };
-        let mesh = chunk_mesh(&world.chunk, &display)?;
+        let mesh = chunk_mesh(&World::new().chunk, &display)?;
         let texture = load_terrain_png(&display)?;
 
         Ok(Application {
             window,
             display,
-            last_cursor,
             program,
             options,
             mesh,
             texture,
-            world,
-            camera,
-            input,
+            world: World::new(),
+            camera: Camera::new(),
+            input: InputState::new(),
             tick_no: 1,
             last_tick: Instant::now(),
         })
@@ -217,14 +200,19 @@ impl Application {
 
 // Drawing logic
 impl Application {
+    const FOV_Y_RADIANS: f32 = 90.0 * PI / 180.0;
+
     fn projection(&self) -> mat4 {
-        let fov_y_radians = 90.0 * PI / 180.0;
-        let inner_size = self.window.inner_size();
-        let aspect_ratio = inner_size.width as f32 / inner_size.height as f32;
+        let aspect_ratio = self.window.inner_size().aspect_ratio();
         let z_near = 0.001;
         let z_far = 1000.0;
 
-        mat4::perspective_rh_gl(fov_y_radians, aspect_ratio, z_near, z_far)
+        mat4::perspective_rh_gl(
+            Self::FOV_Y_RADIANS,
+            aspect_ratio,
+            z_near,
+            z_far,
+        )
     }
 
     pub fn draw(&self) -> crate::Result {
@@ -271,6 +259,7 @@ impl Application {
     }
 
     const PLAYER_UNITS_PER_SECOND: f32 = 5.0;
+    const ANGLE_PER_SECOND: f32 = PI / 2.0;
 
     pub fn tick(&mut self) {
         println!("tick #{}", self.tick_no);
@@ -303,30 +292,39 @@ impl Application {
         if self.input.move_down {
             wishdir -= vec3::Z;
         }
-        wishdir = wishdir.normalize_or_zero(); // TODO: insert player speed
+        wishdir = wishdir.normalize_or_zero();
         wishdir *= Self::PLAYER_UNITS_PER_SECOND * SECONDS_PER_TICK;
 
-        self.camera.change_rotated_position(wishdir);
+        self.camera.change_camera_position(wishdir);
 
         //////////////
         // Rotation //
         //////////////
 
-        const VSENS: f32 = PI / 16.0;
-        const HSENS: f32 = PI / 16.0;
+        // (Δyaw, Δpitch)
+        let mut wishlook = vec2::ZERO;
 
         if self.input.rotate_left {
-            self.camera.change_yaw(HSENS);
+            wishlook += vec2::X;
         }
         if self.input.rotate_right {
-            self.camera.change_yaw(-HSENS);
+            wishlook -= vec2::X;
         }
         if self.input.rotate_up {
-            self.camera.change_pitch(VSENS);
+            wishlook += vec2::Y;
         }
         if self.input.rotate_down {
-            self.camera.change_pitch(-VSENS);
+            wishlook -= vec2::Y;
         }
+
+        wishlook = wishlook.normalize_or_zero();
+        wishlook *= Self::ANGLE_PER_SECOND * SECONDS_PER_TICK;
+
+        // Without this vertical sens feels too fast
+        wishlook.y /= Self::FOV_Y_RADIANS;
+
+        self.camera.change_yaw(wishlook.x);
+        self.camera.change_pitch(wishlook.y);
     }
 }
 
@@ -350,13 +348,6 @@ impl ApplicationHandler for Application {
             ///////////
             // Input //
             ///////////
-            CursorMoved { position, .. } => {
-                let PhysicalPosition { x: old_x, y: old_y } = self.last_cursor;
-                let PhysicalPosition { x: new_x, y: new_y } = &position;
-                let delta = (new_x - old_x, new_y - old_y);
-                println!("cursor moved: {delta:?}");
-                self.last_cursor = position;
-            }
             KeyboardInput { event, .. } => match event.physical_key {
                 PhysicalKey::Code(code) => match (code, event.state) {
                     ///////////
@@ -406,13 +397,19 @@ impl ApplicationHandler for Application {
         use DeviceEvent::*;
         match event {
             MouseMotion { delta: (dx, dy) } => {
+                // MouseMotion events are not affect by Windows Mouse Settings
+                // according to https://github.com/bevyengine/bevy/issues/1149
+                // ...and they keep coming when you hit the edge of the screen.
                 println!("device event: {dx} {dy} under {device_id:?}")
             }
             _ => {}
         }
     }
 
-    fn about_to_wait(&mut self, _: &ActiveEventLoop) {
+    fn about_to_wait(&mut self, event_loop: &ActiveEventLoop) {
+        event_loop.set_control_flow(ControlFlow::WaitUntil(
+            self.projected_next_tick(),
+        ));
         self.window.request_redraw();
     }
 
