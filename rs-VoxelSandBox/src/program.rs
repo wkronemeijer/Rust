@@ -32,6 +32,7 @@ use winit::window::Fullscreen;
 use winit::window::Window;
 use winit::window::WindowId;
 
+use crate::assets::load_icon_png;
 use crate::assets::load_terrain_png;
 use crate::core::AspectRatioExt as _;
 use crate::display::shader::chunk_mesh;
@@ -182,6 +183,9 @@ impl Application {
         };
         let mesh = chunk_mesh(&World::new().chunk, &display)?;
         let texture = load_terrain_png(&display)?;
+
+        let icon = load_icon_png()?;
+        window.set_window_icon(Some(icon));
 
         Ok(Application {
             window,
