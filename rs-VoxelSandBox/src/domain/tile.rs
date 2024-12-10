@@ -53,28 +53,34 @@ impl Tile {
 ////////////
 
 #[derive(Debug, Clone)]
-pub enum Facing {
+pub enum Face {
+    /// Points toward +Z
     Up,
+    /// Points toward +Y
     North,
+    /// Points toward +X
     East,
+    /// Points toward -Y
     South,
+    /// Points toward -X
     West,
+    /// Points toward -Z
     Down,
 }
 
-impl Facing {
+impl Face {
     pub fn unit_vector(&self) -> vec3 {
         match self {
-            Self::Up => vec3::new(0.0, 1.0, 0.0),
-            Self::Down => vec3::new(0.0, -1.0, 0.0),
-            Self::South => vec3::new(0.0, 0.0, 1.0),
-            Self::North => vec3::new(0.0, 0.0, -1.0),
-            Self::East => vec3::new(1.0, 0.0, 0.0),
-            Self::West => vec3::new(-1.0, 0.0, 0.0),
+            Self::Up => vec3::Z,
+            Self::Down => vec3::NEG_Z,
+            Self::South => vec3::NEG_Y,
+            Self::North => vec3::Y,
+            Self::East => vec3::X,
+            Self::West => vec3::NEG_X,
         }
     }
 
-    pub fn flip(&self) -> Facing {
+    pub fn flip(&self) -> Face {
         match self {
             Self::Up => Self::Down,
             Self::Down => Self::Up,

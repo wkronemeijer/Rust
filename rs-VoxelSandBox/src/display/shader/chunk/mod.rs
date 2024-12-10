@@ -15,6 +15,7 @@ use glium::VertexBuffer;
 use crate::assets::TERRAIN_PNG_PIXEL_DIM;
 use crate::display::Mesh;
 use crate::domain::chunk::Chunk;
+use crate::domain::tile::Face;
 use crate::domain::tile::Tile;
 use crate::ivec3;
 use crate::mat4;
@@ -28,8 +29,9 @@ const FRAGMENT_SHADER: &str = include_str!("chunk.frag");
 pub struct ChunkVertex {
     pub pos: [f32; 3],
     pub tex: [f32; 2],
+    pub light: f32,
 }
-implement_vertex!(ChunkVertex, pos, tex);
+implement_vertex!(ChunkVertex, pos, tex, light);
 
 pub fn chunk_uniforms<'a>(
     texture: &'a CompressedTexture2d,
@@ -74,6 +76,18 @@ fn tile_uv(tile: &Tile) -> vec2 {
     vec2(x * TILE_UV_STEP, 1.0 - y * TILE_UV_STEP)
 }
 
+fn get_light_level(face: Face) -> f32 {
+    // as if the Sun was high up in the south
+    match face {
+        Face::Up => 1.0,
+        Face::South => 0.9,
+        Face::West => 0.8,
+        Face::East => 0.7,
+        Face::North => 0.6,
+        Face::Down => 0.5,
+    }
+}
+
 // TODO: Use indices
 // A cube is: 8 vertices, 10 edges, 6 faces/quads
 // So 6 * 2 * 3 = 36 tri's (vs 8 verts + 36 indices)
@@ -83,11 +97,16 @@ fn add_block_vertices(
     tile: &Tile,
     vertices: &mut Vec<ChunkVertex>,
 ) {
-    let mut push = |xyz: vec3, uv: vec2| {
-        vertices.push(ChunkVertex { pos: xyz.into(), tex: uv.into() });
+    let mut push = |xyz: vec3, uv: vec2, l: f32| {
+        vertices.push(ChunkVertex {
+            pos: xyz.into(),
+            tex: uv.into(),
+            light: l,
+        });
     };
 
-    let mut push_quad = |v1: vec3,
+    let mut push_quad = |face: Face,
+                         v1: vec3,
                          v2: vec3,
                          v3: vec3,
                          v4: vec3,
@@ -95,12 +114,13 @@ fn add_block_vertices(
                          t2: vec2,
                          t3: vec2,
                          t4: vec2| {
-        push(v1, t1);
-        push(v2, t2);
-        push(v3, t3);
-        push(v3, t3);
-        push(v4, t4);
-        push(v1, t1);
+        let l = get_light_level(face);
+        push(v1, t1, l);
+        push(v2, t2, l);
+        push(v3, t3, l);
+        push(v3, t3, l);
+        push(v4, t4, l);
+        push(v1, t1, l);
     };
 
     /*
@@ -139,12 +159,12 @@ fn add_block_vertices(
     let r = q + TILE_UV_STEP * vec2::Y;
     let s = p + TILE_UV_STEP * vec2::Y;
 
-    push_quad(d, c, b, a, p, q, r, s); // bottom
-    push_quad(e, f, g, h, p, q, r, s); // top
-    push_quad(a, b, f, e, p, q, r, s); // front
-    push_quad(b, c, g, f, p, q, r, s); // right
-    push_quad(c, d, h, g, p, q, r, s); // back
-    push_quad(d, a, e, h, p, q, r, s); // left
+    push_quad(Face::Down, d, c, b, a, p, q, r, s); // bottom
+    push_quad(Face::Up, e, f, g, h, p, q, r, s); // top
+    push_quad(Face::South, a, b, f, e, p, q, r, s); // front
+    push_quad(Face::East, b, c, g, f, p, q, r, s); // right
+    push_quad(Face::North, c, d, h, g, p, q, r, s); // back
+    push_quad(Face::West, d, a, e, h, p, q, r, s); // left
 }
 
 /// Generates a mesh for entire chunk.
