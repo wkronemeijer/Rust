@@ -51,6 +51,7 @@ use crate::vec3;
 ////////////
 // Camera //
 ////////////
+// https://en.wikipedia.org/wiki/Aircraft_flight_dynamics#Transformations_(Euler_angles) mentions yaw == ψ and pitch == θ (and roll == φ)
 
 /// By default looks down +Y
 #[derive(Debug)]
@@ -372,7 +373,8 @@ impl ApplicationHandler for Application {
                         },
                     ),
                     _ => {
-                        if let None = self.input.process(code, event.state) {
+                        let result = self.input.process(code, event.state);
+                        if matches!((result, event.state), (None, Pressed)) {
                             println!("warning: ignoring {code:?}");
                         }
                     }

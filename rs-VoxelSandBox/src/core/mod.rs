@@ -1,3 +1,5 @@
+//! Exports standard library-like items.
+
 use winit::dpi::PhysicalSize;
 
 use crate::ivec3;

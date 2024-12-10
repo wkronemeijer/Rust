@@ -1,3 +1,5 @@
+#![forbid(unsafe_code)]
+
 use voxelsandbox::manifest::APPLICATION_NAME;
 use voxelsandbox::run;
 use voxelsandbox::Result;

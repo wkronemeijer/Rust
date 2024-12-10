@@ -1,3 +1,5 @@
+#![forbid(unsafe_code)]
+
 pub mod assets;
 pub mod core;
 pub mod display;
