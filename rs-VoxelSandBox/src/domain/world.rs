@@ -1,5 +1,6 @@
 use super::chunk::Chunk;
 use super::tile::Tile;
+use crate::ivec3;
 
 #[derive(Debug)]
 pub struct World {
@@ -7,20 +8,17 @@ pub struct World {
     pub(crate) chunk: Chunk,
 }
 
+fn cool_pattern(pos: ivec3) -> bool { (pos.x + 2 * pos.y) % 5 != 0 }
+
 impl World {
     pub fn new() -> Self {
         let mut world = World { chunk: Chunk::new() };
 
         world.chunk.for_each_tile_mut(|pos, tile| match pos.z {
-            0..8 => {
-                *tile = Tile::Stone;
-            }
-            8 => {
-                *tile = Tile::Dirt;
-            }
-            9 if (pos.x + pos.y) % 2 == 0 => {
-                *tile = Tile::Grass;
-            }
+            0..8 => *tile = Tile::Stone,
+            8..11 => *tile = Tile::Dirt,
+            11 => *tile = Tile::Grass,
+            12 if cool_pattern(pos) => *tile = Tile::Grass,
             _ => {}
         });
 

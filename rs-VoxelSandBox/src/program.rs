@@ -84,19 +84,21 @@ impl Camera {
     /// * yaw == 0, it goes through unchanged  
     /// * yaw == &tau;/4 it is rotated to the left  
     /// * yaw == &tau;/2 it goes in reverse  
-    fn change_rotated_position(&mut self, delta: vec3) {
-        self.position += mat3::from_rotation_z(self.yaw) * delta;
+    fn change_rotated_position(&mut self, wish_displacement: vec3) {
+        self.position += mat3::from_rotation_z(self.yaw) * wish_displacement;
     }
 
     fn change_yaw(&mut self, delta: f32) {
         self.yaw = (self.yaw + delta).rem_euclid(TAU);
     }
 
-    const LOOK_UP_ANGLE: f32 = FRAC_PI_2 - f32::EPSILON;
+    // -ε to prevent flipping the camera
+    const MAX_PITCH: f32 = FRAC_PI_2 - f32::EPSILON;
+    const MIN_PITCH: f32 = -Self::MAX_PITCH;
 
     fn change_pitch(&mut self, delta: f32) {
-        self.pitch = (self.pitch + delta)
-            .clamp(-Self::LOOK_UP_ANGLE, Self::LOOK_UP_ANGLE);
+        self.pitch =
+            (self.pitch + delta).clamp(Self::MIN_PITCH, Self::MAX_PITCH);
     }
 }
 
@@ -125,21 +127,23 @@ impl InputState {
     pub fn new() -> Self { Default::default() }
 
     /// Updates state based on pressed key.
-    /// Returns [Some] if state was updated, [None] if the key was not recognized.
+    /// Returns [`Some`] if state was updated, [`None`] if the key was not recognized.
     pub fn process(&mut self, key: KeyCode, state: ElementState) -> Option<()> {
+        use KeyCode::*;
+
         let is_pressed = matches!(state, Pressed);
         Some(match key {
-            KeyCode::KeyW => self.move_forward = is_pressed,
-            KeyCode::KeyS => self.move_backward = is_pressed,
-            KeyCode::KeyA => self.move_left = is_pressed,
-            KeyCode::KeyD => self.move_right = is_pressed,
-            KeyCode::KeyE => self.move_up = is_pressed,
-            KeyCode::KeyQ => self.move_down = is_pressed,
+            KeyW => self.move_forward = is_pressed,
+            KeyS => self.move_backward = is_pressed,
+            KeyA => self.move_left = is_pressed,
+            KeyD => self.move_right = is_pressed,
+            KeyE => self.move_up = is_pressed,
+            KeyQ => self.move_down = is_pressed,
 
-            KeyCode::ArrowUp => self.rotate_up = is_pressed,
-            KeyCode::ArrowDown => self.rotate_down = is_pressed,
-            KeyCode::ArrowLeft => self.rotate_left = is_pressed,
-            KeyCode::ArrowRight => self.rotate_right = is_pressed,
+            ArrowUp => self.rotate_up = is_pressed,
+            ArrowDown => self.rotate_down = is_pressed,
+            ArrowLeft => self.rotate_left = is_pressed,
+            ArrowRight => self.rotate_right = is_pressed,
 
             _ => return None,
         })
@@ -249,13 +253,18 @@ impl Application {
     }
 }
 
+const SECONDS_PER_TICK: Duration = Duration::from_millis(50);
+
 // Tick logic
 impl Application {
+    pub fn projected_next_tick(&self) -> Instant {
+        self.last_tick + SECONDS_PER_TICK
+    }
+
     /// Tries to tick at most once.
     pub fn try_tick(&mut self) {
-        let seconds_per_tick = Duration::from_secs_f64(1.0 / 20.0);
         let now = Instant::now();
-        if (now - self.last_tick) >= seconds_per_tick {
+        if (now - self.last_tick) >= SECONDS_PER_TICK {
             self.tick();
             self.last_tick = now;
             self.tick_no += 1;
@@ -268,26 +277,32 @@ impl Application {
         self.world.tick();
         // TODO: Do we do self.camera.tick()?
         // Or tie it to an entity
+        // Or both and optional detach for debugging
+
+        let mut wishdir = vec3::ZERO;
 
         // Movement
         if self.input.move_forward {
-            self.camera.change_rotated_position(vec3::Y);
+            wishdir += vec3::Y;
         }
         if self.input.move_left {
-            self.camera.change_rotated_position(vec3::NEG_X);
+            wishdir += vec3::NEG_X;
         }
         if self.input.move_backward {
-            self.camera.change_rotated_position(vec3::NEG_Y);
+            wishdir += vec3::NEG_Y;
         }
         if self.input.move_right {
-            self.camera.change_rotated_position(vec3::X);
+            wishdir += vec3::X;
         }
         if self.input.move_up {
-            self.camera.change_position(vec3::Z);
+            wishdir += vec3::Z;
         }
         if self.input.move_down {
-            self.camera.change_position(vec3::NEG_Z);
+            wishdir += vec3::NEG_Z;
         }
+
+        wishdir = wishdir.normalize_or_zero(); // TODO: insert player speed
+        self.camera.change_rotated_position(wishdir);
 
         // Camera
         if self.input.rotate_up {
