@@ -68,10 +68,16 @@ impl Chunk {
         }
     }
 
+    /// Iterates over all tiles, also passing the location.
+    ///
+    /// API modeled after [`enumerate`](std::iter::Iterator::enumerate).
     pub fn for_each_tile<F: FnMut(ChunkIndex, &Tile)>(&self, mut func: F) {
         Self::for_each_position(|pos| func(pos, &self[pos]))
     }
 
+    /// Iterates mutably over all tiles, also passing the location.
+    ///
+    /// API modeled after [`enumerate`](std::iter::Iterator::enumerate).
     pub fn for_each_tile_mut<F: FnMut(ChunkIndex, &mut Tile)>(
         &mut self,
         mut func: F,

@@ -2,7 +2,6 @@ use std::default::Default;
 use std::f32::consts::FRAC_PI_2;
 use std::f32::consts::PI;
 use std::f32::consts::TAU;
-use std::time::Duration;
 use std::time::Instant;
 
 use anyhow::Context;
@@ -41,6 +40,8 @@ use crate::display::shader::chunk_uniforms;
 use crate::display::shader::ChunkMesh;
 use crate::display::Mesh;
 use crate::domain::world::World;
+use crate::domain::SECONDS_PER_TICK;
+use crate::domain::TICK_DURATION;
 use crate::manifest::APPLICATION_NAME;
 use crate::mat3;
 use crate::mat4;
@@ -253,23 +254,23 @@ impl Application {
     }
 }
 
-const SECONDS_PER_TICK: Duration = Duration::from_millis(50);
-
 // Tick logic
 impl Application {
     pub fn projected_next_tick(&self) -> Instant {
-        self.last_tick + SECONDS_PER_TICK
+        self.last_tick + TICK_DURATION
     }
 
     /// Tries to tick at most once.
     pub fn try_tick(&mut self) {
         let now = Instant::now();
-        if (now - self.last_tick) >= SECONDS_PER_TICK {
+        if (now - self.last_tick) >= TICK_DURATION {
             self.tick();
             self.last_tick = now;
             self.tick_no += 1;
         }
     }
+
+    const PLAYER_UNITS_PER_SECOND: f32 = 5.0;
 
     pub fn tick(&mut self) {
         println!("tick #{}", self.tick_no);
@@ -277,45 +278,54 @@ impl Application {
         self.world.tick();
         // TODO: Do we do self.camera.tick()?
         // Or tie it to an entity
-        // Or both and optional detach for debugging
+        // Or both and add optional detach for debugging
+
+        //////////////
+        // Movement //
+        //////////////
 
         let mut wishdir = vec3::ZERO;
-
-        // Movement
         if self.input.move_forward {
             wishdir += vec3::Y;
         }
-        if self.input.move_left {
-            wishdir += vec3::NEG_X;
-        }
         if self.input.move_backward {
-            wishdir += vec3::NEG_Y;
+            wishdir -= vec3::Y;
         }
         if self.input.move_right {
             wishdir += vec3::X;
+        }
+        if self.input.move_left {
+            wishdir -= vec3::X;
         }
         if self.input.move_up {
             wishdir += vec3::Z;
         }
         if self.input.move_down {
-            wishdir += vec3::NEG_Z;
+            wishdir -= vec3::Z;
         }
-
         wishdir = wishdir.normalize_or_zero(); // TODO: insert player speed
+        wishdir *= Self::PLAYER_UNITS_PER_SECOND * SECONDS_PER_TICK;
+
         self.camera.change_rotated_position(wishdir);
 
-        // Camera
-        if self.input.rotate_up {
-            self.camera.change_pitch(PI / 16.0);
-        }
-        if self.input.rotate_down {
-            self.camera.change_pitch(-PI / 16.0);
-        }
+        //////////////
+        // Rotation //
+        //////////////
+
+        const VSENS: f32 = PI / 16.0;
+        const HSENS: f32 = PI / 16.0;
+
         if self.input.rotate_left {
-            self.camera.change_yaw(PI / 16.0);
+            self.camera.change_yaw(HSENS);
         }
         if self.input.rotate_right {
-            self.camera.change_yaw(-PI / 16.0);
+            self.camera.change_yaw(-HSENS);
+        }
+        if self.input.rotate_up {
+            self.camera.change_pitch(VSENS);
+        }
+        if self.input.rotate_down {
+            self.camera.change_pitch(-VSENS);
         }
     }
 }

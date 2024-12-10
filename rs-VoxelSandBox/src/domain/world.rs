@@ -1,6 +1,6 @@
 use super::chunk::Chunk;
+use super::chunk::ChunkIndex;
 use super::tile::Tile;
-use crate::ivec3;
 
 #[derive(Debug)]
 pub struct World {
@@ -8,7 +8,7 @@ pub struct World {
     pub(crate) chunk: Chunk,
 }
 
-fn cool_pattern(pos: ivec3) -> bool { (pos.x + 2 * pos.y) % 5 != 0 }
+fn cool_pattern(pos: ChunkIndex) -> bool { (pos.x + 3 * pos.y) % 5 != 0 }
 
 impl World {
     pub fn new() -> Self {
