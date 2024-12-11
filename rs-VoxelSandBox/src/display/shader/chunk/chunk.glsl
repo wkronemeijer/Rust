@@ -24,6 +24,7 @@ void main() {
 //////////////////////
 
 #version 330
+precision mediump float;
 
 in vec2 uv;
 in float l;

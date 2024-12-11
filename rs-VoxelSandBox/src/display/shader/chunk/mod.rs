@@ -16,7 +16,7 @@ use crate::assets::TERRAIN_PNG_PIXEL_DIM;
 use crate::display::shader::split_shader;
 use crate::display::Mesh;
 use crate::domain::chunk::Chunk;
-use crate::domain::tile::Face;
+use crate::domain::face::Face;
 use crate::domain::tile::Tile;
 use crate::ivec3;
 use crate::mat4;

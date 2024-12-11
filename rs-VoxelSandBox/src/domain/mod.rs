@@ -1,6 +1,7 @@
 //! Contains all code for the world simulation.
 
 pub mod chunk;
+pub mod face;
 pub mod tile;
 pub mod world;
 
