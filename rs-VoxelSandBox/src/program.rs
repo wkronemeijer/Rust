@@ -162,7 +162,6 @@ struct Application {
     world: World,
     camera: Camera,
     input: InputState,
-    tick_no: u64,
     last_tick: Instant,
 }
 
@@ -197,7 +196,6 @@ impl Application {
             world: World::new(),
             camera: Camera::new(),
             input: InputState::new(),
-            tick_no: 1,
             last_tick: Instant::now(),
         })
     }
@@ -259,7 +257,6 @@ impl Application {
         if (now - self.last_tick) >= TICK_DURATION {
             self.tick();
             self.last_tick = now;
-            self.tick_no += 1;
         }
     }
 
@@ -267,8 +264,6 @@ impl Application {
     const ANGLE_PER_SECOND: f32 = PI / 2.0;
 
     pub fn tick(&mut self) {
-        println!("tick #{}", self.tick_no);
-
         self.world.tick();
         // TODO: Do we do self.camera.tick()?
         // Or tie it to an entity
@@ -397,16 +392,15 @@ impl ApplicationHandler for Application {
     fn device_event(
         &mut self,
         _: &ActiveEventLoop,
-        device_id: DeviceId,
+        _: DeviceId,
         event: DeviceEvent,
     ) {
         use DeviceEvent::*;
         match event {
-            MouseMotion { delta: (dx, dy) } => {
+            MouseMotion { delta: (_, _) } => {
                 // MouseMotion events are not affect by Windows Mouse Settings
                 // according to https://github.com/bevyengine/bevy/issues/1149
                 // ...and they keep coming when you hit the edge of the screen.
-                println!("device event: {dx} {dy} under {device_id:?}")
             }
             _ => {}
         }

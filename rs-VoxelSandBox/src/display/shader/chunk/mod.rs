@@ -13,6 +13,7 @@ use glium::Program;
 use glium::VertexBuffer;
 
 use crate::assets::TERRAIN_PNG_PIXEL_DIM;
+use crate::display::shader::split_shader;
 use crate::display::Mesh;
 use crate::domain::chunk::Chunk;
 use crate::domain::tile::Face;
@@ -22,8 +23,7 @@ use crate::mat4;
 use crate::vec2;
 use crate::vec3;
 
-const VERTEX_SHADER: &str = include_str!("chunk.vert");
-const FRAGMENT_SHADER: &str = include_str!("chunk.frag");
+const CHUNK_SHADER: &str = include_str!("chunk.glsl");
 
 #[derive(Debug, Clone, Copy)]
 pub struct ChunkVertex {
@@ -51,7 +51,7 @@ pub fn chunk_uniforms<'a>(
 
 pub fn chunk_program(gl: &impl Facade) -> crate::Result<Program> {
     println!("compiling chunk program");
-    Ok(Program::from_source(gl, VERTEX_SHADER, FRAGMENT_SHADER, None)?)
+    split_shader(CHUNK_SHADER)?.into_program(gl)
 }
 
 pub type ChunkMesh = Mesh<VertexBuffer<ChunkVertex>, NoIndices>;
