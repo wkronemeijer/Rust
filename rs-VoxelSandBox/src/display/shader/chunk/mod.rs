@@ -50,7 +50,7 @@ pub fn chunk_uniforms<'a>(
 }
 
 pub fn chunk_program(gl: &impl Facade) -> crate::Result<Program> {
-    println!("compiling chunk program");
+    println!("compiling chunk.glsl");
     split_shader(CHUNK_SHADER)?.into_program(gl)
 }
 
@@ -88,39 +88,9 @@ fn get_light_level(face: Face) -> f32 {
     }
 }
 
-// TODO: Use indices
-// A cube is: 8 vertices, 10 edges, 6 faces/quads
-// So 6 * 2 * 3 = 36 tri's (vs 8 verts + 36 indices)
-// 36 --> 8 sounds like a good saving
-fn add_block_vertices(
-    pos: ivec3,
-    tile: &Tile,
-    vertices: &mut Vec<ChunkVertex>,
-) {
-    let mut push = |xyz: vec3, uv: vec2, l: f32| {
-        vertices.push(ChunkVertex {
-            pos: xyz.into(),
-            tex: uv.into(),
-            light: l,
-        });
-    };
-
-    let mut push_quad = |face: Face,
-                         v1: vec3,
-                         v2: vec3,
-                         v3: vec3,
-                         v4: vec3,
-                         t1: vec2,
-                         t2: vec2,
-                         t3: vec2,
-                         t4: vec2| {
-        let l = get_light_level(face);
-        push(v1, t1, l);
-        push(v2, t2, l);
-        push(v3, t3, l);
-        push(v3, t3, l);
-        push(v4, t4, l);
-        push(v1, t1, l);
+fn add_block_vertices(verts: &mut Vec<ChunkVertex>, tile: &Tile, pos: ivec3) {
+    let mut push_tri = |xyz: vec3, uv: vec2, l: f32| {
+        verts.push(ChunkVertex { pos: xyz.into(), tex: uv.into(), light: l });
     };
 
     /*
@@ -145,6 +115,21 @@ fn add_block_vertices(
     P---Q
 
     */
+    let p = tile_uv(tile);
+    let q = p + TILE_UV_STEP * vec2::X;
+    let r = q + TILE_UV_STEP * vec2::Y;
+    let s = p + TILE_UV_STEP * vec2::Y;
+
+    let mut push_quad = |f: Face, vp: vec3, vq: vec3, vr: vec3, vs: vec3| {
+        let l = get_light_level(f);
+        push_tri(vp, p, l);
+        push_tri(vq, q, l);
+        push_tri(vr, r, l);
+        push_tri(vr, r, l);
+        push_tri(vs, s, l);
+        push_tri(vp, p, l);
+    };
+
     let a = chunk_pos(pos);
     let b = a + vec3::X;
     let c = b + vec3::Y;
@@ -154,27 +139,22 @@ fn add_block_vertices(
     let g = c + vec3::Z;
     let h = d + vec3::Z;
 
-    let p = tile_uv(tile);
-    let q = p + TILE_UV_STEP * vec2::X;
-    let r = q + TILE_UV_STEP * vec2::Y;
-    let s = p + TILE_UV_STEP * vec2::Y;
-
-    push_quad(Face::Down, d, c, b, a, p, q, r, s); // bottom
-    push_quad(Face::Up, e, f, g, h, p, q, r, s); // top
-    push_quad(Face::South, a, b, f, e, p, q, r, s); // front
-    push_quad(Face::East, b, c, g, f, p, q, r, s); // right
-    push_quad(Face::North, c, d, h, g, p, q, r, s); // back
-    push_quad(Face::West, d, a, e, h, p, q, r, s); // left
+    push_quad(Face::Up, e, f, g, h);
+    push_quad(Face::Down, d, c, b, a);
+    push_quad(Face::North, c, d, h, g);
+    push_quad(Face::South, a, b, f, e);
+    push_quad(Face::West, d, a, e, h);
+    push_quad(Face::East, b, c, g, f);
 }
 
 /// Generates a mesh for entire chunk.
 /// Maps (0,0,0) to (0f,0f,0f), so still needs a model transform.
-pub fn chunk_mesh(chunk: &Chunk, gl: &impl Facade) -> crate::Result<ChunkMesh> {
+pub fn chunk_mesh(gl: &impl Facade, chunk: &Chunk) -> crate::Result<ChunkMesh> {
     let ref mut vertices = Vec::<ChunkVertex>::new();
-    chunk.for_each_tile(|ipos, tile| {
+    chunk.for_each_tile(|pos, tile| {
         // TODO: check nearby tiles are all opaque
         if tile.is_visible() {
-            add_block_vertices(ipos, tile, vertices);
+            add_block_vertices(vertices, tile, pos);
         }
     });
     let vertices = VertexBuffer::new(gl, &vertices)?;

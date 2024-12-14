@@ -170,8 +170,11 @@ impl Application {
         window: Window,
         display: Display<WindowSurface>,
     ) -> crate::Result<Self> {
+        let world = World::new();
+        let gl = &display;
+
         // TODO: Move to RenderState
-        let program = chunk_program(&display)?;
+        let program = chunk_program(gl)?;
         let options = DrawParameters {
             depth: Depth {
                 test: DepthTest::IfLess,
@@ -180,8 +183,8 @@ impl Application {
             },
             ..Default::default()
         };
-        let mesh = chunk_mesh(&World::new().chunk, &display)?;
-        let texture = load_terrain_png(&display)?;
+        let mesh = chunk_mesh(gl, &world.chunk)?;
+        let texture = load_terrain_png(gl)?;
 
         let icon = load_icon_png()?;
         window.set_window_icon(Some(icon));
@@ -193,7 +196,7 @@ impl Application {
             options,
             mesh,
             texture,
-            world: World::new(),
+            world,
             camera: Camera::new(),
             input: InputState::new(),
             last_tick: Instant::now(),
