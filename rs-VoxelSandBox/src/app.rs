@@ -2,6 +2,7 @@
 
 use std::default::Default;
 use std::f32::consts::PI;
+use std::f32::consts::TAU;
 use std::time::Instant;
 
 use glium::glutin::surface::WindowSurface;
@@ -97,22 +98,16 @@ impl Application {
         })
     }
 }
+const FOV_Y_RADIANS: f32 = 90.0 * PI / 180.0;
 
 // Drawing logic
 impl Application {
-    const FOV_Y_RADIANS: f32 = 90.0 * PI / 180.0;
-
     fn projection(&self) -> mat4 {
         let aspect_ratio = self.window.inner_size().aspect_ratio();
         let z_near = 0.001;
         let z_far = 1000.0;
 
-        mat4::perspective_rh_gl(
-            Self::FOV_Y_RADIANS,
-            aspect_ratio,
-            z_near,
-            z_far,
-        )
+        mat4::perspective_rh_gl(FOV_Y_RADIANS, aspect_ratio, z_near, z_far)
     }
 
     pub fn draw(&self) -> crate::Result {
@@ -192,6 +187,8 @@ fn wishlook(input: &InputState) -> vec2 {
 
 const PLAYER_UNITS_PER_SECOND: f32 = 5.0;
 const ANGLE_PER_SECOND: f32 = PI / 2.0;
+const ASPECT_CORRECTION: vec2 = vec2(1.0, 1.0 / FOV_Y_RADIANS);
+const ANGLE_PER_MOUSE_UNIT: f32 = TAU / 5_000.0;
 
 impl Application {
     pub fn projected_next_tick(&self) -> Instant {
@@ -214,28 +211,20 @@ impl Application {
         // Or both and add optional detach for debugging
         // Updating view angle on tick will feel really bad
 
-        //////////////
-        // Movement //
-        //////////////
-
         self.camera.change_camera_position(
             wisdir(&self.input) * PLAYER_UNITS_PER_SECOND * SECONDS_PER_TICK,
         );
 
-        //////////////
-        // Rotation //
-        //////////////
-        // Keyboard rotation
+        self.camera.change_lookangles(
+            wishlook(&self.input) *
+                ANGLE_PER_SECOND *
+                SECONDS_PER_TICK *
+                ASPECT_CORRECTION,
+        );
 
-        // (Δyaw, Δpitch)
-        let mut wishlook =
-            wishlook(&self.input) * ANGLE_PER_SECOND * SECONDS_PER_TICK;
-
-        // Without this vertical sens feels too fast
-        wishlook.y /= Self::FOV_Y_RADIANS;
-
-        self.camera.change_yaw(wishlook.x);
-        self.camera.change_pitch(wishlook.y);
+        self.camera.change_lookangles(
+            self.input.mouse_delta().as_vec2() * ANGLE_PER_MOUSE_UNIT,
+        );
 
         /////////////
         // Cleanup //
@@ -319,10 +308,11 @@ impl ApplicationHandler for Application {
     ) {
         use DeviceEvent::*;
         match event {
-            MouseMotion { delta: (_, _) } => {
+            MouseMotion { delta } => {
                 // MouseMotion events are not affect by Windows Mouse Settings
                 // according to https://github.com/bevyengine/bevy/issues/1149
                 // ...and they continue when you hit the edge of the screen.
+                self.input.process_motion_event(delta);
             }
             Added => {
                 println!("device #{device:?} added");

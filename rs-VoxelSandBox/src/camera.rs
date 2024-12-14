@@ -8,6 +8,7 @@ use glam::EulerRot;
 
 use crate::mat3;
 use crate::mat4;
+use crate::vec2;
 use crate::vec3;
 
 /// By default looks down +Y
@@ -51,5 +52,10 @@ impl Camera {
     pub fn change_pitch(&mut self, delta: f32) {
         self.pitch =
             (self.pitch + delta).clamp(Self::MIN_PITCH, Self::MAX_PITCH);
+    }
+
+    pub fn change_lookangles(&mut self, delta: vec2) {
+        self.change_yaw(delta.x);
+        self.change_pitch(delta.y);
     }
 }

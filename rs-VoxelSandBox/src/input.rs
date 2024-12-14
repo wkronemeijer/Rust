@@ -4,13 +4,14 @@
 // And "event" input anywhere during the frame (like jumping)
 
 use std::collections::HashSet;
+use std::mem::take;
 
 use winit::event::ElementState;
-use winit::event::ElementState::Pressed;
-use winit::event::ElementState::Released;
 use winit::event::KeyEvent;
 use winit::keyboard::KeyCode;
 use winit::keyboard::PhysicalKey;
+
+use crate::dvec2;
 
 ////////////////////
 // Physical Input //
@@ -21,15 +22,21 @@ pub struct InputState {
     // I wonder if there is a faster set we can use
     pressed_right_now: HashSet<KeyCode>,
     pressed_since_last_time: HashSet<KeyCode>,
+
+    mouse_delta: dvec2,
 }
 
 impl InputState {
     pub fn new() -> Self { Default::default() }
 
+    ////////////////
+    // Processing //
+    ////////////////
+
     fn process_physical_key(&mut self, key: KeyCode, state: ElementState) {
         match state {
-            Pressed => self.pressed_right_now.insert(key),
-            Released => self.pressed_right_now.remove(&key),
+            ElementState::Pressed => self.pressed_right_now.insert(key),
+            ElementState::Released => self.pressed_right_now.remove(&key),
         };
     }
 
@@ -46,9 +53,26 @@ impl InputState {
         };
     }
 
-    pub fn process_motion_event() {
-        todo!();
+    pub fn process_motion_event(&mut self, (dx, dy): (f64, f64)) {
+        // Window's +X is -Yaw
+        // Window's +Y is -Pitch
+        self.mouse_delta.x -= dx;
+        self.mouse_delta.y -= dy;
     }
+
+    ////////////
+    // Access //
+    ////////////
+
+    pub fn key_is_pressed(&self, key: KeyCode) -> bool {
+        self.pressed_right_now.contains(&key)
+    }
+
+    pub fn mouse_delta(&mut self) -> dvec2 { take(&mut self.mouse_delta) }
+
+    /////////////
+    // Cleanup //
+    /////////////
 
     /// Clears the input since the last frame.
     pub fn clear(&mut self) {
@@ -56,10 +80,6 @@ impl InputState {
         // Then the method could only be called once...
         // HMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMM
         self.pressed_since_last_time.clear();
-    }
-
-    pub fn key_is_pressed(&self, key: KeyCode) -> bool {
-        self.pressed_right_now.contains(&key)
     }
 }
 
