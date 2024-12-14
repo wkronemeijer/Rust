@@ -1,9 +1,5 @@
 use self::Tile::*;
 
-//////////
-// Tile //
-//////////
-
 #[derive(Debug, Clone, Default)]
 pub enum Tile {
     #[default]

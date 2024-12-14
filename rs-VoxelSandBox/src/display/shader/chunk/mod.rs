@@ -50,7 +50,7 @@ pub fn chunk_uniforms<'a>(
 }
 
 pub fn chunk_program(gl: &impl Facade) -> crate::Result<Program> {
-    println!("compiling chunk.glsl");
+    println!("compiling 'chunk.glsl'");
     split_shader(CHUNK_SHADER)?.into_program(gl)
 }
 

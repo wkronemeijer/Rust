@@ -12,10 +12,10 @@ use glium::uniforms::Uniforms;
 use glium::Program;
 use glium::VertexBuffer;
 
+use crate::display::shader::split_shader;
 use crate::display::Mesh;
 
-const VERTEX_SHADER: &str = include_str!("shader.vert");
-const FRAGMENT_SHADER: &str = include_str!("shader.frag");
+const SCREEN_SHADER: &str = include_str!("screen.glsl");
 
 #[derive(Debug, Copy, Clone)]
 pub struct ScreenVertex {
@@ -36,8 +36,8 @@ pub fn screen_uniforms<'a>(
 }
 
 pub fn screen_program(gl: &impl Facade) -> crate::Result<Program> {
-    println!("loading screen program");
-    Ok(Program::from_source(gl, VERTEX_SHADER, FRAGMENT_SHADER, None)?)
+    println!("compiling 'screen.glsl'");
+    split_shader(SCREEN_SHADER)?.into_program(gl)
 }
 
 pub type ScreenMesh = Mesh<VertexBuffer<ScreenVertex>, NoIndices>;
