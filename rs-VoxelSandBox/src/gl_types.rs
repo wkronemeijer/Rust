@@ -1,7 +1,16 @@
-//! This module is re-exported at the crate root.
-#![allow(non_camel_case_types)]
+//! Re-exports scalar and vector data types using the same notation as OpenGL.
+//!
+//! Taken from the [OpenGL documentation](https://www.khronos.org/opengl/wiki/Data_Type_(GLSL)).
+#![allow(non_camel_case_types, reason = "matches with OpenGL types")]
 
-// Overlapping types with names...I might regret this
+/////////////
+// Scalars //
+/////////////
+
+pub type int = i32;
+pub type uint = u32;
+pub type float = f32;
+pub type double = f64;
 
 /////////////////
 // i32 vectors //
@@ -51,9 +60,3 @@ pub use glam::mat3;
 
 pub type mat4 = glam::Mat4;
 pub use glam::mat4;
-
-////////////
-// Result //
-////////////
-
-pub type Result<T = (), E = anyhow::Error> = std::result::Result<T, E>;

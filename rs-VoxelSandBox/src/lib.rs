@@ -1,12 +1,15 @@
 #![forbid(unsafe_code)]
 
+pub mod app;
 pub mod assets;
+pub mod camera;
 pub mod core;
 pub mod display;
 pub mod domain;
+pub mod input;
 pub mod manifest;
-pub mod prelude;
-pub mod program;
 
-pub use prelude::*;
-pub use program::run;
+mod gl_types;
+pub use gl_types::*;
+
+pub type Result<T = (), E = anyhow::Error> = std::result::Result<T, E>;

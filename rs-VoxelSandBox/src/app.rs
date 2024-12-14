@@ -1,12 +1,9 @@
+//! Ties the simulation, rendering, audio (soon&trade;) and input together.
+
 use std::default::Default;
-use std::f32::consts::FRAC_PI_2;
 use std::f32::consts::PI;
-use std::f32::consts::TAU;
 use std::time::Instant;
 
-use anyhow::Context;
-use glam::EulerRot;
-use glium::backend::glutin::SimpleWindowBuilder;
 use glium::glutin::surface::WindowSurface;
 use glium::texture::CompressedTexture2d;
 use glium::Depth;
@@ -16,15 +13,12 @@ use glium::DrawParameters;
 use glium::Program;
 use glium::Surface;
 use winit::application::ApplicationHandler;
-use winit::dpi::PhysicalSize;
 use winit::event::DeviceEvent;
 use winit::event::DeviceId;
-use winit::event::ElementState;
 use winit::event::ElementState::Pressed;
 use winit::event::WindowEvent;
 use winit::event_loop::ActiveEventLoop;
 use winit::event_loop::ControlFlow;
-use winit::event_loop::EventLoop;
 use winit::keyboard::KeyCode;
 use winit::keyboard::PhysicalKey;
 use winit::window::CursorGrabMode;
@@ -34,6 +28,7 @@ use winit::window::WindowId;
 
 use crate::assets::load_icon_png;
 use crate::assets::load_terrain_png;
+use crate::camera::Camera;
 use crate::core::AspectRatioExt as _;
 use crate::display::shader::chunk_mesh;
 use crate::display::shader::chunk_program;
@@ -43,114 +38,12 @@ use crate::display::Mesh;
 use crate::domain::world::World;
 use crate::domain::SECONDS_PER_TICK;
 use crate::domain::TICK_DURATION;
-use crate::manifest::APPLICATION_NAME;
-use crate::mat3;
+use crate::input::InputState;
 use crate::mat4;
 use crate::vec2;
 use crate::vec3;
 
-////////////
-// Camera //
-////////////
-// https://en.wikipedia.org/wiki/Aircraft_flight_dynamics#Transformations_(Euler_angles) mentions yaw == ψ and pitch == θ (and roll == φ)
-
-/// By default looks down +Y
-#[derive(Debug)]
-struct Camera {
-    position: vec3,
-    /// + is left, - is right
-    yaw: f32,
-    /// + is up, - is down
-    pitch: f32,
-    // no roll!
-}
-
-impl Camera {
-    pub fn new() -> Self {
-        Camera { position: vec3::ZERO, pitch: 0.0, yaw: 0.0 }
-    }
-
-    pub fn view(&self) -> mat4 {
-        let Camera { yaw, pitch, .. } = *self;
-        let dir = mat3::from_euler(EulerRot::ZXY, yaw, pitch, 0.0) * vec3::Y;
-        mat4::look_to_rh(self.position, dir, vec3::Z)
-    }
-
-    /// Rotates movement so it is in accordance with an unrotated camera. So with:
-    /// * yaw == 0, it goes through unchanged  
-    /// * yaw == &tau;/4 it is rotated to the left  
-    /// * yaw == &tau;/2 it goes in reverse  
-    fn change_camera_position(&mut self, wish_displacement: vec3) {
-        self.position += mat3::from_rotation_z(self.yaw) * wish_displacement;
-    }
-
-    fn change_yaw(&mut self, delta: f32) {
-        self.yaw = (self.yaw + delta).rem_euclid(TAU);
-    }
-
-    // -ε to prevent flipping the camera
-    const MAX_PITCH: f32 = FRAC_PI_2 - f32::EPSILON;
-    const MIN_PITCH: f32 = -Self::MAX_PITCH;
-
-    fn change_pitch(&mut self, delta: f32) {
-        self.pitch =
-            (self.pitch + delta).clamp(Self::MIN_PITCH, Self::MAX_PITCH);
-    }
-}
-
-///////////
-// Input //
-///////////
-// TODO: Split between "continous" input checked every frame (like moving forward)
-// And "event" input anywhere during the frame (like jumping)
-
-#[derive(Debug, Default, Clone)]
-struct InputState {
-    pub move_forward: bool,
-    pub move_backward: bool,
-    pub move_left: bool,
-    pub move_right: bool,
-    pub move_up: bool,
-    pub move_down: bool,
-
-    pub rotate_up: bool,
-    pub rotate_down: bool,
-    pub rotate_left: bool,
-    pub rotate_right: bool,
-}
-
-impl InputState {
-    pub fn new() -> Self { Default::default() }
-
-    /// Updates state based on pressed key.
-    /// Returns [`Some`] if state was updated, [`None`] if the key was not recognized.
-    pub fn process(&mut self, key: KeyCode, state: ElementState) -> Option<()> {
-        use KeyCode::*;
-
-        let is_pressed = matches!(state, Pressed);
-        Some(match key {
-            KeyW => self.move_forward = is_pressed,
-            KeyS => self.move_backward = is_pressed,
-            KeyA => self.move_left = is_pressed,
-            KeyD => self.move_right = is_pressed,
-            KeyE => self.move_up = is_pressed,
-            KeyQ => self.move_down = is_pressed,
-
-            ArrowUp => self.rotate_up = is_pressed,
-            ArrowDown => self.rotate_down = is_pressed,
-            ArrowLeft => self.rotate_left = is_pressed,
-            ArrowRight => self.rotate_right = is_pressed,
-
-            _ => return None,
-        })
-    }
-}
-
-/////////////////
-// Application //
-/////////////////
-
-struct Application {
+pub struct Application {
     window: Window,
     display: Display<WindowSurface>,
 
@@ -275,6 +168,7 @@ impl Application {
         //////////////
         // Movement //
         //////////////
+        // Move to input
 
         let mut wishdir = vec3::ZERO;
         if self.input.move_forward {
@@ -419,38 +313,4 @@ impl ApplicationHandler for Application {
     fn resumed(&mut self, _: &ActiveEventLoop) {
         println!("<resumed>");
     }
-}
-
-/////////////
-// Run fun //
-/////////////
-
-type WindowSize = PhysicalSize<u32>;
-
-const TITLE: &str = APPLICATION_NAME;
-const INITIAL_SIZE: WindowSize = WindowSize::new(800, 600);
-
-pub fn run() -> crate::Result {
-    println!("initializing...");
-
-    let event_loop = EventLoop::builder()
-        .build()
-        .with_context(|| "event loop construction")?;
-
-    let (window, display) = SimpleWindowBuilder::new()
-        .with_title(TITLE)
-        .with_inner_size(INITIAL_SIZE.width, INITIAL_SIZE.height)
-        .build(&event_loop);
-
-    let ref mut app = Application::new(window, display)?;
-
-    println!("initialization complete");
-    println!("starting event loop...");
-
-    // (Why doesn't ↓ take &mut self?)
-    event_loop.set_control_flow(ControlFlow::Wait);
-    event_loop.run_app(app)?;
-
-    println!("exited event loop");
-    Ok(())
 }
