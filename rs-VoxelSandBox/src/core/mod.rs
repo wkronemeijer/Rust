@@ -4,6 +4,10 @@ use winit::dpi::PhysicalSize;
 
 use crate::ivec3;
 
+//////////////////////////////
+// Spreading 2D index to 1D //
+//////////////////////////////
+
 pub fn spread<const N: usize>(ivec3 { x, y, z }: ivec3) -> Option<usize> {
     match (usize::try_from(x), usize::try_from(y), usize::try_from(z)) {
         (Ok(x), Ok(y), Ok(z)) if x < N && y < N && z < N => {
@@ -13,6 +17,10 @@ pub fn spread<const N: usize>(ivec3 { x, y, z }: ivec3) -> Option<usize> {
         _ => None,
     }
 }
+
+////////////////////////////
+// Aspect ratio extension //
+////////////////////////////
 
 pub trait AspectRatioExt {
     /// Returns the (width &div; height) aspect ratio.
