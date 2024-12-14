@@ -17,6 +17,7 @@ use winit::application::ApplicationHandler;
 use winit::event::DeviceEvent;
 use winit::event::DeviceId;
 use winit::event::ElementState::Pressed;
+use winit::event::KeyEvent;
 use winit::event::MouseButton;
 use winit::event::WindowEvent;
 use winit::event_loop::ActiveEventLoop;
@@ -121,15 +122,21 @@ impl Application {
     }
 
     pub fn draw(&self) -> crate::Result {
-        // I need to put it somewhere else
-
         let mut frame = self.display.draw();
+
+        /////////////
+        // Prepare //
+        /////////////
 
         frame.clear_color(0.0, 0.0, 0.0, 1.0);
         frame.clear_depth(1.0);
 
+        ////////////////
+        // Draw chunk //
+        ////////////////
+
         let Mesh { vertices, indices } = &self.mesh;
-        let model = mat4::IDENTITY; // just in place (for now)
+        let model = mat4::IDENTITY;
         let view = self.camera.view();
         let projection = self.projection();
         let mvp = projection * view * model;
@@ -143,6 +150,10 @@ impl Application {
             &self.options,
         )?;
 
+        ////////////
+        // Finish //
+        ////////////
+
         Ok(frame.finish()?)
     }
 }
@@ -152,7 +163,7 @@ impl Application {
 ////////////////
 
 /// Extracts (Δx, Δy, Δz) from input
-fn wisdir(input: &InputState) -> vec3 {
+fn wishdir(input: &InputState) -> vec3 {
     use VirtualButton::*;
     let mut wishdir = vec3::ZERO;
     if input.is_pressed(MoveForward) {
@@ -222,7 +233,7 @@ impl Application {
         // Updating view angle on tick will feel really bad
 
         self.camera.change_camera_position(
-            wisdir(&self.input) * PLAYER_UNITS_PER_SECOND * SECONDS_PER_TICK,
+            wishdir(&self.input) * PLAYER_UNITS_PER_SECOND * SECONDS_PER_TICK,
         );
 
         self.camera.change_lookangles(
@@ -252,7 +263,12 @@ impl Application {
 // Update logic //
 //////////////////
 
-impl Application {}
+impl Application {
+    fn update(&mut self) {
+        // Tick is called at a fixed rate
+        // Update is called ASAP
+    }
+}
 
 /////////////////////
 // Mousegrab logic //
@@ -292,6 +308,7 @@ impl ApplicationHandler for Application {
             // Drawing //
             /////////////
             RedrawRequested => {
+                self.update();
                 self.try_tick();
                 self.draw().expect("drawing failed");
             }
@@ -299,40 +316,35 @@ impl ApplicationHandler for Application {
             ///////////
             // Input //
             ///////////
-            Focused(has_focus) => {
-                if has_focus {
-                    self.grab_cursor();
-                } else {
-                    // self.free_cursor();
-                    // Doesn't seem to be necessary
+            Focused(true) => self.grab_cursor(),
+            KeyboardInput {
+                event:
+                    key_event @ KeyEvent {
+                        physical_key: PhysicalKey::Code(key),
+                        repeat: false,
+                        state,
+                        ..
+                    },
+                ..
+            } => match (key, state) {
+                #[cfg(debug_assertions)]
+                (KeyCode::F8, Pressed) => event_loop.exit(),
+                (KeyCode::F10, Pressed) => self.free_cursor(),
+                (KeyCode::F11, Pressed) => {
+                    self.window.set_fullscreen(match self.window.fullscreen() {
+                        None => Some(Fullscreen::Borderless(None)),
+                        Some(_) => None,
+                    })
                 }
-            }
-            KeyboardInput { event, .. } => match event.physical_key {
-                PhysicalKey::Code(code) => match (code, event.state) {
-                    (KeyCode::Escape, Pressed) => self.free_cursor(),
-                    #[cfg(debug_assertions)]
-                    (KeyCode::F8, Pressed) => event_loop.exit(),
-                    (KeyCode::F11, Pressed) => self.window.set_fullscreen(
-                        match self.window.fullscreen() {
-                            None => Some(Fullscreen::Borderless(None)),
-                            Some(_) => None,
-                        },
-                    ),
-                    _ => self.input.process_key_event(event),
-                },
-                PhysicalKey::Unidentified(c) => {
-                    println!("warning: unidentified key {c:?}");
-                }
+                _ => self.input.process_key_event(key_event),
             },
-            MouseInput { state, button, .. } => match (button, state) {
+            MouseInput { button, state, .. } => match (button, state) {
                 (MouseButton::Left, Pressed) => {
                     self.grab_cursor();
                 }
                 _ => {}
             },
-            CloseRequested => {
-                event_loop.exit();
-            }
+            CloseRequested => event_loop.exit(),
             _ => {}
         }
     }
