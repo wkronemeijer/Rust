@@ -39,6 +39,7 @@ use crate::domain::world::World;
 use crate::domain::SECONDS_PER_TICK;
 use crate::domain::TICK_DURATION;
 use crate::input::InputState;
+use crate::input::VirtualButton;
 use crate::mat4;
 use crate::vec2;
 use crate::vec3;
@@ -141,7 +142,57 @@ impl Application {
     }
 }
 
-// Tick logic
+////////////////
+// Tick logic //
+////////////////
+
+/// Extracts (Δx, Δy, Δz) from input
+fn wisdir(input: &InputState) -> vec3 {
+    use VirtualButton::*;
+    let mut wishdir = vec3::ZERO;
+    if input.is_pressed(MoveForward) {
+        wishdir += vec3::Y;
+    }
+    if input.is_pressed(MoveBackward) {
+        wishdir -= vec3::Y;
+    }
+    if input.is_pressed(MoveRight) {
+        wishdir += vec3::X;
+    }
+    if input.is_pressed(MoveLeft) {
+        wishdir -= vec3::X;
+    }
+    if input.is_pressed(MoveUp) {
+        wishdir += vec3::Z;
+    }
+    if input.is_pressed(MoveDown) {
+        wishdir -= vec3::Z;
+    }
+    wishdir.normalize_or_zero()
+}
+
+/// Extracts (Δyaw, Δpitch) from input
+fn wishlook(input: &InputState) -> vec2 {
+    use VirtualButton::*;
+    let mut wishlook = vec2::ZERO;
+    if input.is_pressed(RotateLeft) {
+        wishlook += vec2::X;
+    }
+    if input.is_pressed(RotateRight) {
+        wishlook -= vec2::X;
+    }
+    if input.is_pressed(RotateUp) {
+        wishlook += vec2::Y;
+    }
+    if input.is_pressed(RotateDown) {
+        wishlook -= vec2::Y;
+    }
+    wishlook.normalize_or_zero()
+}
+
+const PLAYER_UNITS_PER_SECOND: f32 = 5.0;
+const ANGLE_PER_SECOND: f32 = PI / 2.0;
+
 impl Application {
     pub fn projected_next_tick(&self) -> Instant {
         self.last_tick + TICK_DURATION
@@ -156,74 +207,53 @@ impl Application {
         }
     }
 
-    const PLAYER_UNITS_PER_SECOND: f32 = 5.0;
-    const ANGLE_PER_SECOND: f32 = PI / 2.0;
-
     pub fn tick(&mut self) {
         self.world.tick();
         // TODO: Do we do self.camera.tick()?
         // Or tie it to an entity
         // Or both and add optional detach for debugging
+        // Updating view angle on tick will feel really bad
 
         //////////////
         // Movement //
         //////////////
-        // Move to input
 
-        let mut wishdir = vec3::ZERO;
-        if self.input.move_forward {
-            wishdir += vec3::Y;
-        }
-        if self.input.move_backward {
-            wishdir -= vec3::Y;
-        }
-        if self.input.move_right {
-            wishdir += vec3::X;
-        }
-        if self.input.move_left {
-            wishdir -= vec3::X;
-        }
-        if self.input.move_up {
-            wishdir += vec3::Z;
-        }
-        if self.input.move_down {
-            wishdir -= vec3::Z;
-        }
-        wishdir = wishdir.normalize_or_zero();
-        wishdir *= Self::PLAYER_UNITS_PER_SECOND * SECONDS_PER_TICK;
-
-        self.camera.change_camera_position(wishdir);
+        self.camera.change_camera_position(
+            wisdir(&self.input) * PLAYER_UNITS_PER_SECOND * SECONDS_PER_TICK,
+        );
 
         //////////////
         // Rotation //
         //////////////
+        // Keyboard rotation
 
         // (Δyaw, Δpitch)
-        let mut wishlook = vec2::ZERO;
-
-        if self.input.rotate_left {
-            wishlook += vec2::X;
-        }
-        if self.input.rotate_right {
-            wishlook -= vec2::X;
-        }
-        if self.input.rotate_up {
-            wishlook += vec2::Y;
-        }
-        if self.input.rotate_down {
-            wishlook -= vec2::Y;
-        }
-
-        wishlook = wishlook.normalize_or_zero();
-        wishlook *= Self::ANGLE_PER_SECOND * SECONDS_PER_TICK;
+        let mut wishlook =
+            wishlook(&self.input) * ANGLE_PER_SECOND * SECONDS_PER_TICK;
 
         // Without this vertical sens feels too fast
         wishlook.y /= Self::FOV_Y_RADIANS;
 
         self.camera.change_yaw(wishlook.x);
         self.camera.change_pitch(wishlook.y);
+
+        /////////////
+        // Cleanup //
+        /////////////
+
+        self.input.clear();
     }
 }
+
+//////////////////
+// Update logic //
+//////////////////
+
+impl Application {}
+
+////////////////////////////
+// Handling window events //
+////////////////////////////
 
 impl ApplicationHandler for Application {
     fn window_event(
@@ -268,12 +298,7 @@ impl ApplicationHandler for Application {
                             Some(_) => None,
                         },
                     ),
-                    _ => {
-                        let result = self.input.process(code, event.state);
-                        if matches!((result, event.state), (None, Pressed)) {
-                            println!("warning: ignoring {code:?}");
-                        }
-                    }
+                    _ => self.input.process_key_event(event),
                 },
                 PhysicalKey::Unidentified(c) => {
                     println!("warning: unidentified key {c:?}");
@@ -289,7 +314,7 @@ impl ApplicationHandler for Application {
     fn device_event(
         &mut self,
         _: &ActiveEventLoop,
-        _: DeviceId,
+        device: DeviceId,
         event: DeviceEvent,
     ) {
         use DeviceEvent::*;
@@ -297,8 +322,22 @@ impl ApplicationHandler for Application {
             MouseMotion { delta: (_, _) } => {
                 // MouseMotion events are not affect by Windows Mouse Settings
                 // according to https://github.com/bevyengine/bevy/issues/1149
-                // ...and they keep coming when you hit the edge of the screen.
+                // ...and they continue when you hit the edge of the screen.
             }
+            Added => {
+                println!("device #{device:?} added");
+            }
+            Removed => {
+                println!("device #{device:?} removed");
+            }
+            // Motion { axis, value } => {
+            //     println!("axis #{axis} set to {value:?} on device #{device:?}");
+            // }
+            // Button { button, state } => {
+            //     println!(
+            //         "button #{button} set to {state:?} on device #{device:?}"
+            //     );
+            // }
             _ => {}
         }
     }

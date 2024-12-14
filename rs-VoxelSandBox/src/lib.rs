@@ -1,4 +1,7 @@
+//! Implements a MineCraft-like game.
+
 #![forbid(unsafe_code)]
+// #![warn(missing_docs)]
 
 pub mod app;
 pub mod assets;
