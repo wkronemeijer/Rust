@@ -17,6 +17,8 @@ const CHUNK_SPREAD: fn(index: ivec3) -> Option<usize> = spread::<CHUNK_DIM>;
 pub struct Chunk {
     /// Invariant: contains exactly CHUNK_VOLUME elements
     tiles: Box<[Tile; CHUNK_VOLUME]>,
+    // is_dirty flag?
+    // Hash the chunk for changes?
 }
 
 pub type ChunkIndex = ivec3;

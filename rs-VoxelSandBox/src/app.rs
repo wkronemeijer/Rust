@@ -3,17 +3,12 @@
 use std::default::Default;
 use std::f32::consts::PI;
 use std::f32::consts::TAU;
+use std::time::Duration;
 use std::time::Instant;
 
 use glium::Display;
 use glium::Surface;
-use glium::draw_parameters::BackfaceCullingMode;
-use glium::draw_parameters::Depth;
-use glium::draw_parameters::DepthTest;
-use glium::draw_parameters::DrawParameters;
 use glium::glutin::surface::WindowSurface;
-use glium::program::Program;
-use glium::texture::CompressedTexture2d;
 use winit::application::ApplicationHandler;
 use winit::event::DeviceEvent;
 use winit::event::DeviceId;
@@ -31,14 +26,9 @@ use winit::window::Window;
 use winit::window::WindowId;
 
 use crate::assets::load_icon_png;
-use crate::assets::load_terrain_png;
 use crate::camera::Camera;
 use crate::core::AspectRatioExt as _;
-use crate::display::Mesh;
-use crate::display::shader::ChunkMesh;
-use crate::display::shader::chunk_mesh;
-use crate::display::shader::chunk_program;
-use crate::display::shader::chunk_uniforms;
+use crate::display::state::RenderState;
 use crate::domain::SECONDS_PER_TICK;
 use crate::domain::TICK_DURATION;
 use crate::domain::world::World;
@@ -57,18 +47,18 @@ pub enum CursorState {
 
 pub struct Application {
     window: Window,
-    display: Display<WindowSurface>,
+    cursor_state: CursorState,
+    input: InputState,
 
-    program: Program,
-    options: DrawParameters<'static>,
-    mesh: ChunkMesh,
-    texture: CompressedTexture2d,
+    display: Display<WindowSurface>,
+    renderer: RenderState,
+    camera: Camera,
 
     world: World,
-    camera: Camera,
-    input: InputState,
+
+    last_draw: Instant,
+    last_update: Instant,
     last_tick: Instant,
-    cursor_state: CursorState,
 }
 
 impl Application {
@@ -77,37 +67,19 @@ impl Application {
         display: Display<WindowSurface>,
     ) -> crate::Result<Self> {
         let world = World::new();
-        let gl = &display;
-
-        // TODO: Move to RenderState
-        let program = chunk_program(gl)?;
-        let options = DrawParameters {
-            depth: Depth {
-                test: DepthTest::IfLess,
-                write: true,
-                ..Default::default()
-            },
-            backface_culling: BackfaceCullingMode::CullClockwise,
-            ..Default::default()
-        };
-        let mesh = chunk_mesh(gl, &world.chunk)?;
-        let texture = load_terrain_png(gl)?;
-
-        let icon = load_icon_png()?;
-        window.set_window_icon(Some(icon));
-
+        let renderer = RenderState::new(&display)?;
+        window.set_window_icon(Some(load_icon_png()?));
         Ok(Application {
             window,
             display,
-            program,
-            options,
-            mesh,
-            texture,
+            renderer,
             world,
             cursor_state: CursorState::default(),
             camera: Camera::new(),
             input: InputState::new(),
+            last_update: Instant::now(),
             last_tick: Instant::now(),
+            last_draw: Instant::now(),
         })
     }
 }
@@ -123,40 +95,19 @@ impl Application {
         mat4::perspective_rh_gl(FOV_Y_RADIANS, aspect_ratio, z_near, z_far)
     }
 
-    pub fn draw(&self) -> crate::Result {
+    pub fn draw(&mut self) -> crate::Result {
+        self.renderer.update_world_mesh(&self.display, &self.world);
+
         let mut frame = self.display.draw();
-
-        /////////////
-        // Prepare //
-        /////////////
-
         frame.clear_color(0.0, 0.0, 0.0, 1.0);
-        frame.clear_depth(1.0);
 
-        ////////////////
-        // Draw chunk //
-        ////////////////
-
-        let Mesh { vertices, indices } = &self.mesh;
-        let model = mat4::IDENTITY;
         let view = self.camera.view();
         let projection = self.projection();
-        let mvp = projection * view * model;
+        self.renderer.draw(&mut frame, view, projection)?;
 
-        let uniforms = chunk_uniforms(&self.texture, &mvp);
-        frame.draw(
-            vertices,
-            indices,
-            &self.program,
-            &uniforms,
-            &self.options,
-        )?;
-
-        ////////////
-        // Finish //
-        ////////////
-
-        Ok(frame.finish()?)
+        frame.finish()?;
+        self.last_draw = Instant::now();
+        Ok(())
     }
 }
 
@@ -229,6 +180,7 @@ impl Application {
 
     pub fn tick(&mut self) {
         self.world.tick();
+
         // TODO: Do we do self.camera.tick()?
         // Or tie it to an entity
         // Or both and add optional detach for debugging
@@ -265,12 +217,20 @@ impl Application {
 // Update logic //
 //////////////////
 
-impl Application {
-    fn update(&mut self) {
-        // Tick is called at a fixed rate
-        // Update is called ASAP
+const MINIMUM_UPDATE_DURATION: Duration = Duration::from_millis(10);
 
-        // TO BE CONTINUED
+impl Application {
+    fn update(&mut self, _: Duration) {
+        // nothing for now
+    }
+
+    fn try_update(&mut self) {
+        let now = Instant::now();
+        let dt = now - self.last_tick;
+        if dt >= MINIMUM_UPDATE_DURATION {
+            self.update(dt);
+            self.last_update = now;
+        }
     }
 }
 
@@ -310,7 +270,7 @@ impl ApplicationHandler for Application {
             // Drawing //
             /////////////
             RedrawRequested => {
-                self.update();
+                self.try_update();
                 self.try_tick();
                 self.draw().expect("drawing failed");
             }
@@ -354,7 +314,7 @@ impl ApplicationHandler for Application {
     fn device_event(
         &mut self,
         _: &ActiveEventLoop,
-        device: DeviceId,
+        _: DeviceId,
         event: DeviceEvent,
     ) {
         use DeviceEvent::*;
@@ -365,20 +325,7 @@ impl ApplicationHandler for Application {
                 // ...and they continue when you hit the edge of the screen.
                 self.input.process_motion_event(delta);
             }
-            Added => {
-                println!("device #{device:?} added");
-            }
-            Removed => {
-                println!("device #{device:?} removed");
-            }
-            // Motion { axis, value } => {
-            //     println!("axis #{axis} set to {value:?} on device #{device:?}");
-            // }
-            // Button { button, state } => {
-            //     println!(
-            //         "button #{button} set to {state:?} on device #{device:?}"
-            //     );
-            // }
+
             _ => {}
         }
     }
