@@ -10,9 +10,10 @@ pub mod core;
 pub mod display;
 pub mod domain;
 pub mod input;
-pub mod manifest;
 
 mod gl_types;
 pub use gl_types::*;
 
 pub type Result<T = (), E = anyhow::Error> = std::result::Result<T, E>;
+
+pub const NAME: &str = "Voxel Sandbox";

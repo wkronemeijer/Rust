@@ -2,9 +2,9 @@
 
 use anyhow::Context;
 use glium::backend::glutin::SimpleWindowBuilder;
-use voxelsandbox::app::Application;
-use voxelsandbox::manifest::APPLICATION_NAME;
+use voxelsandbox::NAME;
 use voxelsandbox::Result;
+use voxelsandbox::app::Application;
 use winit::dpi::PhysicalSize;
 use winit::event_loop::ControlFlow;
 use winit::event_loop::EventLoop;
@@ -14,8 +14,7 @@ use winit::event_loop::EventLoop;
 /////////
 
 type WindowSize = PhysicalSize<u32>;
-
-const TITLE: &str = APPLICATION_NAME;
+const TITLE: &str = NAME;
 const INITIAL_SIZE: WindowSize = WindowSize::new(800, 600);
 
 fn run() -> crate::Result {
@@ -49,7 +48,7 @@ fn run() -> crate::Result {
 
 fn main() -> Result {
     // In the future we could parse CLI options here
-    let name = APPLICATION_NAME;
+    let name = NAME;
     println!("starting {name}");
     run()?;
     println!("exited {name} successfully");
