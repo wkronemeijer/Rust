@@ -5,14 +5,15 @@ use std::f32::consts::PI;
 use std::f32::consts::TAU;
 use std::time::Instant;
 
-use glium::glutin::surface::WindowSurface;
-use glium::texture::CompressedTexture2d;
-use glium::Depth;
-use glium::DepthTest;
 use glium::Display;
-use glium::DrawParameters;
-use glium::Program;
 use glium::Surface;
+use glium::draw_parameters::BackfaceCullingMode;
+use glium::draw_parameters::Depth;
+use glium::draw_parameters::DepthTest;
+use glium::draw_parameters::DrawParameters;
+use glium::glutin::surface::WindowSurface;
+use glium::program::Program;
+use glium::texture::CompressedTexture2d;
 use winit::application::ApplicationHandler;
 use winit::event::DeviceEvent;
 use winit::event::DeviceId;
@@ -33,14 +34,14 @@ use crate::assets::load_icon_png;
 use crate::assets::load_terrain_png;
 use crate::camera::Camera;
 use crate::core::AspectRatioExt as _;
+use crate::display::Mesh;
+use crate::display::shader::ChunkMesh;
 use crate::display::shader::chunk_mesh;
 use crate::display::shader::chunk_program;
 use crate::display::shader::chunk_uniforms;
-use crate::display::shader::ChunkMesh;
-use crate::display::Mesh;
-use crate::domain::world::World;
 use crate::domain::SECONDS_PER_TICK;
 use crate::domain::TICK_DURATION;
+use crate::domain::world::World;
 use crate::input::InputState;
 use crate::input::VirtualButton;
 use crate::mat4;
@@ -86,6 +87,7 @@ impl Application {
                 write: true,
                 ..Default::default()
             },
+            backface_culling: BackfaceCullingMode::CullClockwise,
             ..Default::default()
         };
         let mesh = chunk_mesh(gl, &world.chunk)?;
@@ -267,6 +269,8 @@ impl Application {
     fn update(&mut self) {
         // Tick is called at a fixed rate
         // Update is called ASAP
+
+        // TO BE CONTINUED
     }
 }
 
@@ -276,12 +280,10 @@ impl Application {
 
 impl Application {
     fn grab_cursor(&mut self) {
-        let Ok(_) = self.window.set_cursor_grab(CursorGrabMode::Confined)
-        else {
-            return;
-        };
-        self.window.set_cursor_visible(false);
-        self.cursor_state = CursorState::Grabbed;
+        if self.window.set_cursor_grab(CursorGrabMode::Confined).is_ok() {
+            self.window.set_cursor_visible(false);
+            self.cursor_state = CursorState::Grabbed;
+        }
     }
 
     fn free_cursor(&mut self) {

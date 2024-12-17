@@ -4,8 +4,8 @@ mod screen;
 use std::fmt;
 
 use anyhow::bail;
-use glium::backend::Facade;
 use glium::Program;
+use glium::backend::Facade;
 
 // re-export shader code as own
 pub use self::chunk::*;

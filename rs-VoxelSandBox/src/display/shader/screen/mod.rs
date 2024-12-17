@@ -1,3 +1,5 @@
+use glium::Program;
+use glium::VertexBuffer;
 use glium::backend::Facade;
 use glium::implement_vertex;
 use glium::index::NoIndices;
@@ -9,11 +11,9 @@ use glium::uniforms::MinifySamplerFilter;
 use glium::uniforms::Sampler;
 use glium::uniforms::SamplerBehavior;
 use glium::uniforms::Uniforms;
-use glium::Program;
-use glium::VertexBuffer;
 
-use crate::display::shader::split_shader;
 use crate::display::Mesh;
+use crate::display::shader::split_shader;
 
 const SCREEN_SHADER: &str = include_str!("screen.glsl");
 
@@ -24,9 +24,7 @@ pub struct ScreenVertex {
 }
 implement_vertex!(ScreenVertex, pos, tex);
 
-pub fn screen_uniforms<'a>(
-    tex: &'a CompressedTexture2d,
-) -> impl Uniforms + use<'a> {
+pub fn screen_uniforms<'a>(tex: &'a CompressedTexture2d) -> impl Uniforms {
     let sampler_options = SamplerBehavior {
         minify_filter: MinifySamplerFilter::Nearest,
         magnify_filter: MagnifySamplerFilter::Nearest,

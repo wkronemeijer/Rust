@@ -5,8 +5,8 @@ use std::io::Cursor;
 use glium::backend::Facade;
 use glium::texture::CompressedTexture2d;
 use glium::texture::RawImage2d;
-use image::load;
 use image::ImageFormat;
+use image::load;
 use winit::window::Icon;
 
 const TERRAIN_PNG: &[u8] = include_bytes!("../../assets/textures/terrain.png");

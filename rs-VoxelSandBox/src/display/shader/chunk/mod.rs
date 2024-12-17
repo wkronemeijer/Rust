@@ -1,3 +1,5 @@
+use glium::Program;
+use glium::VertexBuffer;
 use glium::backend::Facade;
 use glium::implement_vertex;
 use glium::index::NoIndices;
@@ -9,12 +11,10 @@ use glium::uniforms::MinifySamplerFilter;
 use glium::uniforms::Sampler;
 use glium::uniforms::SamplerBehavior;
 use glium::uniforms::Uniforms;
-use glium::Program;
-use glium::VertexBuffer;
 
 use crate::assets::TERRAIN_PNG_PIXEL_DIM;
-use crate::display::shader::split_shader;
 use crate::display::Mesh;
+use crate::display::shader::split_shader;
 use crate::domain::chunk::Chunk;
 use crate::domain::face::Face;
 use crate::domain::tile::Tile;
@@ -36,7 +36,7 @@ implement_vertex!(ChunkVertex, pos, tex, light);
 pub fn chunk_uniforms<'a>(
     texture: &'a CompressedTexture2d,
     mvp: &'a mat4,
-) -> impl Uniforms + use<'a> {
+) -> impl Uniforms {
     let sampler = Sampler(texture, SamplerBehavior {
         minify_filter: MinifySamplerFilter::Nearest,
         magnify_filter: MagnifySamplerFilter::Nearest,
