@@ -32,6 +32,7 @@ use crate::display::state::Renderer;
 use crate::domain::TICK_DURATION;
 use crate::domain::game::Game;
 use crate::input::InputState;
+use crate::input::VirtualButton;
 use crate::mat4;
 use crate::vec2;
 

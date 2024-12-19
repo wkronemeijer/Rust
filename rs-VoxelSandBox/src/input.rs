@@ -15,6 +15,9 @@ use crate::dvec2;
 use crate::vec2;
 use crate::vec3;
 
+/// How much holding shift slows you down.
+const SLOW_FACTOR: f32 = 0.5;
+
 ////////////////////
 // Physical Input //
 ////////////////////
@@ -98,6 +101,8 @@ pub enum VirtualButton {
     MoveUp,
     MoveDown,
 
+    MoveSlowly,
+
     RotateUp,
     RotateDown,
     RotateLeft,
@@ -113,8 +118,15 @@ impl VirtualButton {
             MoveBackward => state.key_is_pressed(KeyS),
             MoveLeft => state.key_is_pressed(KeyA),
             MoveRight => state.key_is_pressed(KeyD),
-            MoveUp => state.key_is_pressed(KeyE) || state.key_is_pressed(Space),
-            MoveDown => state.key_is_pressed(KeyQ),
+            MoveUp => state.key_is_pressed(Space),
+            MoveDown => {
+                state.key_is_pressed(ControlLeft) ||
+                    state.key_is_pressed(ControlRight)
+            }
+            MoveSlowly => {
+                state.key_is_pressed(ShiftLeft) ||
+                    state.key_is_pressed(ShiftRight)
+            }
             RotateUp => state.key_is_pressed(ArrowUp),
             RotateDown => state.key_is_pressed(ArrowDown),
             RotateLeft => state.key_is_pressed(ArrowLeft),
@@ -154,7 +166,11 @@ impl InputState {
         if self.is_pressed(MoveDown) {
             wishdir -= vec3::Z;
         }
-        wishdir.normalize_or_zero()
+        wishdir = wishdir.normalize_or_zero();
+        if self.is_pressed(MoveSlowly) {
+            wishdir *= SLOW_FACTOR;
+        }
+        wishdir
     }
 
     /// Extracts (Δyaw, Δpitch) from input
