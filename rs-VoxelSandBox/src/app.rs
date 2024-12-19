@@ -29,14 +29,11 @@ use crate::assets::load_icon_png;
 use crate::camera::Camera;
 use crate::core::AspectRatioExt as _;
 use crate::display::state::Renderer;
-use crate::domain::SECONDS_PER_TICK;
 use crate::domain::TICK_DURATION;
 use crate::domain::game::Game;
 use crate::input::InputState;
-use crate::input::VirtualButton;
 use crate::mat4;
 use crate::vec2;
-use crate::vec3;
 
 #[derive(Debug, Default, Clone, Copy)]
 pub enum CursorState {
@@ -66,23 +63,100 @@ impl Application {
         window: Window,
         display: Display<WindowSurface>,
     ) -> crate::Result<Self> {
-        let game = Game::new();
         let renderer = Renderer::new(&display)?;
         window.set_window_icon(Some(load_icon_png()?));
         Ok(Application {
             window,
             display,
             renderer,
-            game,
+            game: Game::new(),
             cursor_state: CursorState::default(),
             camera: Camera::new(),
             input: InputState::new(),
+
             last_update: Instant::now(),
             last_tick: Instant::now(),
             last_draw: Instant::now(),
         })
     }
 }
+
+////////////////
+// Tick logic //
+////////////////
+
+const PLAYER_UNITS_PER_SECOND: f32 = 10.0;
+const ANGLE_PER_SECOND: f32 = PI / 2.0;
+const ASPECT_CORRECTION: vec2 = vec2(1.0, 1.0 / FOV_Y_RADIANS);
+const ANGLE_PER_MOUSE_UNIT: f32 = TAU / 10_000.0;
+
+impl Application {
+    pub fn projected_next_tick(&self) -> Instant {
+        self.last_tick + TICK_DURATION
+    }
+
+    pub fn tick(&mut self) {
+        self.game.tick();
+
+        // TODO: Do we do self.camera.tick()?
+        // Or tie it to an entity
+        // Or both and add optional detach for debugging
+        // Updating view angle on tick will feel really bad
+
+        /////////////
+        // Cleanup //
+        /////////////
+
+        self.input.clear();
+    }
+
+    /// Tries to tick at most once.
+    pub fn try_tick(&mut self) {
+        let now = Instant::now();
+        if (now - self.last_tick) >= TICK_DURATION {
+            self.tick();
+            self.last_tick = now;
+        }
+    }
+}
+
+//////////////////
+// Update logic //
+//////////////////
+
+impl Application {
+    fn update(&mut self, dt: Duration) {
+        let dt = dt.as_secs_f32();
+
+        self.camera.change_camera_position(
+            self.input.wishdir() * PLAYER_UNITS_PER_SECOND * dt,
+        );
+
+        self.camera.change_lookangles(
+            self.input.wishlook() * ANGLE_PER_SECOND * dt * ASPECT_CORRECTION,
+        );
+
+        if matches!(self.cursor_state, CursorState::Grabbed) {
+            self.camera.change_lookangles(
+                self.input.mouse_delta().as_vec2() *
+                    ANGLE_PER_MOUSE_UNIT *
+                    ASPECT_CORRECTION,
+            );
+        }
+    }
+
+    fn do_update(&mut self) {
+        let now = Instant::now();
+        let dt = now - self.last_update;
+        self.update(dt);
+        self.last_update = now;
+    }
+}
+
+///////////////////
+// Drawing logic //
+///////////////////
+
 const FOV_Y_RADIANS: f32 = 90.0 * PI / 180.0;
 
 // Drawing logic
@@ -108,79 +182,6 @@ impl Application {
         frame.finish()?;
         self.last_draw = Instant::now();
         Ok(())
-    }
-}
-
-////////////////
-// Tick logic //
-////////////////
-
-const PLAYER_UNITS_PER_SECOND: f32 = 5.0;
-const ANGLE_PER_SECOND: f32 = PI / 2.0;
-const ASPECT_CORRECTION: vec2 = vec2(1.0, 1.0 / FOV_Y_RADIANS);
-const ANGLE_PER_MOUSE_UNIT: f32 = TAU / 10_000.0;
-
-impl Application {
-    pub fn projected_next_tick(&self) -> Instant {
-        self.last_tick + TICK_DURATION
-    }
-
-    pub fn tick(&mut self) {
-        self.game.tick();
-
-        // TODO: Do we do self.camera.tick()?
-        // Or tie it to an entity
-        // Or both and add optional detach for debugging
-        // Updating view angle on tick will feel really bad
-
-        self.camera.change_camera_position(
-            self.input.wishdir() * PLAYER_UNITS_PER_SECOND * SECONDS_PER_TICK,
-        );
-
-        self.camera.change_lookangles(
-            self.input.wishlook() *
-                ANGLE_PER_SECOND *
-                SECONDS_PER_TICK *
-                ASPECT_CORRECTION,
-        );
-
-        /////////////
-        // Cleanup //
-        /////////////
-
-        self.input.clear();
-    }
-
-    /// Tries to tick at most once.
-    pub fn try_tick(&mut self) {
-        let now = Instant::now();
-        if (now - self.last_tick) >= TICK_DURATION {
-            self.tick();
-            self.last_tick = now;
-        }
-    }
-}
-
-//////////////////
-// Update logic //
-//////////////////
-
-impl Application {
-    fn update(&mut self, _: Duration) {
-        if matches!(self.cursor_state, CursorState::Grabbed) {
-            self.camera.change_lookangles(
-                self.input.mouse_delta().as_vec2() *
-                    ANGLE_PER_MOUSE_UNIT *
-                    ASPECT_CORRECTION,
-            );
-        }
-    }
-
-    fn do_update(&mut self) {
-        let now = Instant::now();
-        let dt = now - self.last_update;
-        self.update(dt);
-        self.last_update = now;
     }
 }
 
