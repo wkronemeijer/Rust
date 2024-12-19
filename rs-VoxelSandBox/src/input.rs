@@ -12,6 +12,8 @@ use winit::keyboard::KeyCode;
 use winit::keyboard::PhysicalKey;
 
 use crate::dvec2;
+use crate::vec2;
+use crate::vec3;
 
 ////////////////////
 // Physical Input //
@@ -121,8 +123,56 @@ impl VirtualButton {
     }
 }
 
+/////////////////
+// Convenience //
+/////////////////
+
 impl InputState {
     pub fn is_pressed(&self, button: VirtualButton) -> bool {
         button.check(self)
+    }
+
+    /// Extracts (Δx, Δy, Δz) from input
+    pub fn wishdir(&self) -> vec3 {
+        use VirtualButton::*;
+        let mut wishdir = vec3::ZERO;
+        if self.is_pressed(MoveForward) {
+            wishdir += vec3::Y;
+        }
+        if self.is_pressed(MoveBackward) {
+            wishdir -= vec3::Y;
+        }
+        if self.is_pressed(MoveRight) {
+            wishdir += vec3::X;
+        }
+        if self.is_pressed(MoveLeft) {
+            wishdir -= vec3::X;
+        }
+        if self.is_pressed(MoveUp) {
+            wishdir += vec3::Z;
+        }
+        if self.is_pressed(MoveDown) {
+            wishdir -= vec3::Z;
+        }
+        wishdir.normalize_or_zero()
+    }
+
+    /// Extracts (Δyaw, Δpitch) from input
+    pub fn wishlook(&self) -> vec2 {
+        use VirtualButton::*;
+        let mut wishlook = vec2::ZERO;
+        if self.is_pressed(RotateLeft) {
+            wishlook += vec2::X;
+        }
+        if self.is_pressed(RotateRight) {
+            wishlook -= vec2::X;
+        }
+        if self.is_pressed(RotateUp) {
+            wishlook += vec2::Y;
+        }
+        if self.is_pressed(RotateDown) {
+            wishlook -= vec2::Y;
+        }
+        wishlook.normalize_or_zero()
     }
 }

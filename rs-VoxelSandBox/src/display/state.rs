@@ -14,21 +14,21 @@ use super::shader::chunk_program;
 use super::shader::chunk_uniforms;
 use crate::assets::load_terrain_png;
 use crate::domain::chunk::Chunk;
-use crate::domain::world::World;
+use crate::domain::game::Game;
 use crate::mat4;
 
 /////////////////
 // RenderState //
 /////////////////
 
-pub struct RenderState {
+pub struct Renderer {
     program: Program,
     options: DrawParameters<'static>,
     mesh: Option<ChunkMesh>,
     terrain: CompressedTexture2d,
 }
 
-impl RenderState {
+impl Renderer {
     pub fn new(gl: &impl Facade) -> crate::Result<Self> {
         let program = chunk_program(gl)?;
         let options = DrawParameters {
@@ -43,7 +43,7 @@ impl RenderState {
         let mesh = None;
         let terrain = load_terrain_png(gl)?;
 
-        Ok(RenderState { program, options, mesh, terrain })
+        Ok(Renderer { program, options, mesh, terrain })
     }
 
     fn should_remesh_chunk(&self, _: &Chunk) -> bool {
@@ -52,13 +52,9 @@ impl RenderState {
         self.mesh.is_none()
     }
 
-    pub fn update_world_mesh(
-        &mut self,
-        gl: &impl Facade,
-        world: &World,
-    ) -> crate::Result {
+    pub fn update(&mut self, gl: &impl Facade, game: &Game) -> crate::Result {
         // TODO: Store a queue of
-        let chunk = &world.chunk;
+        let chunk = &game.world.chunk;
         if self.should_remesh_chunk(chunk) {
             self.mesh = Some(chunk_mesh(gl, chunk)?);
         }

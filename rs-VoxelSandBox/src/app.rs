@@ -28,10 +28,10 @@ use winit::window::WindowId;
 use crate::assets::load_icon_png;
 use crate::camera::Camera;
 use crate::core::AspectRatioExt as _;
-use crate::display::state::RenderState;
+use crate::display::state::Renderer;
 use crate::domain::SECONDS_PER_TICK;
 use crate::domain::TICK_DURATION;
-use crate::domain::world::World;
+use crate::domain::game::Game;
 use crate::input::InputState;
 use crate::input::VirtualButton;
 use crate::mat4;
@@ -51,10 +51,10 @@ pub struct Application {
     input: InputState,
 
     display: Display<WindowSurface>,
-    renderer: RenderState,
+    renderer: Renderer,
     camera: Camera,
 
-    world: World,
+    game: Game,
 
     last_draw: Instant,
     last_update: Instant,
@@ -66,14 +66,14 @@ impl Application {
         window: Window,
         display: Display<WindowSurface>,
     ) -> crate::Result<Self> {
-        let world = World::new();
-        let renderer = RenderState::new(&display)?;
+        let game = Game::new();
+        let renderer = Renderer::new(&display)?;
         window.set_window_icon(Some(load_icon_png()?));
         Ok(Application {
             window,
             display,
             renderer,
-            world,
+            game,
             cursor_state: CursorState::default(),
             camera: Camera::new(),
             input: InputState::new(),
@@ -96,7 +96,7 @@ impl Application {
     }
 
     pub fn draw(&mut self) -> crate::Result {
-        self.renderer.update_world_mesh(&self.display, &self.world);
+        self.renderer.update(&self.display, &self.game)?;
 
         let mut frame = self.display.draw();
         frame.clear_color(0.0, 0.0, 0.0, 1.0);
@@ -115,50 +115,6 @@ impl Application {
 // Tick logic //
 ////////////////
 
-/// Extracts (Δx, Δy, Δz) from input
-fn wishdir(input: &InputState) -> vec3 {
-    use VirtualButton::*;
-    let mut wishdir = vec3::ZERO;
-    if input.is_pressed(MoveForward) {
-        wishdir += vec3::Y;
-    }
-    if input.is_pressed(MoveBackward) {
-        wishdir -= vec3::Y;
-    }
-    if input.is_pressed(MoveRight) {
-        wishdir += vec3::X;
-    }
-    if input.is_pressed(MoveLeft) {
-        wishdir -= vec3::X;
-    }
-    if input.is_pressed(MoveUp) {
-        wishdir += vec3::Z;
-    }
-    if input.is_pressed(MoveDown) {
-        wishdir -= vec3::Z;
-    }
-    wishdir.normalize_or_zero()
-}
-
-/// Extracts (Δyaw, Δpitch) from input
-fn wishlook(input: &InputState) -> vec2 {
-    use VirtualButton::*;
-    let mut wishlook = vec2::ZERO;
-    if input.is_pressed(RotateLeft) {
-        wishlook += vec2::X;
-    }
-    if input.is_pressed(RotateRight) {
-        wishlook -= vec2::X;
-    }
-    if input.is_pressed(RotateUp) {
-        wishlook += vec2::Y;
-    }
-    if input.is_pressed(RotateDown) {
-        wishlook -= vec2::Y;
-    }
-    wishlook.normalize_or_zero()
-}
-
 const PLAYER_UNITS_PER_SECOND: f32 = 5.0;
 const ANGLE_PER_SECOND: f32 = PI / 2.0;
 const ASPECT_CORRECTION: vec2 = vec2(1.0, 1.0 / FOV_Y_RADIANS);
@@ -169,6 +125,32 @@ impl Application {
         self.last_tick + TICK_DURATION
     }
 
+    pub fn tick(&mut self) {
+        self.game.tick();
+
+        // TODO: Do we do self.camera.tick()?
+        // Or tie it to an entity
+        // Or both and add optional detach for debugging
+        // Updating view angle on tick will feel really bad
+
+        self.camera.change_camera_position(
+            self.input.wishdir() * PLAYER_UNITS_PER_SECOND * SECONDS_PER_TICK,
+        );
+
+        self.camera.change_lookangles(
+            self.input.wishlook() *
+                ANGLE_PER_SECOND *
+                SECONDS_PER_TICK *
+                ASPECT_CORRECTION,
+        );
+
+        /////////////
+        // Cleanup //
+        /////////////
+
+        self.input.clear();
+    }
+
     /// Tries to tick at most once.
     pub fn try_tick(&mut self) {
         let now = Instant::now();
@@ -177,26 +159,14 @@ impl Application {
             self.last_tick = now;
         }
     }
+}
 
-    pub fn tick(&mut self) {
-        self.world.tick();
+//////////////////
+// Update logic //
+//////////////////
 
-        // TODO: Do we do self.camera.tick()?
-        // Or tie it to an entity
-        // Or both and add optional detach for debugging
-        // Updating view angle on tick will feel really bad
-
-        self.camera.change_camera_position(
-            wishdir(&self.input) * PLAYER_UNITS_PER_SECOND * SECONDS_PER_TICK,
-        );
-
-        self.camera.change_lookangles(
-            wishlook(&self.input) *
-                ANGLE_PER_SECOND *
-                SECONDS_PER_TICK *
-                ASPECT_CORRECTION,
-        );
-
+impl Application {
+    fn update(&mut self, _: Duration) {
         if matches!(self.cursor_state, CursorState::Grabbed) {
             self.camera.change_lookangles(
                 self.input.mouse_delta().as_vec2() *
@@ -204,33 +174,13 @@ impl Application {
                     ASPECT_CORRECTION,
             );
         }
-
-        /////////////
-        // Cleanup //
-        /////////////
-
-        self.input.clear();
-    }
-}
-
-//////////////////
-// Update logic //
-//////////////////
-
-const MINIMUM_UPDATE_DURATION: Duration = Duration::from_millis(10);
-
-impl Application {
-    fn update(&mut self, _: Duration) {
-        // nothing for now
     }
 
-    fn try_update(&mut self) {
+    fn do_update(&mut self) {
         let now = Instant::now();
-        let dt = now - self.last_tick;
-        if dt >= MINIMUM_UPDATE_DURATION {
-            self.update(dt);
-            self.last_update = now;
-        }
+        let dt = now - self.last_update;
+        self.update(dt);
+        self.last_update = now;
     }
 }
 
@@ -270,8 +220,8 @@ impl ApplicationHandler for Application {
             // Drawing //
             /////////////
             RedrawRequested => {
-                self.try_update();
                 self.try_tick();
+                self.do_update();
                 self.draw().expect("drawing failed");
             }
             Resized(inner_size) => self.display.resize(inner_size.into()),

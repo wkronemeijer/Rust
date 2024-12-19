@@ -2,6 +2,7 @@
 
 pub mod chunk;
 pub mod face;
+pub mod game;
 pub mod tile;
 pub mod world;
 
