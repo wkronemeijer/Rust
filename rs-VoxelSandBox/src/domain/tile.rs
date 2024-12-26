@@ -1,4 +1,5 @@
 use self::Tile::*;
+use crate::core::memory_usage::AllocatedSize;
 
 #[derive(Debug, Clone, Default)]
 pub enum Tile {
@@ -41,4 +42,8 @@ impl Tile {
             _ => true,
         }
     }
+}
+
+impl AllocatedSize for Tile {
+    fn allocated_size(&self) -> usize { 0 }
 }

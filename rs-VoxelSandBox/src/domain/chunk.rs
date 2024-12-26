@@ -2,6 +2,7 @@ use std::ops::Index;
 use std::ops::IndexMut;
 
 use super::tile::Tile;
+use crate::core::memory_usage::AllocatedSize;
 use crate::core::spread;
 use crate::ivec3;
 
@@ -12,6 +13,44 @@ pub const CHUNK_VOLUME: usize = CHUNK_DIM * CHUNK_DIM * CHUNK_DIM;
 /// Converts a 3D chunk index into a linear index.
 const CHUNK_SPREAD: fn(index: ivec3) -> Option<usize> = spread::<CHUNK_DIM>;
 
+//////////////
+// Indexing //
+//////////////
+
+pub type ChunkIndex = ivec3;
+
+#[derive(Debug, Default, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash)]
+pub struct TileHandle {
+    pub x: u8,
+    pub y: u8,
+    pub z: u8,
+}
+
+const CHUNK_DIM_U8: u8 = CHUNK_DIM as u8;
+
+impl TileHandle {
+    #[inline]
+    pub fn for_each<F: FnMut(TileHandle)>(mut op: F) {
+        for z in 0..CHUNK_DIM_U8 {
+            for y in 0..CHUNK_DIM_U8 {
+                for x in 0..CHUNK_DIM_U8 {
+                    op(TileHandle { x, y, z })
+                }
+            }
+        }
+    }
+
+    pub fn spread(self) -> usize {
+        usize::from(self.x) +
+            CHUNK_DIM * usize::from(self.y) +
+            CHUNK_DIM * CHUNK_DIM * usize::from(self.z)
+    }
+}
+
+///////////
+// Chunk //
+///////////
+
 /// A cube containing [CHUNK_VOLUME] tiles.
 #[derive(Debug, Clone)]
 pub struct Chunk {
@@ -20,8 +59,6 @@ pub struct Chunk {
     // is_dirty flag?
     // Hash the chunk for changes?
 }
-
-pub type ChunkIndex = ivec3;
 
 impl Chunk {
     pub fn new() -> Self {
@@ -41,6 +78,10 @@ impl Chunk {
 
     pub fn get_mut(&mut self, pos: ChunkIndex) -> Option<&mut Tile> {
         self.tiles.get_mut(CHUNK_SPREAD(pos)?)
+    }
+
+    pub fn retained_size(&self) -> usize {
+        self.tiles.len() * size_of::<Tile>()
     }
 }
 
@@ -86,4 +127,8 @@ impl Chunk {
     ) {
         Self::for_each_position(|pos| func(pos, &mut self[pos]))
     }
+}
+
+impl AllocatedSize for Chunk {
+    fn allocated_size(&self) -> usize { self.tiles.allocated_size() }
 }

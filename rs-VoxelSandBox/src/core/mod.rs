@@ -1,5 +1,7 @@
 //! Exports standard library-like items.
 
+pub mod memory_usage;
+
 use winit::dpi::PhysicalSize;
 
 use crate::ivec3;

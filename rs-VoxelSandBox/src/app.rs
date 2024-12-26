@@ -28,11 +28,11 @@ use winit::window::WindowId;
 use crate::assets::load_icon_png;
 use crate::camera::Camera;
 use crate::core::AspectRatioExt as _;
+use crate::core::memory_usage::AllocatedSize as _;
 use crate::display::state::Renderer;
 use crate::domain::TICK_DURATION;
 use crate::domain::game::Game;
 use crate::input::InputState;
-use crate::input::VirtualButton;
 use crate::mat4;
 use crate::vec2;
 
@@ -66,11 +66,15 @@ impl Application {
     ) -> crate::Result<Self> {
         let renderer = Renderer::new(&display)?;
         window.set_window_icon(Some(load_icon_png()?));
+        let game = Game::new();
+
+        println!("world total size == {} byte(s)", game.world.memory_usage());
+
         Ok(Application {
             window,
             display,
             renderer,
-            game: Game::new(),
+            game,
             cursor_state: CursorState::default(),
             camera: Camera::new(),
             input: InputState::new(),
@@ -102,7 +106,6 @@ impl Application {
         // TODO: Do we do self.camera.tick()?
         // Or tie it to an entity
         // Or both and add optional detach for debugging
-        // Updating view angle on tick will feel really bad
 
         /////////////
         // Cleanup //
@@ -149,6 +152,7 @@ impl Application {
     fn do_update(&mut self) {
         let now = Instant::now();
         let dt = now - self.last_update;
+        // TODO: Introduce a minimum update time (e.g. 1µs)
         self.update(dt);
         self.last_update = now;
     }

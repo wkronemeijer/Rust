@@ -1,6 +1,7 @@
 use super::chunk::Chunk;
 use super::chunk::ChunkIndex;
 use super::tile::Tile;
+use crate::core::memory_usage::AllocatedSize;
 
 #[derive(Debug)]
 pub struct World {
@@ -9,6 +10,19 @@ pub struct World {
 }
 
 fn cool_pattern(pos: ChunkIndex) -> bool { (pos.x + 3 * pos.y) % 5 != 0 }
+
+// pub struct ChunkIndex(usize, usize, usize);
+// Given XyzIndex
+// is xyz the thing you are indexing into, or what you get out?
+
+// TO BE CONTINUED
+
+#[derive(Debug, Default, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash)]
+pub struct ChunkHandle {
+    pub x: u16,
+    pub y: u16,
+    pub z: u16,
+}
 
 impl World {
     pub fn new() -> Self {
@@ -26,4 +40,8 @@ impl World {
     }
 
     pub fn tick(&mut self) {}
+}
+
+impl AllocatedSize for World {
+    fn allocated_size(&self) -> usize { self.chunk.retained_size() }
 }
