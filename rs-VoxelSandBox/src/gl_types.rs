@@ -12,6 +12,84 @@ pub type uint = u32;
 pub type float = f32;
 pub type double = f64;
 
+////////////////
+// u8 vectors //
+////////////////
+
+pub type u8vec2 = glam::U8Vec2;
+pub use glam::u8vec2;
+
+pub type u8vec3 = glam::U8Vec3;
+pub use glam::u8vec3;
+
+pub type u8vec4 = glam::U8Vec4;
+pub use glam::u8vec4;
+
+/////////////////
+// u16 vectors //
+/////////////////
+
+pub type u16vec2 = glam::U16Vec2;
+pub use glam::u16vec2;
+
+pub type u16vec3 = glam::U16Vec3;
+pub use glam::u16vec3;
+
+pub type u16vec4 = glam::U16Vec4;
+pub use glam::u16vec4;
+
+/////////////////
+// u32 vectors //
+/////////////////
+
+pub type uvec2 = glam::UVec2;
+pub use glam::uvec2;
+
+pub type uvec3 = glam::UVec3;
+pub use glam::uvec3;
+
+pub type uvec4 = glam::UVec4;
+pub use glam::uvec4;
+
+/////////////////
+// u64 vectors //
+/////////////////
+
+pub type u64vec2 = glam::U64Vec2;
+pub use glam::u64vec2;
+
+pub type u64vec3 = glam::U64Vec3;
+pub use glam::u64vec3;
+
+pub type u64vec4 = glam::U64Vec4;
+pub use glam::u64vec4;
+
+////////////////
+// i8 vectors //
+////////////////
+
+pub type i8vec2 = glam::I8Vec2;
+pub use glam::i8vec2;
+
+pub type i8vec3 = glam::I8Vec3;
+pub use glam::i8vec3;
+
+pub type i8vec4 = glam::I8Vec4;
+pub use glam::i8vec4;
+
+/////////////////
+// i16 vectors //
+/////////////////
+
+pub type i16vec2 = glam::I16Vec2;
+pub use glam::i16vec2;
+
+pub type i16vec3 = glam::I16Vec3;
+pub use glam::i16vec3;
+
+pub type i16vec4 = glam::I16Vec4;
+pub use glam::i16vec4;
+
 /////////////////
 // i32 vectors //
 /////////////////
@@ -24,6 +102,19 @@ pub use glam::ivec3;
 
 pub type ivec4 = glam::IVec4;
 pub use glam::ivec4;
+
+/////////////////
+// i64 vectors //
+/////////////////
+
+pub type i64vec2 = glam::I64Vec2;
+pub use glam::i64vec2;
+
+pub type i64vec3 = glam::I64Vec3;
+pub use glam::i64vec3;
+
+pub type i64vec4 = glam::I64Vec4;
+pub use glam::i64vec4;
 
 /////////////////
 // f32 vectors //
@@ -60,3 +151,13 @@ pub use glam::mat3;
 
 pub type mat4 = glam::Mat4;
 pub use glam::mat4;
+
+//////////////////
+// f64 matrices //
+//////////////////
+
+pub type dmat3 = glam::DMat3;
+pub use glam::dmat3;
+
+pub type dmat4 = glam::DMat4;
+pub use glam::dmat4;

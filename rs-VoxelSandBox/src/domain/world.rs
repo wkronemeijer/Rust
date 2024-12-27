@@ -1,6 +1,7 @@
 use super::chunk::Chunk;
 use super::chunk::ChunkIndex;
 use super::tile::Tile;
+use super::traits::DeltaTime;
 use crate::core::memory_usage::AllocatedSize;
 
 #[derive(Debug)]
@@ -38,6 +39,8 @@ impl World {
 
         world
     }
+
+    pub fn update(&mut self, _: DeltaTime) {}
 
     pub fn tick(&mut self) {}
 }

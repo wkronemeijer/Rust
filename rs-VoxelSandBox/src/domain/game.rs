@@ -1,5 +1,4 @@
-use std::time::Duration;
-
+use super::traits::DeltaTime;
 use super::world::World;
 
 pub struct Game {
@@ -9,7 +8,8 @@ pub struct Game {
 impl Game {
     pub fn new() -> Self { Game { world: World::new() } }
 
-    pub fn update(&mut self, _: Duration) {
+    pub fn update(&mut self, dt: DeltaTime) {
+        self.world.update(dt);
         // no-op
     }
 

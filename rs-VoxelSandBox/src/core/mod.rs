@@ -36,3 +36,11 @@ impl AspectRatioExt for PhysicalSize<u32> {
         width / height
     }
 }
+
+///////////////
+// Bit logic //
+///////////////
+
+pub const fn bits_needed<const DIM: usize>() -> u32 {
+    usize::BITS - (DIM - 1).leading_zeros()
+}

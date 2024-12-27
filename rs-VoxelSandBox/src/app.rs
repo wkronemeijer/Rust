@@ -3,7 +3,6 @@
 use std::default::Default;
 use std::f32::consts::PI;
 use std::f32::consts::TAU;
-use std::time::Duration;
 use std::time::Instant;
 
 use glium::Display;
@@ -32,6 +31,7 @@ use crate::core::memory_usage::AllocatedSize as _;
 use crate::display::state::Renderer;
 use crate::domain::TICK_DURATION;
 use crate::domain::game::Game;
+use crate::domain::traits::DeltaTime;
 use crate::input::InputState;
 use crate::mat4;
 use crate::vec2;
@@ -86,41 +86,22 @@ impl Application {
     }
 }
 
-////////////////
-// Tick logic //
-////////////////
-
-const PLAYER_UNITS_PER_SECOND: f32 = 10.0;
-const ANGLE_PER_SECOND: f32 = PI / 2.0;
-const ASPECT_CORRECTION: vec2 = vec2(1.0, 1.0 / FOV_Y_RADIANS);
-const ANGLE_PER_MOUSE_UNIT: f32 = TAU / 10_000.0;
+/////////////////////
+// Mousegrab logic //
+/////////////////////
 
 impl Application {
-    pub fn projected_next_tick(&self) -> Instant {
-        self.last_tick + TICK_DURATION
-    }
-
-    pub fn tick(&mut self) {
-        self.game.tick();
-
-        // TODO: Do we do self.camera.tick()?
-        // Or tie it to an entity
-        // Or both and add optional detach for debugging
-
-        /////////////
-        // Cleanup //
-        /////////////
-
-        self.input.clear();
-    }
-
-    /// Tries to tick at most once.
-    pub fn try_tick(&mut self) {
-        let now = Instant::now();
-        if (now - self.last_tick) >= TICK_DURATION {
-            self.tick();
-            self.last_tick = now;
+    fn grab_cursor(&mut self) {
+        if self.window.set_cursor_grab(CursorGrabMode::Confined).is_ok() {
+            self.window.set_cursor_visible(false);
+            self.cursor_state = CursorState::Grabbed;
         }
+    }
+
+    fn free_cursor(&mut self) {
+        let _ = self.window.set_cursor_grab(CursorGrabMode::None);
+        self.window.set_cursor_visible(true);
+        self.cursor_state = CursorState::Free;
     }
 }
 
@@ -128,10 +109,21 @@ impl Application {
 // Update logic //
 //////////////////
 
+const PLAYER_UNITS_PER_SECOND: f32 = 10.0;
+const ANGLE_PER_SECOND: f32 = PI / 2.0;
+// TODO: Figure out where this function comes from
+// Current value just feels alright, it wasn't rigorously derived
+const ASPECT_CORRECTION: vec2 = vec2(1.0, 1.0 / FOV_Y_RADIANS);
+const ANGLE_PER_MOUSE_UNIT: f32 = TAU / 10_000.0;
+
 impl Application {
-    fn update(&mut self, dt: Duration) {
+    fn update(&mut self, dt: DeltaTime) {
+        self.game.update(dt);
+
         let dt = dt.as_secs_f32();
 
+        // TODO: use the camera to transform wishdir, then return it
+        // Insert accel logic and airstrafing there
         self.camera.change_camera_position(
             self.input.wishdir() * PLAYER_UNITS_PER_SECOND * dt,
         );
@@ -149,12 +141,45 @@ impl Application {
         }
     }
 
-    fn do_update(&mut self) {
+    fn try_update(&mut self) {
         let now = Instant::now();
-        let dt = now - self.last_update;
-        // TODO: Introduce a minimum update time (e.g. 1µs)
-        self.update(dt);
-        self.last_update = now;
+        if let Some(dt) = DeltaTime::from_duration(now - self.last_update) {
+            self.update(dt);
+            self.last_update = now;
+        }
+    }
+}
+
+////////////////
+// Tick logic //
+////////////////
+
+impl Application {
+    pub fn tick(&mut self) {
+        self.game.tick();
+
+        // TODO: Do we do self.camera.tick()?
+        // Or tie it to an entity
+        // Or both and add optional detach for debugging
+
+        /////////////
+        // Cleanup //
+        /////////////
+
+        self.input.clear();
+    }
+
+    pub fn projected_next_tick(&self) -> Instant {
+        self.last_tick + TICK_DURATION
+    }
+
+    /// Tries to tick at most once.
+    pub fn try_tick(&mut self) {
+        let now = Instant::now();
+        if (now - self.last_tick) >= TICK_DURATION {
+            self.tick();
+            self.last_tick = now;
+        }
     }
 }
 
@@ -190,25 +215,6 @@ impl Application {
     }
 }
 
-/////////////////////
-// Mousegrab logic //
-/////////////////////
-
-impl Application {
-    fn grab_cursor(&mut self) {
-        if self.window.set_cursor_grab(CursorGrabMode::Confined).is_ok() {
-            self.window.set_cursor_visible(false);
-            self.cursor_state = CursorState::Grabbed;
-        }
-    }
-
-    fn free_cursor(&mut self) {
-        let _ = self.window.set_cursor_grab(CursorGrabMode::None);
-        self.window.set_cursor_visible(true);
-        self.cursor_state = CursorState::Free;
-    }
-}
-
 ////////////////////////////
 // Handling window events //
 ////////////////////////////
@@ -226,8 +232,9 @@ impl ApplicationHandler for Application {
             // Drawing //
             /////////////
             RedrawRequested => {
+                // TODO: Do we have reason do one or the other first?
                 self.try_tick();
-                self.do_update();
+                self.try_update();
                 self.draw().expect("drawing failed");
             }
             Resized(inner_size) => self.display.resize(inner_size.into()),

@@ -1,7 +1,7 @@
 //! Provides items for managing user input.
 
-// TODO: Split between "continous" input checked every frame (like moving forward)
-// And "event" input anywhere during the frame (like jumping)
+// TODO: Split between "continous" input checked every update
+// And "event" input checked every tick
 
 use std::collections::HashSet;
 use std::mem::take;

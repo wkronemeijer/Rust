@@ -3,6 +3,7 @@
 pub mod chunk;
 pub mod face;
 pub mod game;
+pub mod handles;
 pub mod tile;
 pub mod traits;
 pub mod world;

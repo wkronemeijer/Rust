@@ -17,6 +17,7 @@ use crate::display::Mesh;
 use crate::display::shader::split_shader;
 use crate::domain::chunk::Chunk;
 use crate::domain::face::Face;
+use crate::domain::handles::ChunkToTileIndex;
 use crate::domain::tile::Tile;
 use crate::ivec3;
 use crate::mat4;
@@ -56,7 +57,7 @@ pub fn chunk_program(gl: &impl Facade) -> crate::Result<Program> {
 
 pub type ChunkMesh = Mesh<VertexBuffer<ChunkVertex>, NoIndices>;
 
-fn chunk_pos(pos: ivec3) -> vec3 {
+fn chunk_pos(pos: ChunkToTileIndex) -> vec3 {
     let x = pos.x as f32;
     let y = pos.y as f32;
     let z = pos.z as f32;
@@ -88,7 +89,11 @@ fn get_light_level(face: Face) -> f32 {
     }
 }
 
-fn add_block_vertices(verts: &mut Vec<ChunkVertex>, tile: &Tile, pos: ivec3) {
+fn add_block_vertices(
+    verts: &mut Vec<ChunkVertex>,
+    tile: &Tile,
+    pos: ChunkToTileIndex,
+) {
     let mut push_tri = |xyz: vec3, uv: vec2, l: f32| {
         verts.push(ChunkVertex { pos: xyz.into(), tex: uv.into(), light: l });
     };
