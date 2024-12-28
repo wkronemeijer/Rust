@@ -68,8 +68,6 @@ impl Application {
         window.set_window_icon(Some(load_icon_png()?));
         let game = Game::new();
 
-        println!("world total size == {} byte(s)", game.world.memory_usage());
-
         Ok(Application {
             window,
             display,
