@@ -198,7 +198,7 @@ impl Application {
     }
 
     pub fn draw(&mut self) -> crate::Result {
-        self.renderer.update(&self.display, &self.game)?;
+        self.renderer.pre_draw(&self.display, &self.game)?;
 
         let mut frame = self.display.draw();
         frame.clear_color(0.0, 0.0, 0.0, 1.0);
@@ -250,6 +250,9 @@ impl ApplicationHandler for Application {
                     },
                 ..
             } => match (key, state) {
+                #[cfg(debug_assertions)]
+                (KeyCode::End, Pressed) => self.renderer.clear_cache(),
+
                 #[cfg(debug_assertions)]
                 (KeyCode::F8, Pressed) => event_loop.exit(),
                 (KeyCode::F10, Pressed) => self.free_cursor(),

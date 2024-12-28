@@ -19,7 +19,6 @@ use crate::domain::chunk::Chunk;
 use crate::domain::game::Game;
 use crate::domain::world::WorldToChunkIndex;
 use crate::mat4;
-use crate::vec3;
 
 /////////////////
 // RenderState //
@@ -28,8 +27,8 @@ use crate::vec3;
 pub struct Renderer {
     program: Program,
     options: DrawParameters<'static>,
+    terrain_png: CompressedTexture2d,
     chunk_meshes: HashMap<WorldToChunkIndex, ChunkMesh>,
-    terrain: CompressedTexture2d,
 }
 
 impl Renderer {
@@ -44,24 +43,32 @@ impl Renderer {
             backface_culling: BackfaceCullingMode::CullClockwise,
             ..Default::default()
         };
-        let mesh = HashMap::new();
-        let terrain = load_terrain_png(gl)?;
-
-        Ok(Renderer { program, options, chunk_meshes: mesh, terrain })
+        let terrain_png = load_terrain_png(gl)?;
+        let chunk_meshes = HashMap::new();
+        Ok(Renderer { program, options, terrain_png, chunk_meshes })
     }
 
-    fn should_remesh_chunk(&self, index: WorldToChunkIndex, _: &Chunk) -> bool {
-        // TODO: Hash the contents of the chunk?
-        // Or use a dirty flag
-        !self.chunk_meshes.contains_key(&index)
+    fn should_remesh_chunk(&self, game: &Game, idx: WorldToChunkIndex) -> bool {
+        // TODO: Hash the contents of the chunk? or use a dirty flag?
+        game.world.get_chunk(idx).is_some() &&
+            !self.chunk_meshes.contains_key(&idx)
     }
 
-    pub fn update(&mut self, gl: &impl Facade, game: &Game) -> crate::Result {
-        // TODO: Store a queue of chunks that need to be remeshed
-        for chunk_idx in game.world.size.iter() {
-            if let Some(chunk) = game.world.get(chunk_idx) {
-                if self.should_remesh_chunk(chunk_idx, chunk) {
+    pub fn clear_cache(&mut self) { self.chunk_meshes.clear(); }
+
+    /// Prepares for a draw. This is the time to update meshes.
+    pub fn pre_draw(&mut self, gl: &impl Facade, game: &Game) -> crate::Result {
+        const REMESH_PER_UPDATE_LIMIT: i32 = 2;
+        let mut remeshed_count = 0;
+        // TODO: Sort by proximity to the player
+        for chunk_idx in game.world.chunk_size().span() {
+            if let Some(chunk) = game.world.get_chunk(chunk_idx) {
+                if self.should_remesh_chunk(game, chunk_idx) {
                     self.chunk_meshes.insert(chunk_idx, chunk_mesh(gl, chunk)?);
+                    remeshed_count += 1;
+                    if remeshed_count >= REMESH_PER_UPDATE_LIMIT {
+                        break;
+                    }
                 }
             }
         }
@@ -80,7 +87,7 @@ impl Renderer {
             let model = mat4::from_translation(chunk_origin);
             let mvp = projection * view * model;
 
-            let uniforms = chunk_uniforms(&self.terrain, &mvp);
+            let uniforms = chunk_uniforms(&self.terrain_png, &mvp);
 
             frame.draw(
                 vertices,

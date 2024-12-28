@@ -1938,6 +1938,8 @@ dependencies = [
  "glam",
  "glium",
  "image",
+ "num-traits",
+ "rand",
  "thiserror 2.0.7",
  "winit",
 ]

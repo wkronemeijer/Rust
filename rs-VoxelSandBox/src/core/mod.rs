@@ -1,5 +1,6 @@
 //! Exports standard library-like items.
 
+pub mod iter;
 pub mod memory_usage;
 
 use winit::dpi::PhysicalSize;

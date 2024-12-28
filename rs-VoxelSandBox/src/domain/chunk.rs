@@ -1,9 +1,7 @@
-use std::marker::PhantomData;
 use std::ops::Index;
 use std::ops::IndexMut;
 
 use super::tile::Tile;
-use crate::core::memory_usage::AllocatedSize;
 
 //////////////
 // Indexing //
@@ -88,10 +86,6 @@ impl Chunk {
     pub fn get_mut(&mut self, pos: ChunkToTileIndex) -> Option<&mut Tile> {
         self.tiles.get_mut(pos.spread())
     }
-
-    pub fn retained_size(&self) -> usize {
-        self.tiles.len() * size_of::<Tile>()
-    }
 }
 
 impl Index<ChunkToTileIndex> for Chunk {
@@ -128,8 +122,4 @@ impl Chunk {
     ) {
         ChunkToTileIndex::for_each(|pos| func(pos, &mut self[pos]))
     }
-}
-
-impl AllocatedSize for Chunk {
-    fn allocated_size(&self) -> usize { self.tiles.allocated_size() }
 }
