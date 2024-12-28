@@ -15,10 +15,12 @@ use glium::uniforms::Uniforms;
 use crate::assets::TERRAIN_PNG_PIXEL_DIM;
 use crate::display::Mesh;
 use crate::display::shader::split_shader;
-use crate::domain::chunk::Chunk;
 use crate::domain::chunk::ChunkToTileIndex;
 use crate::domain::face::Face;
 use crate::domain::tile::Tile;
+use crate::domain::world::World;
+use crate::domain::world::WorldToChunkIndex;
+use crate::domain::world::WorldToTileIndex;
 use crate::mat4;
 use crate::vec2;
 use crate::vec3;
@@ -90,9 +92,18 @@ fn get_light_level(face: Face) -> f32 {
 
 fn add_block_vertices(
     verts: &mut Vec<ChunkVertex>,
-    tile: &Tile,
-    pos: ChunkToTileIndex,
+    world: &World,
+    chunk_idx: WorldToChunkIndex,
+    tile_idx: ChunkToTileIndex,
 ) {
+    let world_idx = WorldToTileIndex::join(chunk_idx, tile_idx);
+    let Some(tile) = world.get_tile(world_idx) else {
+        return;
+    };
+    if !tile.is_visible() {
+        return;
+    }
+
     let mut push_tri = |xyz: vec3, uv: vec2, l: f32| {
         verts.push(ChunkVertex { pos: xyz.into(), tex: uv.into(), light: l });
     };
@@ -125,6 +136,10 @@ fn add_block_vertices(
     let s = p + TILE_UV_STEP * vec2::Y;
 
     let mut push_quad = |f: Face, vp: vec3, vq: vec3, vr: vec3, vs: vec3| {
+        if world.get_tile(world_idx.neighbor(f)).is_some_and(Tile::is_solid) {
+            return;
+        }
+
         let l = get_light_level(f);
         push_tri(vp, p, l);
         push_tri(vq, q, l);
@@ -134,7 +149,7 @@ fn add_block_vertices(
         push_tri(vp, p, l);
     };
 
-    let a = chunk_pos(pos);
+    let a = chunk_pos(tile_idx);
     let b = a + vec3::X;
     let c = b + vec3::Y;
     let d = a + vec3::Y;
@@ -153,14 +168,15 @@ fn add_block_vertices(
 
 /// Generates a mesh for entire chunk.
 /// Maps (0,0,0) to (0f,0f,0f), so still needs a model transform.
-pub fn chunk_mesh(gl: &impl Facade, chunk: &Chunk) -> crate::Result<ChunkMesh> {
+pub fn chunk_mesh(
+    gl: &impl Facade,
+    world: &World,
+    chunk_idx: WorldToChunkIndex,
+) -> crate::Result<ChunkMesh> {
     let ref mut vertices = Vec::<ChunkVertex>::new();
-    chunk.for_each_tile(|pos, tile| {
-        // TODO: check nearby tiles are all opaque
-        if tile.is_visible() {
-            add_block_vertices(vertices, tile, pos);
-        }
-    });
+    for tile_idx in ChunkToTileIndex::every() {
+        add_block_vertices(vertices, world, chunk_idx, tile_idx);
+    }
     let vertices = VertexBuffer::new(gl, &vertices)?;
     let indices = NoIndices(PrimitiveType::TrianglesList);
     Ok(Mesh { vertices, indices })

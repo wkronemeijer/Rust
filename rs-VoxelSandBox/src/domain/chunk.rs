@@ -2,6 +2,7 @@ use std::ops::Index;
 use std::ops::IndexMut;
 
 use super::tile::Tile;
+use crate::core::iter::IntegerTripleIter;
 
 //////////////
 // Indexing //
@@ -41,6 +42,11 @@ impl ChunkToTileIndex {
                 }
             }
         }
+    }
+
+    pub fn every() -> impl Iterator<Item = ChunkToTileIndex> {
+        IntegerTripleIter::new(CHUNK_DIM_U8, CHUNK_DIM_U8, CHUNK_DIM_U8)
+            .map(|(x, y, z)| ChunkToTileIndex { x, y, z })
     }
 
     pub fn spread(self) -> usize {

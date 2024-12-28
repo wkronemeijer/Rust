@@ -27,7 +27,6 @@ use winit::window::WindowId;
 use crate::assets::load_icon_png;
 use crate::camera::Camera;
 use crate::core::AspectRatioExt as _;
-use crate::core::memory_usage::AllocatedSize as _;
 use crate::display::state::Renderer;
 use crate::domain::TICK_DURATION;
 use crate::domain::game::Game;

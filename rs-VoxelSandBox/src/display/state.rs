@@ -15,14 +15,16 @@ use super::shader::chunk_mesh;
 use super::shader::chunk_program;
 use super::shader::chunk_uniforms;
 use crate::assets::load_terrain_png;
-use crate::domain::chunk::Chunk;
 use crate::domain::game::Game;
+use crate::domain::world::World;
 use crate::domain::world::WorldToChunkIndex;
 use crate::mat4;
 
 /////////////////
 // RenderState //
 /////////////////
+
+const REMESH_PER_UPDATE_LIMIT: i32 = 2;
 
 pub struct Renderer {
     program: Program,
@@ -48,27 +50,29 @@ impl Renderer {
         Ok(Renderer { program, options, terrain_png, chunk_meshes })
     }
 
-    fn should_remesh_chunk(&self, game: &Game, idx: WorldToChunkIndex) -> bool {
+    fn should_remesh_chunk(
+        &self,
+        world: &World,
+        idx: WorldToChunkIndex,
+    ) -> bool {
         // TODO: Hash the contents of the chunk? or use a dirty flag?
-        game.world.get_chunk(idx).is_some() &&
-            !self.chunk_meshes.contains_key(&idx)
+        world.get_chunk(idx).is_some() && !self.chunk_meshes.contains_key(&idx)
     }
 
     pub fn clear_cache(&mut self) { self.chunk_meshes.clear(); }
 
     /// Prepares for a draw. This is the time to update meshes.
     pub fn pre_draw(&mut self, gl: &impl Facade, game: &Game) -> crate::Result {
-        const REMESH_PER_UPDATE_LIMIT: i32 = 2;
+        let world = &game.world;
+
         let mut remeshed_count = 0;
-        // TODO: Sort by proximity to the player
         for chunk_idx in game.world.chunk_size().span() {
-            if let Some(chunk) = game.world.get_chunk(chunk_idx) {
-                if self.should_remesh_chunk(game, chunk_idx) {
-                    self.chunk_meshes.insert(chunk_idx, chunk_mesh(gl, chunk)?);
-                    remeshed_count += 1;
-                    if remeshed_count >= REMESH_PER_UPDATE_LIMIT {
-                        break;
-                    }
+            if self.should_remesh_chunk(world, chunk_idx) {
+                let mesh = chunk_mesh(gl, world, chunk_idx)?;
+                self.chunk_meshes.insert(chunk_idx, mesh);
+                remeshed_count += 1;
+                if remeshed_count >= REMESH_PER_UPDATE_LIMIT {
+                    break;
                 }
             }
         }

@@ -7,6 +7,7 @@ use rand::thread_rng;
 use super::chunk::CHUNK_DIM;
 use super::chunk::Chunk;
 use super::chunk::ChunkToTileIndex;
+use super::face::Face;
 use super::tile::Tile;
 use super::traits::DeltaTime;
 use crate::core::iter::IntegerTripleIter;
@@ -92,24 +93,44 @@ impl WorldChunkSize {
 
 #[derive(Debug, Default, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash)]
 pub struct WorldToTileIndex {
-    pub x: u32,
-    pub y: u32,
-    pub z: u32,
+    pub x: i32,
+    pub y: i32,
+    pub z: i32,
 }
 
-const CHUNK_DIM_U32: u32 = CHUNK_DIM as u32;
+const CHUNK_DIM_I32: i32 = CHUNK_DIM as i32;
 
 impl WorldToTileIndex {
-    pub fn new(x: u32, y: u32, z: u32) -> Self { WorldToTileIndex { x, y, z } }
+    pub fn new(x: i32, y: i32, z: i32) -> Self { WorldToTileIndex { x, y, z } }
+
+    pub fn join(c: WorldToChunkIndex, t: ChunkToTileIndex) -> Self {
+        let x = c.x as i32 * CHUNK_DIM_I32 + t.x as i32;
+        let y = c.y as i32 * CHUNK_DIM_I32 + t.y as i32;
+        let z = c.z as i32 * CHUNK_DIM_I32 + t.z as i32;
+        WorldToTileIndex { x, y, z }
+    }
 
     pub fn split(self) -> (WorldToChunkIndex, ChunkToTileIndex) {
-        let (cx, tx) = self.x.div_rem_euclid(&CHUNK_DIM_U32);
-        let (cy, ty) = self.y.div_rem_euclid(&CHUNK_DIM_U32);
-        let (cz, tz) = self.z.div_rem_euclid(&CHUNK_DIM_U32);
+        let (cx, tx) = self.x.div_rem_euclid(&CHUNK_DIM_I32);
+        let (cy, ty) = self.y.div_rem_euclid(&CHUNK_DIM_I32);
+        let (cz, tz) = self.z.div_rem_euclid(&CHUNK_DIM_I32);
         (
             WorldToChunkIndex::new(cx as u16, cy as u16, cz as u16),
             ChunkToTileIndex::new(tx as u8, ty as u8, tz as u8).unwrap(),
         )
+    }
+
+    pub fn neighbor(self, face: Face) -> WorldToTileIndex {
+        let WorldToTileIndex { mut x, mut y, mut z } = self;
+        match face {
+            Face::Up => z += 1,
+            Face::North => y += 1,
+            Face::East => x += 1,
+            Face::West => x -= 1,
+            Face::South => y -= 1,
+            Face::Down => z -= 1,
+        };
+        WorldToTileIndex { x, y, z }
     }
 }
 
@@ -120,13 +141,13 @@ impl WorldToTileIndex {
 #[derive(Debug, Clone, Copy)]
 pub struct WorldTileSize {
     // All exclusive!
-    pub max_x: u32,
-    pub max_y: u32,
-    pub max_z: u32,
+    pub max_x: i32,
+    pub max_y: i32,
+    pub max_z: i32,
 }
 
 impl WorldTileSize {
-    pub fn new(x_size: u32, y_size: u32, z_size: u32) -> Self {
+    pub fn new(x_size: i32, y_size: i32, z_size: i32) -> Self {
         WorldTileSize { max_x: x_size, max_y: y_size, max_z: z_size }
     }
 
@@ -134,9 +155,9 @@ impl WorldTileSize {
         WorldChunkSize { max_x, max_y, max_z }: WorldChunkSize,
     ) -> Self {
         WorldTileSize {
-            max_x: max_x as u32 * CHUNK_DIM_U32,
-            max_y: max_y as u32 * CHUNK_DIM_U32,
-            max_z: max_z as u32 * CHUNK_DIM_U32,
+            max_x: max_x as i32 * CHUNK_DIM_I32,
+            max_y: max_y as i32 * CHUNK_DIM_I32,
+            max_z: max_z as i32 * CHUNK_DIM_I32,
         }
     }
 
@@ -171,9 +192,9 @@ fn fill_world(world: &mut World) {
     for tile_idx in world.tile_size.span() {
         let Some(tile) = world.get_tile_mut(tile_idx) else { continue };
 
-        const STONE_END: u32 = 10;
-        const DIRT_END: u32 = 25;
-        const GRASS_END: u32 = 40;
+        const STONE_END: i32 = 10;
+        const DIRT_END: i32 = 25;
+        const GRASS_END: i32 = 40;
 
         let tile_z = tile_idx.z;
 
