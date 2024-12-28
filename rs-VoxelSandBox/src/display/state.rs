@@ -19,6 +19,7 @@ use crate::domain::chunk::Chunk;
 use crate::domain::game::Game;
 use crate::domain::world::WorldToChunkIndex;
 use crate::mat4;
+use crate::vec3;
 
 /////////////////
 // RenderState //
@@ -73,13 +74,14 @@ impl Renderer {
         view: mat4,
         projection: mat4,
     ) -> crate::Result {
-        for Mesh { vertices, indices } in self.chunk_meshes.values() {
-            let model = mat4::IDENTITY;
+        frame.clear_depth(1.0);
+        for (idx, Mesh { vertices, indices }) in self.chunk_meshes.iter() {
+            let chunk_origin = idx.world_origin();
+            let model = mat4::from_translation(chunk_origin);
             let mvp = projection * view * model;
 
             let uniforms = chunk_uniforms(&self.terrain, &mvp);
 
-            frame.clear_depth(1.0);
             frame.draw(
                 vertices,
                 indices,

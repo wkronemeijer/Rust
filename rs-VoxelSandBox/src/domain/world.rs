@@ -5,6 +5,7 @@ use super::chunk::Chunk;
 use super::chunk::ChunkToTileIndex;
 use super::tile::Tile;
 use super::traits::DeltaTime;
+use crate::vec3;
 
 /////////////////
 // Chunk index //
@@ -22,6 +23,14 @@ const MAX_WORLD_DIM: usize = u16::MAX as usize * CHUNK_DIM;
 
 impl WorldToChunkIndex {
     pub fn new(x: u16, y: u16, z: u16) -> Self { WorldToChunkIndex { x, y, z } }
+
+    /// Returns the world-space origin of the associated chunk.
+    pub fn world_origin(self) -> vec3 {
+        let x = self.x as f32;
+        let y = self.y as f32;
+        let z = self.z as f32;
+        vec3(x, y, z) * CHUNK_DIM as f32
+    }
 }
 
 ////////////////
