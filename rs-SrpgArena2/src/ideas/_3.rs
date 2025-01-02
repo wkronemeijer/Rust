@@ -1,5 +1,7 @@
-use std::collections::hash_map;
+#![expect(unused)]
+
 use std::collections::HashMap;
+use std::collections::hash_map;
 use std::ops::AddAssign;
 use std::ops::Deref;
 use std::ops::Mul;

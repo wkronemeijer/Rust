@@ -2,22 +2,22 @@ use std::panic::catch_unwind;
 use std::time::Duration;
 use std::time::Instant;
 
-use ratatui::crossterm::event::poll;
-use ratatui::crossterm::event::read;
+use ratatui::DefaultTerminal;
+use ratatui::Frame;
 use ratatui::crossterm::event::Event;
 use ratatui::crossterm::event::KeyCode;
 use ratatui::crossterm::event::KeyEvent;
+use ratatui::crossterm::event::poll;
+use ratatui::crossterm::event::read;
 use ratatui::widgets::Block;
 use ratatui::widgets::BorderType;
 use ratatui::widgets::Borders;
 use ratatui::widgets::Paragraph;
-use ratatui::DefaultTerminal;
-use ratatui::Frame;
-use srpg_arena::game::Arena;
-use srpg_arena::game::PrintLnDelegate;
-use srpg_arena::game::Stats;
-use srpg_arena::game::Unit;
 pub use srpg_arena::Result;
+use srpg_arena::events::ObserverInstance;
+use srpg_arena::game::Arena;
+use srpg_arena::game::Unit;
+use srpg_arena::stats::Stats;
 
 fn init_arena() -> Arena {
     let mut arena = Arena::new();
@@ -58,14 +58,17 @@ fn init_arena() -> Arena {
 fn run() {
     let mut arena = init_arena();
 
-    let mut observer = PrintLnDelegate;
+    let mut observer = ObserverInstance::new();
 
     let before = Instant::now();
     let result = arena.fight_to_the_death(&mut observer);
     let after = Instant::now();
 
     match result.victor {
-        Some(unit) => println!("{} is victorious!", unit.name()),
+        Some(unit) => println!(
+            "{} is victorious!",
+            arena.combatants.get(unit).unwrap().name()
+        ),
         None => println!("Everyone died..."),
     }
 
