@@ -91,7 +91,7 @@ fn get_light_level(face: Face) -> f32 {
 }
 
 fn add_block_vertices(
-    verts: &mut Vec<ChunkVertex>,
+    vertices: &mut Vec<ChunkVertex>,
     world: &World,
     chunk_idx: WorldToChunkIndex,
     tile_idx: ChunkToTileIndex,
@@ -105,7 +105,11 @@ fn add_block_vertices(
     }
 
     let mut push_tri = |xyz: vec3, uv: vec2, l: f32| {
-        verts.push(ChunkVertex { pos: xyz.into(), tex: uv.into(), light: l });
+        vertices.push(ChunkVertex {
+            pos: xyz.into(),
+            tex: uv.into(),
+            light: l,
+        });
     };
 
     /*
@@ -128,7 +132,6 @@ fn add_block_vertices(
     |   |
     |   |
     P---Q
-
     */
     let p = tile_uv(tile);
     let q = p + TILE_UV_STEP * vec2::X;
@@ -137,6 +140,8 @@ fn add_block_vertices(
 
     let mut push_quad = |f: Face, vp: vec3, vq: vec3, vr: vec3, vs: vec3| {
         if world.get_tile(world_idx.neighbor(f)).is_some_and(Tile::is_solid) {
+            // skip face if entirely obscured
+            // uses world coordinates so works across chunks as well
             return;
         }
 

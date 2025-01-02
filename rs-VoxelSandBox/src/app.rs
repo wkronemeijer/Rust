@@ -106,7 +106,7 @@ impl Application {
 // Update logic //
 //////////////////
 
-const PLAYER_UNITS_PER_SECOND: f32 = 10.0;
+const PLAYER_UNITS_PER_SECOND: f32 = 15.0; // 15u/s == 5m/s
 const ANGLE_PER_SECOND: f32 = PI / 2.0;
 // TODO: Figure out where this function comes from
 // Current value just feels alright, it wasn't rigorously derived
