@@ -1,10 +1,7 @@
 use std::collections::hash_map;
-use std::collections::hash_map::Entry;
 use std::collections::HashMap;
 use std::ops::AddAssign;
 use std::ops::Deref;
-use std::ops::Index;
-use std::ops::IndexMut;
 use std::ops::Mul;
 use std::ops::MulAssign;
 
@@ -53,6 +50,8 @@ pub struct StatValue(f64);
 
 impl StatValue {
     pub const ZERO: StatValue = StatValue(0.0);
+
+    pub fn as_bool(self) -> bool { *self != 0.0 }
 }
 
 impl Deref for StatValue {

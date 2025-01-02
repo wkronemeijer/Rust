@@ -10,6 +10,7 @@ arrayvec = "0.7.6"
 derive_more = "0.99.18"
 num-traits = "0.2.19"
 rand = "0.8.5"
+ratatui = "0.29.0"
 
 [profile.release]
 # considering the number crunching, this is important for correctness

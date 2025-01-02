@@ -1,3 +1,4 @@
+use std::num::NonZero;
 use std::ops::AddAssign;
 use std::ops::BitOrAssign;
 
@@ -304,6 +305,35 @@ impl HitKind {
         }
     }
 }
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash)]
+struct UnitRef {
+    // Not generational...for now
+    index: u16,
+}
+
+impl UnitRef {
+    pub fn new() -> Self { UnitRef { index: 0 } }
+
+    pub fn next(self) -> Option<Self> {
+        self.index.checked_add(1).map(|index| UnitRef { index })
+    }
+}
+
+struct UnitCollection {
+    units: Vec<Unit>,
+    next_index: UnitRef,
+}
+
+impl UnitCollection {
+    pub fn new() -> Self {
+        UnitCollection { units: Vec::new(), next_index: UnitRef::new() }
+    }
+}
+
+// References?
+// LOL
+// Handle time!
 
 pub struct HitEvent<'a> {
     pub kind: HitKind,

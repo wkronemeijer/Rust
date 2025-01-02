@@ -1,0 +1,20 @@
+{
+    "version": "0.2.0",
+    "configurations": [
+        {
+            "name": "Launch (Windows)",
+            "request": "launch",
+            "preLaunchTask": "${defaultBuildTask}",
+            
+            "type": "cppvsdbg",
+            "program": "${workspaceRoot}\\target\\debug\\srpg-arena.exe",
+            "cwd": "${workspaceRoot}",
+            "args": [],
+            "environment": [],
+            "stopAtEntry": false,
+            
+            "console": "externalTerminal",
+            "internalConsoleOptions": "openOnSessionStart"
+        }
+    ]
+}
