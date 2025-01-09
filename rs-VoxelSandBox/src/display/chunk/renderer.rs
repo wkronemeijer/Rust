@@ -9,12 +9,13 @@ use glium::draw_parameters::DrawParameters;
 use glium::program::Program;
 use glium::texture::CompressedTexture2d;
 
+use super::ChunkMesh;
 use super::Mesh;
-use super::shader::ChunkMesh;
-use super::shader::chunk_mesh;
-use super::shader::chunk_program;
-use super::shader::chunk_uniforms;
-use crate::assets::load_terrain_png;
+use super::chunk_mesh;
+use super::chunk_program;
+use super::chunk_uniforms;
+use crate::assets::TERRAIN_PNG;
+use crate::assets::png_to_texture;
 use crate::domain::game::Game;
 use crate::domain::world::World;
 use crate::domain::world::WorldToChunkIndex;
@@ -24,16 +25,17 @@ use crate::mat4;
 // RenderState //
 /////////////////
 
+// TODO: Ideally, this is sorted by proximity to the player
 const REMESH_PER_UPDATE_LIMIT: i32 = 2;
 
-pub struct Renderer {
+pub struct ChunkRenderer {
     program: Program,
     options: DrawParameters<'static>,
     terrain_png: CompressedTexture2d,
     chunk_meshes: HashMap<WorldToChunkIndex, ChunkMesh>,
 }
 
-impl Renderer {
+impl ChunkRenderer {
     pub fn new(gl: &impl Facade) -> crate::Result<Self> {
         let program = chunk_program(gl)?;
         let options = DrawParameters {
@@ -45,9 +47,9 @@ impl Renderer {
             backface_culling: BackfaceCullingMode::CullClockwise,
             ..Default::default()
         };
-        let terrain_png = load_terrain_png(gl)?;
+        let terrain_png = png_to_texture(gl, TERRAIN_PNG)?;
         let chunk_meshes = HashMap::new();
-        Ok(Renderer { program, options, terrain_png, chunk_meshes })
+        Ok(ChunkRenderer { program, options, terrain_png, chunk_meshes })
     }
 
     fn should_remesh_chunk(
@@ -61,7 +63,6 @@ impl Renderer {
 
     pub fn clear_cache(&mut self) { self.chunk_meshes.clear(); }
 
-    /// Prepares for a draw. This is the time to update meshes.
     pub fn pre_draw(&mut self, gl: &impl Facade, game: &Game) -> crate::Result {
         let world = &game.world;
 

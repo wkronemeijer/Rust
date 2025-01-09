@@ -1,5 +1,6 @@
 //! Exports standard library-like items.
 
+pub mod fused_shader;
 pub mod iter;
 pub mod memory_usage;
 

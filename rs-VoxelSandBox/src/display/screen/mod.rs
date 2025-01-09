@@ -12,8 +12,8 @@ use glium::uniforms::Sampler;
 use glium::uniforms::SamplerBehavior;
 use glium::uniforms::Uniforms;
 
+use crate::core::fused_shader::split_shader;
 use crate::display::Mesh;
-use crate::display::shader::split_shader;
 
 const SCREEN_SHADER: &str = include_str!("screen.glsl");
 

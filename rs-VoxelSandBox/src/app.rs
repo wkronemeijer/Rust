@@ -24,10 +24,11 @@ use winit::window::Fullscreen;
 use winit::window::Window;
 use winit::window::WindowId;
 
-use crate::assets::load_icon_png;
+use crate::assets::ICON_PNG;
+use crate::assets::png_to_icon;
 use crate::camera::Camera;
 use crate::core::AspectRatioExt as _;
-use crate::display::state::Renderer;
+use crate::display::AppRenderer;
 use crate::domain::TICK_DURATION;
 use crate::domain::game::Game;
 use crate::domain::traits::DeltaTime;
@@ -48,7 +49,7 @@ pub struct Application {
     input: InputState,
 
     display: Display<WindowSurface>,
-    renderer: Renderer,
+    renderer: AppRenderer,
     camera: Camera,
 
     game: Game,
@@ -63,9 +64,10 @@ impl Application {
         window: Window,
         display: Display<WindowSurface>,
     ) -> crate::Result<Self> {
-        let renderer = Renderer::new(&display)?;
-        window.set_window_icon(Some(load_icon_png()?));
+        let renderer = AppRenderer::new(&display)?;
         let game = Game::new();
+
+        window.set_window_icon(Some(png_to_icon(ICON_PNG)?));
 
         Ok(Application {
             window,
@@ -196,17 +198,15 @@ impl Application {
         mat4::perspective_rh_gl(FOV_Y_RADIANS, aspect_ratio, z_near, z_far)
     }
 
+    // Needs mut to update last_draw time
     pub fn draw(&mut self) -> crate::Result {
         self.renderer.pre_draw(&self.display, &self.game)?;
 
         let mut frame = self.display.draw();
         frame.clear_color(0.0, 0.0, 0.0, 1.0);
-
-        let view = self.camera.view();
-        let projection = self.projection();
-        self.renderer.draw(&mut frame, view, projection)?;
-
+        self.renderer.draw(&mut frame, &self.camera)?;
         frame.finish()?;
+
         self.last_draw = Instant::now();
         Ok(())
     }
@@ -250,7 +250,7 @@ impl ApplicationHandler for Application {
                 ..
             } => match (key, state) {
                 #[cfg(debug_assertions)]
-                (KeyCode::End, Pressed) => self.renderer.clear_cache(),
+                (KeyCode::End, Pressed) => self.renderer.chunk.clear_cache(),
 
                 #[cfg(debug_assertions)]
                 (KeyCode::F8, Pressed) => event_loop.exit(),

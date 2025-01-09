@@ -45,9 +45,9 @@ pub enum AnyEvent {
 }
 
 macro_rules! isa {
-    ($sub:ident, $super:ty) => {
-        impl From<$sub> for $super {
-            fn from(event: $sub) -> Self { Self::$sub(event) }
+    ($variant:ident, $base:ty) => {
+        impl From<$variant> for $base {
+            fn from(event: $variant) -> Self { Self::$variant(event) }
         }
     };
 }
@@ -57,7 +57,7 @@ isa!(MissEvent, AnyEvent);
 isa!(DamageEvent, AnyEvent);
 isa!(HealEvent, AnyEvent);
 isa!(DeathEvent, AnyEvent);
-// If only we had variant types and coercion rules for them...
+// ...if only we had variant types and coercion rules for them...
 
 ///////////////
 // Event log //

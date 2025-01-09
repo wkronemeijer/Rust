@@ -1,15 +1,8 @@
-mod chunk;
-mod screen;
-
 use std::fmt;
 
 use anyhow::bail;
 use glium::Program;
 use glium::backend::Facade;
-
-// re-export shader code as own
-pub use self::chunk::*;
-pub use self::screen::*;
 
 //////////////////
 // Shader stage //
@@ -65,7 +58,7 @@ fn find_stage_comment_start(
 ////////////////////////////
 
 #[derive(Debug)]
-struct BundledShaderSource<'a> {
+pub struct BundledShaderSource<'a> {
     pub vertex: &'a str,
     pub fragment: &'a str,
     pub geometry: Option<&'a str>,
@@ -83,7 +76,7 @@ impl<'a> BundledShaderSource<'a> {
 
 /// Splits a joined .vert and .frag file.
 /// WGPU fuses them and that is way nicer.
-fn split_shader(src: &str) -> crate::Result<BundledShaderSource> {
+pub fn split_shader(src: &str) -> crate::Result<BundledShaderSource> {
     // Find starting line of each stage
     let vert_start = find_stage_comment_start(src, ShaderStage::Vertex)?;
     let frag_start = find_stage_comment_start(src, ShaderStage::Fragment)?;

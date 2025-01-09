@@ -1,3 +1,5 @@
+pub mod renderer;
+
 use glium::Program;
 use glium::VertexBuffer;
 use glium::backend::Facade;
@@ -13,8 +15,8 @@ use glium::uniforms::SamplerBehavior;
 use glium::uniforms::Uniforms;
 
 use crate::assets::TERRAIN_PNG_PIXEL_DIM;
+use crate::core::fused_shader::split_shader;
 use crate::display::Mesh;
-use crate::display::shader::split_shader;
 use crate::domain::chunk::ChunkToTileIndex;
 use crate::domain::face::Face;
 use crate::domain::tile::Tile;
