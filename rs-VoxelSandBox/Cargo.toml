@@ -17,27 +17,15 @@ strip-symbols = true
 # dependencies #
 ################
 
-[dependencies.anyhow] # for "engine" errors
-version = "1.0.93"
+[dependencies]
+anyhow = "1.0.93"
+glam = "0.29.2"
+glium = "0.36.0"
+num-traits = "0.2.19"
+rand = "0.8.5"
+thiserror = "2.0.3"
+winit = "0.30.5"
 
-[dependencies.glam] # for CG math
-version = "0.29.2"
-
-[dependencies.glium] # for stateless OpenGL
-version = "0.36.0"
-
-[dependencies.image] # for loading pngs
+[dependencies.image]
 version = "0.25.5"
 features = ["png"]
-
-[dependencies.num-traits]
-version = "0.2.19"
-
-[dependencies.rand]
-version = "0.8.5"
-
-[dependencies.thiserror] # for in-game errors
-version = "2.0.3"
-
-[dependencies.winit] # for input events
-version = "0.30.5"

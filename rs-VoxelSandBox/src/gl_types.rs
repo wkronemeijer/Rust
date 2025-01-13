@@ -1,7 +1,10 @@
 //! Re-exports scalar and vector data types using the same notation as OpenGL.
 //!
 //! Taken from the [OpenGL documentation](https://www.khronos.org/opengl/wiki/Data_Type_(GLSL)).
+
 #![allow(non_camel_case_types, reason = "matches with OpenGL types")]
+
+// TODO: Should we use the 3A types?
 
 /////////////
 // Scalars //

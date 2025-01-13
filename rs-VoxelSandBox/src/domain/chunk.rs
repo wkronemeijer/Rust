@@ -3,6 +3,7 @@ use std::ops::IndexMut;
 
 use super::tile::Tile;
 use crate::core::iter::IntegerTripleIter;
+use crate::uvec3;
 
 //////////////
 // Indexing //
@@ -15,6 +16,8 @@ const CHUNK_DIM_U8: u8 = CHUNK_DIM as u8;
 
 /// The volume of a 3D chunk.
 pub const CHUNK_VOLUME: usize = CHUNK_DIM * CHUNK_DIM * CHUNK_DIM;
+
+pub const CHUNK_DIMENSIONS: uvec3 = uvec3(16, 16, 16);
 
 #[derive(Debug, Default, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash)]
 #[non_exhaustive]

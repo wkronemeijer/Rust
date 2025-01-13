@@ -15,15 +15,11 @@ use super::chunk_mesh;
 use super::chunk_program;
 use super::chunk_uniforms;
 use crate::assets::TERRAIN_PNG;
-use crate::assets::png_to_texture;
+use crate::assets::load_png_as_texture;
 use crate::domain::game::Game;
 use crate::domain::world::World;
 use crate::domain::world::WorldToChunkIndex;
 use crate::mat4;
-
-/////////////////
-// RenderState //
-/////////////////
 
 // TODO: Ideally, this is sorted by proximity to the player
 const REMESH_PER_UPDATE_LIMIT: i32 = 2;
@@ -47,7 +43,7 @@ impl ChunkRenderer {
             backface_culling: BackfaceCullingMode::CullClockwise,
             ..Default::default()
         };
-        let terrain_png = png_to_texture(gl, TERRAIN_PNG)?;
+        let terrain_png = load_png_as_texture(gl, TERRAIN_PNG)?;
         let chunk_meshes = HashMap::new();
         Ok(ChunkRenderer { program, options, terrain_png, chunk_meshes })
     }

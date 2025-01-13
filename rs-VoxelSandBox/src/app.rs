@@ -27,13 +27,13 @@ use winit::window::WindowId;
 use crate::assets::ICON_PNG;
 use crate::assets::png_to_icon;
 use crate::camera::Camera;
-use crate::core::AspectRatioExt as _;
 use crate::display::AppRenderer;
+use crate::display::FOV_Y_RADIANS;
+use crate::display::text::Label;
 use crate::domain::TICK_DURATION;
 use crate::domain::game::Game;
 use crate::domain::traits::DeltaTime;
 use crate::input::InputState;
-use crate::mat4;
 use crate::vec2;
 
 #[derive(Debug, Default, Clone, Copy)]
@@ -186,25 +186,28 @@ impl Application {
 // Drawing logic //
 ///////////////////
 
-const FOV_Y_RADIANS: f32 = 90.0 * PI / 180.0;
-
 // Drawing logic
 impl Application {
-    fn projection(&self) -> mat4 {
-        let aspect_ratio = self.window.inner_size().aspect_ratio();
-        let z_near = 0.001;
-        let z_far = 1000.0;
-
-        mat4::perspective_rh_gl(FOV_Y_RADIANS, aspect_ratio, z_near, z_far)
-    }
-
     // Needs mut to update last_draw time
     pub fn draw(&mut self) -> crate::Result {
         self.renderer.pre_draw(&self.display, &self.game)?;
 
         let mut frame = self.display.draw();
         frame.clear_color(0.0, 0.0, 0.0, 1.0);
-        self.renderer.draw(&mut frame, &self.camera)?;
+        {
+            let frame = &mut frame;
+
+            // 't is a little odd that we do the rendering of game outside of the game
+            // like some unwanted appendage
+            // then again it moves drawing code to "somewhere else"
+            // and text renderer now just needs to store its stuff somewhere
+            // no globals or closures like JS!
+            self.renderer.draw_world(frame, &self.camera)?;
+            self.renderer.draw_text(frame, Label {
+                text: "Hello, world!",
+                ..Default::default()
+            })?;
+        }
         frame.finish()?;
 
         self.last_draw = Instant::now();

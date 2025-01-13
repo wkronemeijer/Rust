@@ -1,5 +1,6 @@
 use self::Tile::*;
 use crate::core::memory_usage::AllocatedSize;
+use crate::ivec2;
 
 #[derive(Debug, Clone, Default)]
 pub enum Tile {
@@ -26,6 +27,16 @@ impl Tile {
             Stone => 1,
             Dirt => 3,
             Grass => 2,
+        }
+    }
+
+    pub fn tex_loc(&self) -> ivec2 {
+        // NB: tile indices wrap around!
+        match self {
+            Air => ivec2(-1, 0),
+            Stone => ivec2(-1, 1),
+            Dirt => ivec2(-1, 3),
+            Grass => ivec2(-1, 2),
         }
     }
 
