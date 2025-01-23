@@ -17,7 +17,7 @@ pub struct FileHash {
 }
 
 impl FileHash {
-    pub fn bytes(&self) -> &[u8; 32] { &self.bytes }
+    pub fn bytes(&self) -> &[u8] { &self.bytes }
 }
 
 impl fmt::Display for FileHash {
@@ -34,7 +34,7 @@ impl fmt::Display for FileHash {
 ///////////////
 
 // Based on https://stackoverflow.com/a/71606608
-pub fn hash_file(path: &Path) -> crate::Result<FileHash> {
+fn hash_file(path: &Path) -> crate::Result<FileHash> {
     const BUF_SIZE: usize = 1 << 12;
     const CHUNK_SIZE: usize = 1 << 10;
 
@@ -52,4 +52,10 @@ pub fn hash_file(path: &Path) -> crate::Result<FileHash> {
     let digest = hasher.finalize();
     let bytes = digest.into();
     Ok(FileHash { bytes })
+}
+
+impl FileHash {
+    pub fn from_contents<P: AsRef<Path>>(path: P) -> crate::Result<FileHash> {
+        hash_file(path.as_ref())
+    }
 }
