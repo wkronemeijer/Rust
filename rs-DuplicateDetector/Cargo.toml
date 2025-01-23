@@ -1,0 +1,10 @@
+[package]
+name = "duplicate-detector"
+version = "0.1.0"
+edition = "2024"
+default-run = "duplicate-detector"
+
+[dependencies]
+anyhow = "1.0.95"
+sha2 = "0.10.8"
+thiserror = "2.0.11"
