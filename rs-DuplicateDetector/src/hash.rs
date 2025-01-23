@@ -13,6 +13,7 @@ use sha2::Sha256;
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash)]
 pub struct FileHash {
+    // TODO: Should we derive this 32 from Sha256 type (somehow)?
     bytes: [u8; 32],
 }
 
@@ -23,6 +24,7 @@ impl FileHash {
 impl fmt::Display for FileHash {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         for byte in self.bytes {
+            // Prefix with 0 to ensure the entire byte is printed
             write!(f, "{byte:02X}")?;
         }
         Ok(())
@@ -33,29 +35,28 @@ impl fmt::Display for FileHash {
 // Hash File //
 ///////////////
 
-// Based on https://stackoverflow.com/a/71606608
-fn hash_file(path: &Path) -> crate::Result<FileHash> {
-    const BUF_SIZE: usize = 1 << 12;
-    const CHUNK_SIZE: usize = 1 << 10;
-
-    let file = File::open(path)?;
-    let mut reader = BufReader::with_capacity(BUF_SIZE, file);
-    let mut hasher = Sha256::new();
-    let mut buffer = [0; CHUNK_SIZE];
-    loop {
-        let bytes_read = reader.read(&mut buffer)?;
-        if bytes_read == 0 {
-            break
-        }
-        hasher.update(&buffer[..bytes_read]);
-    }
-    let digest = hasher.finalize();
-    let bytes = digest.into();
-    Ok(FileHash { bytes })
-}
-
 impl FileHash {
-    pub fn from_contents<P: AsRef<Path>>(path: P) -> crate::Result<FileHash> {
-        hash_file(path.as_ref())
+    /// Computes the file hash of a file at the given path.
+    ///
+    /// Based on https://stackoverflow.com/a/71606608
+    pub fn from_contents(path: &Path) -> crate::Result<FileHash> {
+        const BUF_SIZE: usize = 1 << 12;
+        const CHUNK_SIZE: usize = 1 << 10;
+
+        let file = File::open(path)?;
+        let mut reader = BufReader::with_capacity(BUF_SIZE, file);
+        let mut hasher = Sha256::new();
+
+        let mut buffer = [0; CHUNK_SIZE];
+        loop {
+            let bytes_read = reader.read(&mut buffer)?;
+            if bytes_read == 0 {
+                break
+            }
+            hasher.update(&buffer[..bytes_read]);
+        }
+        let digest = hasher.finalize();
+        let bytes = digest.into();
+        Ok(FileHash { bytes })
     }
 }
