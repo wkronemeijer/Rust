@@ -81,14 +81,19 @@ impl<'a> IntoIterator for &'a FindingsEntry {
 /// Stores the hashes and paths of all searched files.
 pub struct Findings {
     entries: HashMap<FileHash, FindingsEntry>,
+    file_count: u64,
 }
 
 impl Findings {
     /// Creates an empty findings structure.
-    fn new() -> Self { Findings { entries: HashMap::new() } }
+    fn new() -> Self { Findings { entries: HashMap::new(), file_count: 0 } }
+
+    /// The number of files visited
+    pub fn file_count(&self) -> u64 { self.file_count }
 
     /// Registers the hash for a given path
     fn insert(&mut self, path: PathBuf, hash: FileHash) {
+        self.file_count += 1;
         self.entries.entry(hash).or_insert_with(FindingsEntry::new).push(path);
     }
 

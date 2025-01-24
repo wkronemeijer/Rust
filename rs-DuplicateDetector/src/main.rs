@@ -1,3 +1,5 @@
+use std::time::Instant;
+
 use clap::Parser;
 pub use duplicate_detector::Result;
 use duplicate_detector::cli::Cli;
@@ -8,27 +10,46 @@ pub fn main() -> crate::Result {
     let directory = cli.directory();
     let style = cli.path_style()?;
 
+    ////////////
+    // Search //
+    ////////////
+
     println!("searching...");
+    let search_timer = Instant::now();
     let findings = find_duplicates(directory)?;
-    println!("search complete");
+    let search_time = search_timer.elapsed().as_millis();
+    let file_count = findings.file_count();
+    println!("searched {} file(s) in {}ms", file_count, search_time);
     println!();
 
-    let mut total_count = 0;
+    /////////////////////
+    // List duplicates //
+    /////////////////////
+
+    let mut duplicate_count = 0;
     for (hash, paths) in findings.iter() {
         let count = paths.len();
         if count > 1 {
-            total_count += count;
+            duplicate_count += count;
             println!("{count} file(s) with duplicate hash '{hash}':");
             for path in paths {
-                println!("{}", style.apply(path)?.display());
+                println!("{}", style.try_apply(path).display());
             }
             println!();
         }
     }
-    if total_count != 0 {
-        println!("found {total_count} duplicate(s) in total");
+
+    /////////////
+    // Summary //
+    /////////////
+
+    if duplicate_count != 0 {
+        println!(
+            "found {} duplicate(s) amongst {} file(s)",
+            duplicate_count, file_count,
+        );
     } else {
-        println!("no duplicates found");
+        println!("no duplicates found amongst {} file(s)", file_count);
     }
     Ok(())
 }
