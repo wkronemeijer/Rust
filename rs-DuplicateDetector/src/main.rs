@@ -1,5 +1,6 @@
 use std::ops::Deref;
 use std::path::Path;
+use std::thread::available_parallelism;
 use std::time::Instant;
 
 use clap::Parser;
@@ -7,7 +8,6 @@ pub use duplicate_detector::Result;
 use duplicate_detector::cli::Cli;
 use duplicate_detector::core::fs::read_dir_all;
 use duplicate_detector::search::find_duplicates;
-use duplicate_detector::search::find_duplicates_parallel;
 
 pub fn main() -> crate::Result {
     let cli = Cli::parse(); // NB: parse exits on failure
@@ -23,23 +23,20 @@ pub fn main() -> crate::Result {
 
     let read_timer = Instant::now();
     let files = read_dir_all(directory)?;
-    println!("read_dir_all in {}ms", read_timer.elapsed().as_millis());
+    println!("read_dir_all() in {}ms", read_timer.elapsed().as_millis());
     let files: Vec<&Path> = files.iter().map(Deref::deref).collect();
     let files = files.as_slice();
 
     let find_timer = Instant::now();
-
-    let findings = if cli.parallel() {
-        find_duplicates_parallel(files)
-    } else {
-        find_duplicates(files)
-    };
-
-    println!("find_duplicates in {}ms", find_timer.elapsed().as_millis());
-
+    let findings = find_duplicates(files, match cli.parallel() {
+        true => available_parallelism()?.get(),
+        false => 1,
+    });
     let search_time = search_timer.elapsed().as_millis();
+    println!("find_duplicates() in {}ms", find_timer.elapsed().as_millis());
+
     let file_count = findings.file_count();
-    println!("searched {} file(s) in {}ms", file_count, search_time);
+    println!("found {} file(s)", file_count);
     println!();
 
     /////////////////////
@@ -65,11 +62,14 @@ pub fn main() -> crate::Result {
 
     if duplicate_count != 0 {
         println!(
-            "found {} duplicate(s) amongst {} file(s)",
-            duplicate_count, file_count,
+            "found {} duplicate(s) amongst {} file(s) in {}ms",
+            duplicate_count, file_count, search_time,
         );
     } else {
-        println!("no duplicates found amongst {} file(s)", file_count);
+        println!(
+            "no duplicates found amongst {} file(s) in {}ms",
+            file_count, search_time,
+        );
     }
     Ok(())
 }

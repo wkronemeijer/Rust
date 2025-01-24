@@ -59,17 +59,20 @@ pub struct Cli {
     /// The directory to search.
     directory: PathBuf,
 
+    /// Use more than 1 thread to search.
     #[arg(long)]
     parallel: bool,
 
-    #[arg(long)]
     /// Keep path of duplicates relative.
+    #[arg(long)]
     relative: bool,
-    #[arg(long)]
+
     /// Make path of duplicates absolute.
-    absolute: bool,
     #[arg(long)]
+    absolute: bool,
+
     /// Canonicalize path of duplicates.
+    #[arg(long)]
     canonical: bool,
 }
 

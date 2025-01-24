@@ -1,10 +1,10 @@
 //! Items to find duplicates with.
 
 use std::collections::HashMap;
+use std::ops::Add;
 use std::path::Path;
 use std::path::PathBuf;
 use std::sync::mpsc;
-use std::thread::available_parallelism;
 use std::thread::scope;
 
 use crate::core::collections::TinyVec;
@@ -45,15 +45,17 @@ impl Findings {
 // Search //
 ////////////
 
-pub fn find_duplicates_parallel(files: &[&Path]) -> Findings {
+pub fn find_duplicates(files: &[&Path], parallelism: usize) -> Findings {
     let mut results = Findings::new();
     scope(|s| {
-        let threads = available_parallelism().expect("parallelism not found");
-        let chunk_size = files.len().div_ceil(threads.into());
+        println!("start scope");
+        let worker_count = parallelism.saturating_sub(1).add(1);
+        debug_assert!(worker_count >= 1);
+        let chunk_size = files.len().div_ceil(worker_count);
         // 10 files / 4 chunks ==> 3 files per chunk (and change)
         // ceil because chunk size is flexible, thread count is not
 
-        const CHANNEL_SIZE: usize = 1 << 4;
+        const CHANNEL_SIZE: usize = 1 << 8;
         let (sender, receiver) = mpsc::sync_channel(CHANNEL_SIZE);
 
         /////////////
@@ -83,22 +85,17 @@ pub fn find_duplicates_parallel(files: &[&Path]) -> Findings {
 
         let findings = &mut results;
         s.spawn(move || {
+            let mut counter = 0;
+            const THRESHOLD: i32 = 100;
             while let Ok((path, hash)) = receiver.recv() {
                 findings.insert(path.to_path_buf(), hash);
+                counter += 1;
+                if counter >= THRESHOLD {
+                    counter -= THRESHOLD;
+                    println!("inserted {} items", THRESHOLD)
+                }
             }
         });
     });
-    results
-}
-
-pub fn find_duplicates(files: &[&Path]) -> Findings {
-    let mut results = Findings::new();
-    for &file in files {
-        let Ok(hash) = FileHash::from_contents(file) else {
-            eprintln!("failed to hash {:?}", file);
-            continue;
-        };
-        results.insert(file.to_path_buf(), hash);
-    }
     results
 }

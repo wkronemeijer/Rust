@@ -42,7 +42,7 @@ impl FileHash {
     ///
     /// Based on https://stackoverflow.com/a/71606608
     pub fn from_contents(path: &Path) -> crate::Result<FileHash> {
-        const BUF_SIZE: usize = 1 << 12;
+        const BUF_SIZE: usize = 1 << 14;
         const CHUNK_SIZE: usize = 1 << 10;
 
         let file = File::open(path)?;

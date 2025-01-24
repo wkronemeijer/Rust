@@ -3,6 +3,12 @@ name = "duplicate-detector"
 version = "0.1.0"
 edition = "2024"
 
+[profile.dev]
+incremental = true
+
+[profile.release]
+strip-symbols = true
+
 [dependencies]
 anyhow = "1.0.95"
 clap = { version = "4.5.27", features = ["derive"] }
