@@ -1,3 +1,5 @@
+//! Items to compute the hash of a file with.
+
 use std::fmt;
 use std::fs::File;
 use std::io::BufReader;

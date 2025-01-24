@@ -1,12 +1,12 @@
+//! Items to find duplicates with
+
 use std::collections::HashMap;
-use std::collections::VecDeque;
-use std::fs;
-use std::fs::metadata;
 use std::path::Path;
 use std::path::PathBuf;
 use std::time::Instant;
 
 use crate::core::collections::TinyVec;
+use crate::core::fs::read_dir_all;
 use crate::hash::FileHash;
 
 //////////////
@@ -43,27 +43,6 @@ impl Findings {
 ////////////
 // Search //
 ////////////
-
-// FIXME: One circular symbolic link and this blows up
-fn read_dir_all(dir: &Path) -> crate::Result<Vec<PathBuf>> {
-    let mut frontier = VecDeque::new();
-    let mut visited = Vec::new();
-
-    frontier.push_back(dir.to_owned());
-    while let Some(dir) = frontier.pop_front() {
-        for item in fs::read_dir(dir)? {
-            let path = item?.path();
-            let stat = metadata(&path)?;
-            if stat.is_dir() {
-                frontier.push_back(path);
-            } else {
-                debug_assert!(stat.is_file());
-                visited.push(path);
-            }
-        }
-    }
-    Ok(visited)
-}
 
 pub fn find_duplicates(dir: &Path) -> crate::Result<Findings> {
     let mut findings = Findings::new();
