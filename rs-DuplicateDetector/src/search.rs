@@ -1,12 +1,13 @@
-//! Items to find duplicates with
+//! Items to find duplicates with.
 
 use std::collections::HashMap;
 use std::path::Path;
 use std::path::PathBuf;
-use std::time::Instant;
+use std::sync::mpsc;
+use std::thread::available_parallelism;
+use std::thread::scope;
 
 use crate::core::collections::TinyVec;
-use crate::core::fs::read_dir_all;
 use crate::hash::FileHash;
 
 //////////////
@@ -44,19 +45,60 @@ impl Findings {
 // Search //
 ////////////
 
-pub fn find_duplicates(dir: &Path) -> crate::Result<Findings> {
-    let mut findings = Findings::new();
+pub fn find_duplicates_parallel(files: &[&Path]) -> Findings {
+    let mut results = Findings::new();
+    scope(|s| {
+        let threads = available_parallelism().expect("parallelism not found");
+        let chunk_size = files.len().div_ceil(threads.into());
+        // 10 files / 4 chunks ==> 3 files per chunk (and change)
+        // ceil because chunk size is flexible, thread count is not
 
-    let read_dir_timer = Instant::now();
-    let files = read_dir_all(dir)?;
-    println!("read_dir_all in {}ms", read_dir_timer.elapsed().as_millis());
+        const CHANNEL_SIZE: usize = 1 << 4;
+        let (sender, receiver) = mpsc::sync_channel(CHANNEL_SIZE);
 
-    let hash_timer = Instant::now();
-    for file in files {
-        let hash = FileHash::from_contents(&file)?;
-        findings.insert(file, hash);
+        /////////////
+        // Workers //
+        /////////////
+
+        for files_chunk in files.chunks(chunk_size) {
+            let sender = sender.clone();
+            s.spawn(move || {
+                for &file in files_chunk {
+                    let Ok(hash) = FileHash::from_contents(file) else {
+                        // TODO: error channel?
+                        eprintln!("failed to hash {:?}", file);
+                        continue;
+                    };
+                    let Ok(_) = sender.send((file, hash)) else {
+                        // Technically this should never happen
+                        break;
+                    };
+                }
+            });
+        }
+
+        ///////////////
+        // Collector //
+        ///////////////
+
+        let findings = &mut results;
+        s.spawn(move || {
+            while let Ok((path, hash)) = receiver.recv() {
+                findings.insert(path.to_path_buf(), hash);
+            }
+        });
+    });
+    results
+}
+
+pub fn find_duplicates(files: &[&Path]) -> Findings {
+    let mut results = Findings::new();
+    for &file in files {
+        let Ok(hash) = FileHash::from_contents(file) else {
+            eprintln!("failed to hash {:?}", file);
+            continue;
+        };
+        results.insert(file.to_path_buf(), hash);
     }
-    println!("insert_hash in {}ms", hash_timer.elapsed().as_millis());
-
-    Ok(findings)
+    results
 }

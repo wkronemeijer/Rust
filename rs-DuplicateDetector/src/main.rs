@@ -1,9 +1,13 @@
+use std::ops::Deref;
+use std::path::Path;
 use std::time::Instant;
 
 use clap::Parser;
 pub use duplicate_detector::Result;
 use duplicate_detector::cli::Cli;
+use duplicate_detector::core::fs::read_dir_all;
 use duplicate_detector::search::find_duplicates;
+use duplicate_detector::search::find_duplicates_parallel;
 
 pub fn main() -> crate::Result {
     let cli = Cli::parse(); // NB: parse exits on failure
@@ -16,7 +20,23 @@ pub fn main() -> crate::Result {
 
     println!("searching...");
     let search_timer = Instant::now();
-    let findings = find_duplicates(directory)?;
+
+    let read_timer = Instant::now();
+    let files = read_dir_all(directory)?;
+    println!("read_dir_all in {}ms", read_timer.elapsed().as_millis());
+    let files: Vec<&Path> = files.iter().map(Deref::deref).collect();
+    let files = files.as_slice();
+
+    let find_timer = Instant::now();
+
+    let findings = if cli.parallel() {
+        find_duplicates_parallel(files)
+    } else {
+        find_duplicates(files)
+    };
+
+    println!("find_duplicates in {}ms", find_timer.elapsed().as_millis());
+
     let search_time = search_timer.elapsed().as_millis();
     let file_count = findings.file_count();
     println!("searched {} file(s) in {}ms", file_count, search_time);

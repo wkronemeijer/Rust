@@ -60,6 +60,9 @@ pub struct Cli {
     directory: PathBuf,
 
     #[arg(long)]
+    parallel: bool,
+
+    #[arg(long)]
     /// Keep path of duplicates relative.
     relative: bool,
     #[arg(long)]
@@ -82,6 +85,8 @@ impl Cli {
     }
 
     pub fn directory(&self) -> &Path { &self.directory }
+
+    pub fn parallel(&self) -> bool { self.parallel }
 }
 
 // Cute but unnecessary
