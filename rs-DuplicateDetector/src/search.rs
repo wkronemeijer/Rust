@@ -2,81 +2,18 @@ use std::collections::HashMap;
 use std::collections::VecDeque;
 use std::fs;
 use std::fs::metadata;
-use std::iter;
-use std::mem;
-use std::ops::Deref;
 use std::path::Path;
 use std::path::PathBuf;
 use std::time::Instant;
 
+use crate::core::collections::TinyVec;
 use crate::hash::FileHash;
-
-//////////////////
-// FindingEntry //
-//////////////////
-// ...technically the value, the entry is (Hash, FindingEntry)
-
-// NB: Most files aren't duplicate
-// so a single item stored inline helps save allocation traffic
-/// Stores all paths found with the same hash.
-#[derive(Debug, Default, Clone)]
-pub enum FindingsEntry {
-    #[default]
-    Empty,
-    Single(PathBuf),
-    Multiple(Vec<PathBuf>),
-}
-
-impl FindingsEntry {
-    /// Creates an empty entry.
-    pub fn new() -> Self { FindingsEntry::default() }
-
-    pub fn len(&self) -> usize {
-        match self {
-            Self::Empty => 0,
-            Self::Single(..) => 1,
-            Self::Multiple(vec) => vec.len(),
-        }
-    }
-
-    fn into_push(self, new_path: PathBuf) -> Self {
-        use FindingsEntry::*;
-        match self {
-            Empty => Single(new_path),
-            Single(old_path) => Multiple(vec![old_path, new_path]),
-            Multiple(mut paths) => {
-                paths.push(new_path);
-                Multiple(paths)
-            },
-        }
-    }
-
-    /// Adds a new value.
-    pub fn push(&mut self, new_path: PathBuf) {
-        // Is there mem::_ method that does without a useless memcpy?
-        *self = mem::take(self).into_push(new_path);
-    }
-
-    /// Iterates over the paths contained.
-    pub fn iter<'a>(&'a self) -> Box<dyn Iterator<Item = &'a Path> + 'a> {
-        // ...when is `gen` stabilized?
-        match self {
-            Self::Empty => Box::new(iter::empty()),
-            Self::Single(path) => Box::new(iter::once(path).map(Deref::deref)),
-            Self::Multiple(paths) => Box::new(paths.iter().map(Deref::deref)),
-        }
-    }
-}
-
-impl<'a> IntoIterator for &'a FindingsEntry {
-    type Item = &'a Path;
-    type IntoIter = Box<dyn Iterator<Item = Self::Item> + 'a>;
-    fn into_iter(self) -> Self::IntoIter { self.iter() }
-}
 
 //////////////
 // Findings //
 //////////////
+
+pub type FindingsEntry = TinyVec<PathBuf>;
 
 /// Stores the hashes and paths of all searched files.
 pub struct Findings {
