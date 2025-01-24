@@ -1,11 +1,16 @@
 use std::ops::Deref;
+use std::path::Path;
 use std::thread::available_parallelism;
 use std::time::Instant;
 
 use clap::Parser;
 pub use duplicate_detector::Result;
 use duplicate_detector::cli::Cli;
+use duplicate_detector::cli::SearchAlgorithm;
 use duplicate_detector::core::fs::read_dir_all;
+use duplicate_detector::search::Findings;
+use duplicate_detector::search::find_duplicates_mpsc;
+use duplicate_detector::search::find_duplicates_mutex;
 
 macro_rules! println_time {
     ($e:expr) => {{
@@ -19,16 +24,19 @@ macro_rules! println_time {
 }
 
 pub fn main() -> crate::Result {
-    #![allow(unused_imports)]
-    use duplicate_detector::search::find_duplicates_mpsc;
-    use duplicate_detector::search::find_duplicates_mutex;
-
     let cli = Cli::parse(); // NB: parse exits on failure
-    let style = cli.path_style();
+    let style = cli.style();
     let directory = cli.directory();
     let parallelism = match cli.parallel() {
         true => available_parallelism()?.get(),
         false => 1,
+    };
+
+    let find_duplicates: fn(&[&Path], usize) -> Findings = {
+        match cli.algo() {
+            SearchAlgorithm::Mpsc => find_duplicates_mpsc,
+            SearchAlgorithm::Mutex => find_duplicates_mutex,
+        }
     };
 
     ////////////
@@ -42,7 +50,7 @@ pub fn main() -> crate::Result {
     let files = Vec::from_iter(files.iter().map(Deref::deref));
     let files = files.as_slice();
     // ...into &[&Path]
-    let findings = println_time!(find_duplicates_mutex(files, parallelism));
+    let findings = println_time!(find_duplicates(files, parallelism));
 
     let file_count = findings.file_count();
     debug_assert_eq!(files.len(), file_count);

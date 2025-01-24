@@ -128,6 +128,7 @@ pub fn find_duplicates_mutex(files: &[&Path], parallelism: usize) -> Findings {
                     };
                     backlog.push((file.to_path_buf(), hash));
                     if backlog.len() >= BACKLOG_DRAIN_THRESHOLD {
+                        // NB: try_lock()
                         if let Ok(mut results) = results.try_lock() {
                             for (file, hash) in backlog.drain(..) {
                                 results.insert(file, hash);
@@ -135,6 +136,7 @@ pub fn find_duplicates_mutex(files: &[&Path], parallelism: usize) -> Findings {
                         }
                     }
                 }
+                // NB: lock()
                 if let Ok(mut results) = results.lock() {
                     for (file, hash) in backlog.drain(..) {
                         results.insert(file, hash);

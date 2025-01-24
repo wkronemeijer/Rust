@@ -5,7 +5,7 @@ edition = "2024"
 
 [profile.dev]
 incremental = true
-opt-level = 1      # makes it 10× faster (unironically)
+opt-level = 1      # makes it (unironically) 10× faster 
 
 [profile.release]
 strip = true

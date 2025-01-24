@@ -6,18 +6,37 @@ use std::path::PathBuf;
 use std::path::absolute;
 
 use clap::Parser;
+use clap::ValueEnum;
+
+/////////////////////////
+// Choice of algorithm //
+/////////////////////////
+
+#[derive(Debug, Default, Clone, Copy, ValueEnum)]
+#[clap(rename_all = "kebab-case")]
+pub enum SearchAlgorithm {
+    #[default]
+    Mpsc,
+    Mutex,
+}
+
+impl fmt::Display for SearchAlgorithm {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        format!("{self:?}").to_ascii_lowercase().fmt(f)
+    }
+}
 
 /////////////////////
 // Path Formatting //
 /////////////////////
 
-#[derive(Debug, Default, Clone, Copy)]
+#[derive(Debug, Default, Clone, Copy, ValueEnum)]
+#[clap(rename_all = "kebab-case")]
 pub enum PathStyle {
     #[default]
     Relative,
     Absolute,
     Canonical,
-    // TODO: absolute file uri and canonical file uri
 }
 
 impl PathStyle {
@@ -51,50 +70,32 @@ impl fmt::Display for PathStyle {
 /////////////
 // Parsing //
 /////////////
+// See https://docs.rs/clap/latest/clap/_derive/#arg-types for help
 
+/// Searches for duplicates in the given directory.
 #[derive(Debug, Clone, Parser)]
 #[command(version, about)]
+#[deny(missing_docs)]
 pub struct Cli {
     /// The directory to search.
     directory: PathBuf,
 
-    /// Use more than 1 thread to search.
-    #[arg(long)]
-    parallel: bool,
+    /// Algorithm to search with.
+    #[arg(long, default_value_t)]
+    algo: SearchAlgorithm,
 
-    /// Keep path of duplicates relative.
-    #[arg(long)]
-    relative: bool,
+    /// Formatting used for results.
+    #[arg(long, default_value_t)]
+    style: PathStyle,
 
-    /// Make path of duplicates absolute.
+    /// Restrict to use only 1 (worker) thread.
     #[arg(long)]
-    absolute: bool,
-
-    /// Canonicalize path of duplicates.
-    #[arg(long)]
-    canonical: bool,
+    unconcurrent: bool,
 }
 
 impl Cli {
-    pub fn path_style(&self) -> PathStyle {
-        match (self.relative, self.absolute, self.canonical) {
-            (false, false, false) => PathStyle::default(),
-            (true, false, false) => PathStyle::Relative,
-            (false, true, false) => PathStyle::Absolute,
-            (false, false, true) => PathStyle::Canonical,
-            _ => {
-                eprintln!(
-                    "more than 1 path formatting option specified; reverting to default"
-                );
-                PathStyle::default()
-            },
-        }
-    }
-
     pub fn directory(&self) -> &Path { &self.directory }
-
-    pub fn parallel(&self) -> bool { self.parallel }
+    pub fn algo(&self) -> SearchAlgorithm { self.algo }
+    pub fn style(&self) -> PathStyle { self.style }
+    pub fn parallel(&self) -> bool { !self.unconcurrent }
 }
-
-// Cute but unnecessary
-// pub static CLI: LazyLock<Cli> = LazyLock::new(Cli::parse);
