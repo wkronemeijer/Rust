@@ -1,5 +1,4 @@
 use std::ops::Deref;
-use std::path::Path;
 use std::thread::available_parallelism;
 use std::time::Instant;
 
@@ -7,36 +6,48 @@ use clap::Parser;
 pub use duplicate_detector::Result;
 use duplicate_detector::cli::Cli;
 use duplicate_detector::core::fs::read_dir_all;
-use duplicate_detector::search::find_duplicates;
+
+macro_rules! println_time {
+    ($e:expr) => {{
+        let start = Instant::now();
+        let result = $e;
+        let duration = start.elapsed();
+
+        println!("{} in {}ms", stringify!($e), duration.as_millis());
+        result
+    }};
+}
 
 pub fn main() -> crate::Result {
+    #![allow(unused_imports)]
+    use duplicate_detector::search::find_duplicates_mpsc;
+    use duplicate_detector::search::find_duplicates_mutex;
+
     let cli = Cli::parse(); // NB: parse exits on failure
+    let style = cli.path_style();
     let directory = cli.directory();
-    let style = cli.path_style()?;
+    let parallelism = match cli.parallel() {
+        true => available_parallelism()?.get(),
+        false => 1,
+    };
 
     ////////////
     // Search //
     ////////////
 
     println!("searching...");
-    let search_timer = Instant::now();
 
-    let read_timer = Instant::now();
-    let files = read_dir_all(directory)?;
-    println!("read_dir_all() in {}ms", read_timer.elapsed().as_millis());
-    let files: Vec<&Path> = files.iter().map(Deref::deref).collect();
+    // Turn Vec<PathBuf>...
+    let files = println_time!(read_dir_all(directory)?);
+    let files = Vec::from_iter(files.iter().map(Deref::deref));
     let files = files.as_slice();
-
-    let find_timer = Instant::now();
-    let findings = find_duplicates(files, match cli.parallel() {
-        true => available_parallelism()?.get(),
-        false => 1,
-    });
-    let search_time = search_timer.elapsed().as_millis();
-    println!("find_duplicates() in {}ms", find_timer.elapsed().as_millis());
+    // ...into &[&Path]
+    let findings = println_time!(find_duplicates_mutex(files, parallelism));
 
     let file_count = findings.file_count();
-    println!("found {} file(s)", file_count);
+    debug_assert_eq!(files.len(), file_count);
+
+    println!("search complete");
     println!();
 
     /////////////////////
@@ -44,6 +55,7 @@ pub fn main() -> crate::Result {
     /////////////////////
 
     let mut duplicate_count = 0;
+
     for (hash, paths) in findings.iter() {
         let count = paths.len();
         if count > 1 {
@@ -60,16 +72,9 @@ pub fn main() -> crate::Result {
     // Summary //
     /////////////
 
-    if duplicate_count != 0 {
-        println!(
-            "found {} duplicate(s) amongst {} file(s) in {}ms",
-            duplicate_count, file_count, search_time,
-        );
-    } else {
-        println!(
-            "no duplicates found amongst {} file(s) in {}ms",
-            file_count, search_time,
-        );
-    }
+    println!(
+        "found {} duplicate(s) amongst {} file(s)",
+        duplicate_count, file_count,
+    );
     Ok(())
 }

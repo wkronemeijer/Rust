@@ -5,7 +5,6 @@ use std::path::Path;
 use std::path::PathBuf;
 use std::path::absolute;
 
-use anyhow::bail;
 use clap::Parser;
 
 /////////////////////
@@ -77,14 +76,19 @@ pub struct Cli {
 }
 
 impl Cli {
-    pub fn path_style(&self) -> crate::Result<PathStyle> {
-        Ok(match (self.relative, self.absolute, self.canonical) {
+    pub fn path_style(&self) -> PathStyle {
+        match (self.relative, self.absolute, self.canonical) {
             (false, false, false) => PathStyle::default(),
             (true, false, false) => PathStyle::Relative,
             (false, true, false) => PathStyle::Absolute,
             (false, false, true) => PathStyle::Canonical,
-            _ => bail!("more than 1 path formatting option specified"),
-        })
+            _ => {
+                eprintln!(
+                    "more than 1 path formatting option specified; reverting to default"
+                );
+                PathStyle::default()
+            },
+        }
     }
 
     pub fn directory(&self) -> &Path { &self.directory }

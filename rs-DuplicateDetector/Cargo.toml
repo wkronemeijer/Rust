@@ -5,9 +5,10 @@ edition = "2024"
 
 [profile.dev]
 incremental = true
+opt-level = 1      # makes it 10× faster (unironically)
 
 [profile.release]
-strip-symbols = true
+strip = true
 
 [dependencies]
 anyhow = "1.0.95"
