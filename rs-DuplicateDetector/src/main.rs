@@ -1,13 +1,13 @@
-use std::env::args;
-use std::fs::canonicalize;
-use std::path::Path;
-
-use anyhow::bail;
+use clap::Parser;
 pub use duplicate_detector::Result;
-use duplicate_detector::hash::FileHash;
+use duplicate_detector::cli::Cli;
 use duplicate_detector::search::find_duplicates;
 
-fn main_search(directory: &Path) -> crate::Result {
+pub fn main() -> crate::Result {
+    let cli = Cli::parse(); // NB: parse exits on failure
+    let directory = cli.directory();
+    let style = cli.path_style()?;
+
     println!("searching...");
     let findings = find_duplicates(directory)?;
     println!("search complete");
@@ -20,9 +20,7 @@ fn main_search(directory: &Path) -> crate::Result {
             total_count += count;
             println!("{count} file(s) with duplicate hash '{hash}':");
             for path in paths {
-                // let path = absolute(path)?;
-                let path = canonicalize(path)?;
-                println!("• {}", path.display());
+                println!("{}", style.apply(path)?.display());
             }
             println!();
         }
@@ -33,22 +31,4 @@ fn main_search(directory: &Path) -> crate::Result {
         println!("no duplicates found");
     }
     Ok(())
-}
-
-fn main_hash(file: &Path) -> crate::Result {
-    let hash = FileHash::from_contents(file)?;
-    println!("hash({file:?}) == {hash}");
-    Ok(())
-}
-
-pub fn main() -> crate::Result {
-    let args: Vec<String> = args().skip(1).collect(); // skip the executable 
-    let args: Vec<&str> = args.iter().map(String::as_ref).collect();
-    // ...is there a better way to be able to
-    // match slices with string literals against args?
-    match args[..] {
-        ["search", dir] => main_search(Path::new(dir)),
-        ["hash", file] => main_hash(Path::new(file)),
-        _ => bail!("invalid arguments"),
-    }
 }
