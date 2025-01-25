@@ -1,8 +1,10 @@
 //! Stuff that should be in [`core`], but isn't.
 
 pub mod collections {
-    use std::iter;
-    use std::mem;
+    use std::iter::empty;
+    use std::iter::once;
+    use std::mem::take;
+    use std::slice;
 
     /// Like [`Vec`] but stores up to a single element inline,
     /// then switches to heap allocation when more elements are added.
@@ -16,21 +18,24 @@ pub mod collections {
         Multiple(Vec<T>),
     }
 
+    use TinyVec::Empty;
+    use TinyVec::Multiple;
+    use TinyVec::Single;
+
     impl<T> TinyVec<T> {
         /// Creates a new empty vector. Makes no allocations.
-        pub fn new() -> Self { TinyVec::Empty }
+        pub fn new() -> Self { Empty }
 
         /// Returns the number of items in this vector.
         pub fn len(&self) -> usize {
             match self {
-                Self::Empty => 0,
-                Self::Single(..) => 1,
-                Self::Multiple(vec) => vec.len(),
+                Empty => 0,
+                Single(..) => 1,
+                Multiple(vec) => vec.len(),
             }
         }
 
         fn into_push(self, new_path: T) -> Self {
-            use TinyVec::*;
             match self {
                 Empty => Single(new_path),
                 Single(old_path) => Multiple(vec![old_path, new_path]),
@@ -44,12 +49,20 @@ pub mod collections {
         /// Adds a new value.
         pub fn push(&mut self, new_path: T) {
             // ...is there ::core::mem method that does in one operation?
-            *self = mem::take(self).into_push(new_path);
+            *self = take(self).into_push(new_path);
+        }
+
+        /// Returns a slice of the entire contents.
+        pub fn as_slice(&self) -> &[T] {
+            match self {
+                Empty => &[],
+                Single(item) => slice::from_ref(item),
+                Multiple(vec) => vec.as_slice(),
+            }
         }
 
         /// Consumes this vec and turns it into a proper [`Vec`].
         pub fn into_vec(self) -> Vec<T> {
-            use TinyVec::*;
             match self {
                 Empty => vec![],
                 Single(item) => vec![item],
@@ -58,14 +71,15 @@ pub mod collections {
         }
     }
 
+    // TODO: Create a dedicated Iter for TinyVec
     impl<T> TinyVec<T> {
         /// Iterates over the paths contained.
         pub fn iter<'a>(&'a self) -> Box<dyn Iterator<Item = &'a T> + 'a> {
             // ...when is `gen` stabilized?
             match self {
-                Self::Empty => Box::new(iter::empty()),
-                Self::Single(path) => Box::new(iter::once(path)),
-                Self::Multiple(paths) => Box::new(paths.iter()),
+                Empty => Box::new(empty()),
+                Single(path) => Box::new(once(path)),
+                Multiple(paths) => Box::new(paths.iter()),
             }
         }
     }
@@ -99,9 +113,10 @@ pub mod fs {
                 let stat = fs::metadata(&path)?;
                 if stat.is_dir() {
                     frontier.push_back(path);
-                } else {
-                    debug_assert!(stat.is_file());
+                } else if stat.is_file() {
                     visited.push(path);
+                } else {
+                    // only visited if we symlink_metdata
                 }
             }
         }

@@ -8,23 +8,7 @@ use std::path::absolute;
 use clap::Parser;
 use clap::ValueEnum;
 
-/////////////////////////
-// Choice of algorithm //
-/////////////////////////
-
-#[derive(Debug, Default, Clone, Copy, ValueEnum)]
-#[clap(rename_all = "kebab-case")]
-pub enum SearchAlgorithm {
-    #[default]
-    Mpsc,
-    Mutex,
-}
-
-impl fmt::Display for SearchAlgorithm {
-    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-        format!("{self:?}").to_ascii_lowercase().fmt(f)
-    }
-}
+use crate::hash_concurrent::ConcurrentHashingAlgorithm;
 
 /////////////////////
 // Path Formatting //
@@ -82,7 +66,7 @@ pub struct Cli {
 
     /// Algorithm to search with.
     #[arg(long, default_value_t)]
-    algo: SearchAlgorithm,
+    algo: ConcurrentHashingAlgorithm,
 
     /// Formatting used for results.
     #[arg(long, default_value_t)]
@@ -95,7 +79,7 @@ pub struct Cli {
 
 impl Cli {
     pub fn directory(&self) -> &Path { &self.directory }
-    pub fn algo(&self) -> SearchAlgorithm { self.algo }
+    pub fn algo(&self) -> ConcurrentHashingAlgorithm { self.algo }
     pub fn style(&self) -> PathStyle { self.style }
     pub fn parallel(&self) -> bool { !self.unconcurrent }
 }

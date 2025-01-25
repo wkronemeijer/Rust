@@ -1,10 +1,11 @@
-//! Items to compute the hash of a file with.
+//! Items to compute the hash of a single file.
 
 use std::fmt;
 use std::fs::File;
 use std::io::BufReader;
 use std::io::Read;
 use std::path::Path;
+use std::path::PathBuf;
 
 use sha2::Digest;
 use sha2::Sha256;
@@ -62,3 +63,5 @@ impl FileHash {
         Ok(FileHash { bytes })
     }
 }
+
+pub type PathWithHash = (PathBuf, FileHash);
