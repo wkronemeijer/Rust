@@ -9,6 +9,9 @@ use clap::Parser;
 pub use duplicate_detector::Result;
 use duplicate_detector::cli::Cli;
 use duplicate_detector::core::fs::read_dir_all;
+use duplicate_detector::db::ConnectionMode;
+use duplicate_detector::db::connection_version;
+use duplicate_detector::db::get_connection;
 use duplicate_detector::hash_concurrent::HashFilesOptions;
 use duplicate_detector::search::Findings;
 
@@ -32,6 +35,21 @@ pub fn main() -> crate::Result {
         true => available_parallelism()?,
         false => NonZero::new(1).unwrap(),
     };
+
+    let mode = match cli.incremental() {
+        true => ConnectionMode::File,
+        false => ConnectionMode::Memory,
+    };
+
+    //////////////
+    // Database //
+    //////////////
+
+    let db = get_connection(mode)?;
+
+    let conn = &db;
+
+    println!("using SQLite version {}", connection_version(conn)?);
 
     ////////////
     // Search //

@@ -72,14 +72,19 @@ pub struct Cli {
     #[arg(long, default_value_t)]
     style: PathStyle,
 
+    /// Persist files hashes.
+    #[arg(long)]
+    incremental: bool,
+
     /// Restrict to use only 1 (worker) thread.
     #[arg(long)]
     unconcurrent: bool,
 }
 
 impl Cli {
-    pub fn directory(&self) -> &Path { &self.directory }
     pub fn algo(&self) -> ConcurrentHashingAlgorithm { self.algo }
     pub fn style(&self) -> PathStyle { self.style }
     pub fn parallel(&self) -> bool { !self.unconcurrent }
+    pub fn directory(&self) -> &Path { &self.directory }
+    pub fn incremental(&self) -> bool { self.incremental }
 }
