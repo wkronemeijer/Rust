@@ -1,7 +1,13 @@
+//! Contains items to wrap the usage of SQLite.
+//!
+//! In particular, the goal is to not see any SQL outside of this file.
+
 use clap::ValueEnum;
 use rusqlite::Connection;
 
-pub const CACHE_FILE_NAME: &str = "hash-cache.db";
+///////////////////////////
+// Creating a connection //
+///////////////////////////
 
 // To prevent Boolean blindness
 #[derive(Debug, Clone, Copy, ValueEnum)]
@@ -11,7 +17,9 @@ pub enum ConnectionMode {
     Memory,
 }
 
-pub fn get_connection(mode: ConnectionMode) -> crate::Result<Connection> {
+pub const CACHE_FILE_NAME: &str = "hash-cache.db";
+
+pub fn init_db(mode: ConnectionMode) -> crate::Result<Connection> {
     let conn = match mode {
         ConnectionMode::Memory => Connection::open_in_memory()?,
         ConnectionMode::File => Connection::open(CACHE_FILE_NAME)?,
@@ -20,7 +28,11 @@ pub fn get_connection(mode: ConnectionMode) -> crate::Result<Connection> {
     Ok(conn)
 }
 
-pub fn connection_version(conn: &Connection) -> crate::Result<String> {
+//////////////////////////
+// Using the connection //
+//////////////////////////
+
+pub fn db_version(conn: &Connection) -> crate::Result<String> {
     Ok(conn.query_row("select sqlite_version()", (), |row| {
         let version: String = row.get(0)?;
         Ok(version)

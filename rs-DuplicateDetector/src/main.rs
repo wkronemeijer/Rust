@@ -10,18 +10,17 @@ pub use duplicate_detector::Result;
 use duplicate_detector::cli::Cli;
 use duplicate_detector::core::fs::read_dir_all;
 use duplicate_detector::db::ConnectionMode;
-use duplicate_detector::db::connection_version;
-use duplicate_detector::db::get_connection;
+use duplicate_detector::db::db_version;
+use duplicate_detector::db::init_db;
 use duplicate_detector::hash_concurrent::HashFilesOptions;
 use duplicate_detector::search::Findings;
 
-macro_rules! println_time {
+macro_rules! eprintln_time {
     ($e:expr) => {{
         let start = Instant::now();
         let result = $e;
-        let duration = start.elapsed();
-
-        println!("{} in {}ms", stringify!($e), duration.as_millis());
+        let duration_ms = start.elapsed().as_millis();
+        eprintln!("\x1b[34m{} in {}ms\x1b[39m", stringify!($e), duration_ms);
         result
     }};
 }
@@ -45,27 +44,27 @@ pub fn main() -> crate::Result {
     // Database //
     //////////////
 
-    let db = get_connection(mode)?;
+    let db = init_db(mode)?;
 
     let conn = &db;
 
-    println!("using SQLite version {}", connection_version(conn)?);
+    eprintln!("using SQLite {}", db_version(conn)?);
 
     ////////////
     // Search //
     ////////////
 
-    println!("searching...");
+    eprintln!("searching...");
 
-    let files = println_time!(read_dir_all(directory)?);
+    let files = eprintln_time!(read_dir_all(directory)?);
     let files = Vec::from_iter(files.iter().map(Deref::deref));
     let files = files.as_slice();
     let options = HashFilesOptions { files, parallelism };
-    let file_hashes = println_time!(algo.hash_files(options));
-    let findings = println_time!(Findings::from_iter(file_hashes));
+    let file_hashes = eprintln_time!(algo.hash_files(options));
+    let findings = eprintln_time!(Findings::from_iter(file_hashes));
 
-    println!("search complete");
-    println!();
+    eprintln!("search complete");
+    eprintln!();
 
     /////////////////////
     // List duplicates //
@@ -88,7 +87,7 @@ pub fn main() -> crate::Result {
     // Summary //
     /////////////
 
-    println!(
+    eprintln!(
         "found {} duplicate(s) amongst {} file(s)",
         duplicate_count, file_count,
     );
