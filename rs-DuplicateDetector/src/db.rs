@@ -17,6 +17,17 @@ pub enum ConnectionMode {
     Memory,
 }
 
+pub const CACHE_SCHEMA: &str = "
+begin;
+
+create table if not exists [file] (
+    [path] text not null, -- primary key
+    [hash] text not null
+) strict;
+
+commit;
+";
+
 pub const CACHE_FILE_NAME: &str = "hash-cache.db";
 
 pub fn init_db(mode: ConnectionMode) -> crate::Result<Connection> {
@@ -24,7 +35,7 @@ pub fn init_db(mode: ConnectionMode) -> crate::Result<Connection> {
         ConnectionMode::Memory => Connection::open_in_memory()?,
         ConnectionMode::File => Connection::open(CACHE_FILE_NAME)?,
     };
-    conn.execute_batch(include_str!("schema.sql"))?;
+    conn.execute_batch(CACHE_SCHEMA)?;
     Ok(conn)
 }
 
@@ -37,4 +48,9 @@ pub fn db_version(conn: &Connection) -> crate::Result<String> {
         let version: String = row.get(0)?;
         Ok(version)
     })?)
+}
+
+pub fn db_purge(conn: &Connection) -> crate::Result {
+    conn.execute_batch("delete from [file]")?;
+    Ok(())
 }

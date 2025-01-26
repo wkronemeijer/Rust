@@ -76,6 +76,10 @@ pub struct Cli {
     #[arg(long)]
     incremental: bool,
 
+    /// Clean cache before processing.
+    #[arg(long)]
+    fresh: bool,
+
     /// Restrict to use only 1 (worker) thread.
     #[arg(long)]
     unconcurrent: bool,
@@ -84,6 +88,7 @@ pub struct Cli {
 impl Cli {
     pub fn algo(&self) -> ConcurrentHashingAlgorithm { self.algo }
     pub fn style(&self) -> PathStyle { self.style }
+    pub fn purge_db(&self) -> bool { self.fresh }
     pub fn parallel(&self) -> bool { !self.unconcurrent }
     pub fn directory(&self) -> &Path { &self.directory }
     pub fn incremental(&self) -> bool { self.incremental }

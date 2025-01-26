@@ -10,6 +10,7 @@ pub use duplicate_detector::Result;
 use duplicate_detector::cli::Cli;
 use duplicate_detector::core::fs::read_dir_all;
 use duplicate_detector::db::ConnectionMode;
+use duplicate_detector::db::db_purge;
 use duplicate_detector::db::db_version;
 use duplicate_detector::db::init_db;
 use duplicate_detector::hash_concurrent::HashFilesOptions;
@@ -49,6 +50,10 @@ pub fn main() -> crate::Result {
     let conn = &db;
 
     eprintln!("using SQLite {}", db_version(conn)?);
+
+    if cli.purge_db() {
+        db_purge(conn)?;
+    }
 
     ////////////
     // Search //
