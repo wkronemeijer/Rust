@@ -38,20 +38,17 @@ fn hash_files_mpsc(
     // recv then inserts them into the result
     const CHANNEL_SIZE: usize = 1 << 8;
 
-    let mut results = Vec::new();
-    scope(|s| {
-        let file_count = files.len();
-        let worker_count = parallelism.get();
-        let chunk_size = file_count.div_ceil(worker_count);
-        // 10 files / 4 chunks ==> 3 files per chunk (and change)
-        // div_ceil so that there are at most worker_count chunks
+    let file_count = files.len();
+    let worker_count = parallelism.get();
+    let chunk_size = file_count.div_ceil(worker_count);
+    // 10 files / 4 chunks ==> 3 files per chunk (and change)
+    // div_ceil so that there are at most worker_count chunks
 
+    let mut results = Vec::with_capacity(file_count);
+    scope(|s| {
         let (sender, receiver) = mpsc::sync_channel(CHANNEL_SIZE);
 
-        /////////////
-        // Workers //
-        /////////////
-
+        // Worker
         for files_chunk in files.chunks(chunk_size) {
             let sender = sender.clone();
             s.spawn(move || {
@@ -66,10 +63,7 @@ fn hash_files_mpsc(
             });
         }
 
-        ///////////////
-        // Collector //
-        ///////////////
-
+        // Collector
         let results = &mut results;
         s.spawn(move || {
             while let Ok((path, hash)) = receiver.recv() {
@@ -95,38 +89,32 @@ fn hash_files_mutex(
     const BACKLOG_CAPACITY: usize = 1 << 5;
     const BACKLOG_DRAIN_THRESHOLD: usize =
         (BACKLOG_CAPACITY >> 2) + (BACKLOG_CAPACITY >> 1);
+    let file_count = files.len();
+    let worker_count = parallelism.get();
+    let chunk_size = file_count.div_ceil(worker_count);
 
-    let results = Arc::new(Mutex::new(Vec::new()));
+    let results = Arc::new(Mutex::new(Vec::with_capacity(file_count)));
     scope(|s| {
-        let file_count = files.len();
-        let worker_count = parallelism.get();
-        let chunk_size = file_count.div_ceil(worker_count);
-
         for files_chunk in files.chunks(chunk_size) {
             let results = results.clone();
             s.spawn(move || {
                 let mut backlog = Vec::with_capacity(BACKLOG_CAPACITY);
                 for &file in files_chunk {
                     let Ok(hash) = FileHash::from_contents(file) else {
-                        // TODO: error channel?
                         eprintln!("failed to hash {:?}", file);
                         continue;
                     };
                     backlog.push((file.to_path_buf(), hash));
                     if backlog.len() >= BACKLOG_DRAIN_THRESHOLD {
-                        // NB: try_lock()
+                        // NB: non-blocking lock()
                         if let Ok(mut results) = results.try_lock() {
-                            for (file, hash) in backlog.drain(..) {
-                                results.push((file, hash));
-                            }
+                            results.extend(backlog.drain(..));
                         }
                     }
                 }
-                // NB: lock()
+                // NB: blocking lock()
                 if let Ok(mut results) = results.lock() {
-                    for (file, hash) in backlog.drain(..) {
-                        results.push((file, hash));
-                    }
+                    results.extend(backlog.drain(..));
                 }
             });
         }
@@ -148,10 +136,14 @@ pub enum ConcurrentHashingAlgorithm {
 
 impl ConcurrentHashingAlgorithm {
     pub fn hash_files(self, options: HashFilesOptions) -> HashFilesResult {
-        match self {
+        let file_count = options.files.len();
+        let result = match self {
             Self::Mpsc => hash_files_mpsc(options),
             Self::Mutex => hash_files_mutex(options),
-        }
+        };
+        let result_count = result.len();
+        debug_assert_eq!(file_count, result_count);
+        result
     }
 }
 

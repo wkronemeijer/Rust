@@ -55,7 +55,6 @@ pub fn main() -> crate::Result {
 
     let mut duplicate_count = 0;
     let file_count = findings.file_count();
-    debug_assert_eq!(files.len(), file_count);
 
     for (hash, paths) in findings.duplicates() {
         let count = paths.len();
