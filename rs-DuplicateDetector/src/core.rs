@@ -35,21 +35,21 @@ pub mod collections {
             }
         }
 
-        fn into_push(self, new_path: T) -> Self {
+        fn into_push(self, new: T) -> Self {
             match self {
-                Empty => Single(new_path),
-                Single(old_path) => Multiple(vec![old_path, new_path]),
-                Multiple(mut paths) => {
-                    paths.push(new_path);
-                    Multiple(paths)
+                Empty => Single(new),
+                Single(old) => Multiple(vec![old, new]),
+                Multiple(mut vec) => {
+                    vec.push(new);
+                    Multiple(vec)
                 },
             }
         }
 
         /// Adds a new value.
-        pub fn push(&mut self, new_path: T) {
+        pub fn push(&mut self, new: T) {
             // ...is there ::core::mem method that does in one operation?
-            *self = take(self).into_push(new_path);
+            *self = take(self).into_push(new);
         }
 
         /// Returns a slice of the entire contents.
@@ -78,8 +78,8 @@ pub mod collections {
             // ...when is `gen` stabilized?
             match self {
                 Empty => Box::new(empty()),
-                Single(path) => Box::new(once(path)),
-                Multiple(paths) => Box::new(paths.iter()),
+                Single(item) => Box::new(once(item)),
+                Multiple(vec) => Box::new(vec.iter()),
             }
         }
     }
