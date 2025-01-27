@@ -8,7 +8,7 @@ use std::path::absolute;
 use clap::Parser;
 use clap::ValueEnum;
 
-use crate::hash_concurrent::ConcurrentHashingAlgorithm;
+use crate::hash_concurrent::ConcurrentHashingAlgorithmName;
 
 /////////////////////
 // Path Formatting //
@@ -66,7 +66,7 @@ pub struct Cli {
 
     /// Algorithm to search with.
     #[arg(long, default_value_t)]
-    algo: ConcurrentHashingAlgorithm,
+    algo: ConcurrentHashingAlgorithmName,
 
     /// Formatting used for results.
     #[arg(long, default_value_t)]
@@ -86,7 +86,7 @@ pub struct Cli {
 }
 
 impl Cli {
-    pub fn algo(&self) -> ConcurrentHashingAlgorithm { self.algo }
+    pub fn algo(&self) -> ConcurrentHashingAlgorithmName { self.algo }
     pub fn style(&self) -> PathStyle { self.style }
     pub fn purge_db(&self) -> bool { self.fresh }
     pub fn parallel(&self) -> bool { !self.unconcurrent }

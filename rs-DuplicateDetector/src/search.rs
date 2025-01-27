@@ -1,51 +1,51 @@
 //! Items to find duplicates with.
 
 use std::collections::HashMap;
-use std::path::PathBuf;
+use std::path::Path;
 
 use crate::core::collections::TinyVec;
 use crate::hash::FileHash;
-use crate::hash::PathWithHash;
+use crate::hash::PathWithHashRef;
 
 //////////////
 // Findings //
 //////////////
 
 /// Stores the hashes and paths of all searched files.
-pub struct Findings {
-    entries: HashMap<FileHash, TinyVec<PathBuf>>,
+pub struct Deduplicator<'a> {
+    entries: HashMap<&'a FileHash, TinyVec<&'a Path>>,
     file_count: usize,
 }
 
-impl Findings {
+impl<'a> Deduplicator<'a> {
     /// Creates an empty findings structure.
-    fn new() -> Self { Findings { entries: HashMap::new(), file_count: 0 } }
+    fn new() -> Self { Deduplicator { entries: HashMap::new(), file_count: 0 } }
 
     /// The number of files visited
     pub fn file_count(&self) -> usize { self.file_count }
 
     /// Registers the hash for a given path
-    pub fn insert(&mut self, path: PathBuf, hash: FileHash) {
+    pub fn insert(&mut self, (path, hash): PathWithHashRef<'a>) {
         self.file_count += 1;
         self.entries.entry(hash).or_insert_with(TinyVec::new).push(path);
     }
 
     /// Iterates over all hashes and paths.
-    pub fn iter(&self) -> impl Iterator<Item = (&FileHash, &[PathBuf])> {
-        self.entries.iter().map(|(k, v)| (k, v.as_slice()))
+    pub fn iter(&self) -> impl Iterator<Item = (&FileHash, &[&'a Path])> {
+        self.entries.iter().map(|(&k, v)| (k, v.as_slice()))
     }
 
     /// Iterates over all entries that have more than 1 file.
-    pub fn duplicates(&self) -> impl Iterator<Item = (&FileHash, &[PathBuf])> {
+    pub fn duplicates(&self) -> impl Iterator<Item = (&FileHash, &[&'a Path])> {
         self.iter().filter(|(_, files)| files.len() > 1)
     }
 }
 
-impl FromIterator<PathWithHash> for Findings {
-    fn from_iter<I: IntoIterator<Item = PathWithHash>>(iter: I) -> Self {
+impl<'a> FromIterator<PathWithHashRef<'a>> for Deduplicator<'a> {
+    fn from_iter<I: IntoIterator<Item = PathWithHashRef<'a>>>(iter: I) -> Self {
         let mut result = Self::new();
-        for (path, hash) in iter {
-            result.insert(path, hash);
+        for item in iter {
+            result.insert(item);
         }
         result
     }

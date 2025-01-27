@@ -7,6 +7,8 @@ use std::io::Read;
 use std::path::Path;
 use std::path::PathBuf;
 
+use serde::Deserialize;
+use serde::Serialize;
 use sha2::Digest;
 use sha2::Sha256;
 
@@ -14,7 +16,18 @@ use sha2::Sha256;
 // FileHash //
 //////////////
 
-#[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash)]
+#[derive(
+    Debug,
+    Clone,
+    Copy,
+    PartialEq,
+    Eq,
+    PartialOrd,
+    Ord,
+    Hash,
+    Serialize,
+    Deserialize
+)]
 pub struct FileHash {
     // TODO: Should we derive this 32 from Sha256 type (somehow)?
     bytes: [u8; 32],
@@ -64,4 +77,10 @@ impl FileHash {
     }
 }
 
-pub type PathWithHash = (PathBuf, FileHash);
+//////////////////
+// Path w/ Hash //
+//////////////////
+
+pub type PathWithHashRef<'a> = (&'a Path, &'a FileHash);
+pub type PathWithHash<'a> = (&'a Path, FileHash);
+pub type PathBufWithHash = (PathBuf, FileHash);

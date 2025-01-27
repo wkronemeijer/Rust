@@ -14,24 +14,27 @@ use crate::hash::FileHash;
 use crate::hash::PathWithHash;
 
 ///////////////////////////
-// FindDuplicatesOptions //
+// Parameters and return //
 ///////////////////////////
 
-#[derive(Debug)]
-pub struct HashFilesOptions<'a> {
-    pub files: &'a [&'a Path],
+// pub type HashFilesParamters<'a, 'b: 'a> = &'b[&'a Path]
+// I need to split the lifetime of the slice from the lifetime of the path
+// ...don't know how 😅
+
+pub struct HashFilesOptions {
     pub parallelism: NonZero<usize>,
 }
 
-pub type HashFilesResult = Vec<PathWithHash>;
+pub type HashFilesResult<'a> = Vec<PathWithHash<'a>>;
 
 ////////////
 // Search //
 ////////////
 
-fn hash_files_mpsc(
-    HashFilesOptions { files, parallelism, .. }: HashFilesOptions,
-) -> HashFilesResult {
+fn hash_files_mpsc<'a>(
+    files: &[&'a Path],
+    HashFilesOptions { parallelism, .. }: HashFilesOptions,
+) -> HashFilesResult<'a> {
     // IDEA:
     // N workers each process a chunk of the files, hashing each file
     // then send the (path, hash) through a channel
@@ -66,8 +69,8 @@ fn hash_files_mpsc(
         // Collector
         let results = &mut results;
         s.spawn(move || {
-            while let Ok((path, hash)) = receiver.recv() {
-                results.push((path.to_path_buf(), hash));
+            while let Ok(item) = receiver.recv() {
+                results.push(item);
             }
         });
     });
@@ -78,9 +81,10 @@ fn hash_files_mpsc(
 // Search 2.0 //
 ////////////////
 
-fn hash_files_mutex(
-    HashFilesOptions { files, parallelism, .. }: HashFilesOptions,
-) -> HashFilesResult {
+fn hash_files_mutex<'a>(
+    files: &[&'a Path],
+    HashFilesOptions { parallelism, .. }: HashFilesOptions,
+) -> HashFilesResult<'a> {
     // IDEA:
     // N workers each have a chunk of paths to turn into hashes
     // (path, hash) go into a vec
@@ -104,7 +108,7 @@ fn hash_files_mutex(
                         eprintln!("failed to hash {:?}", file);
                         continue;
                     };
-                    backlog.push((file.to_path_buf(), hash));
+                    backlog.push((file, hash));
                     if backlog.len() >= BACKLOG_DRAIN_THRESHOLD {
                         // NB: non-blocking lock()
                         if let Ok(mut results) = results.try_lock() {
@@ -119,6 +123,7 @@ fn hash_files_mutex(
             });
         }
     });
+    // threads have joined, so there is exactly 1 reference to an unlocked mutex
     Arc::into_inner(results).unwrap().into_inner().unwrap()
 }
 
@@ -128,26 +133,43 @@ fn hash_files_mutex(
 
 #[derive(Debug, Default, Clone, Copy, ValueEnum)]
 #[clap(rename_all = "kebab-case")]
-pub enum ConcurrentHashingAlgorithm {
+pub enum ConcurrentHashingAlgorithmName {
     #[default]
     Mpsc,
     Mutex,
 }
 
-impl ConcurrentHashingAlgorithm {
-    pub fn hash_files(self, options: HashFilesOptions) -> HashFilesResult {
-        let file_count = options.files.len();
-        let result = match self {
-            Self::Mpsc => hash_files_mpsc(options),
-            Self::Mutex => hash_files_mutex(options),
-        };
+type ConcurrentHashingAlgorithm =
+    for<'a> fn(&[&'a Path], HashFilesOptions) -> Vec<(&'a Path, FileHash)>;
+
+impl ConcurrentHashingAlgorithmName {
+    fn function(self) -> ConcurrentHashingAlgorithm {
+        match self {
+            Self::Mpsc => hash_files_mpsc,
+            Self::Mutex => hash_files_mutex,
+        }
+    }
+
+    pub fn hash_files<'a>(
+        self,
+        files: &[&'a Path],
+        options: HashFilesOptions,
+    ) -> HashFilesResult<'a> {
+        let file_count = files.len();
+        if file_count == 0 {
+            return vec![];
+        }
+        let result = self.function()(files, options);
         let result_count = result.len();
-        debug_assert_eq!(file_count, result_count);
+        debug_assert_eq!(
+            file_count, result_count,
+            "input and output count must be equal"
+        );
         result
     }
 }
 
-impl fmt::Display for ConcurrentHashingAlgorithm {
+impl fmt::Display for ConcurrentHashingAlgorithmName {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         format!("{self:?}").to_ascii_lowercase().fmt(f)
     }

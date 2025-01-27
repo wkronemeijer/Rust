@@ -1,56 +1,39 @@
-//! Contains items to wrap the usage of SQLite.
-//!
-//! In particular, the goal is to not see any SQL outside of this file.
+//! Manages a (virtual) file
 
-use clap::ValueEnum;
-use rusqlite::Connection;
+use std::collections::HashMap;
+use std::ops::Deref;
+use std::path::Path;
+use std::path::PathBuf;
 
-///////////////////////////
-// Creating a connection //
-///////////////////////////
+use serde::Deserialize;
+use serde::Serialize;
 
-// To prevent Boolean blindness
-#[derive(Debug, Clone, Copy, ValueEnum)]
-#[clap(rename_all = "kebab-case")]
-pub enum ConnectionMode {
-    File,
-    Memory,
+use crate::hash::FileHash;
+
+//////////////
+// Database //
+//////////////
+
+#[derive(Debug, Default, Serialize, Deserialize)]
+pub struct Database {
+    files: HashMap<PathBuf, FileHash>,
 }
 
-pub const CACHE_SCHEMA: &str = "
-begin;
+// Domain-specific methods
+impl Database {
+    pub fn add(&mut self, path: PathBuf, hash: FileHash) {
+        self.files.insert(path, hash);
+    }
 
-create table if not exists [file] (
-    [path] text not null, -- primary key
-    [hash] text not null
-) strict;
+    pub fn remove(&mut self, path: &Path) { self.files.remove(path); }
 
-commit;
-";
+    pub fn clear(&mut self) { self.files.clear() }
 
-pub const CACHE_FILE_NAME: &str = "hash-cache.db";
+    pub fn paths(&self) -> impl Iterator<Item = &Path> {
+        self.files.iter().map(|(path, _)| path.deref())
+    }
 
-pub fn init_db(mode: ConnectionMode) -> crate::Result<Connection> {
-    let conn = match mode {
-        ConnectionMode::Memory => Connection::open_in_memory()?,
-        ConnectionMode::File => Connection::open(CACHE_FILE_NAME)?,
-    };
-    conn.execute_batch(CACHE_SCHEMA)?;
-    Ok(conn)
-}
-
-//////////////////////////
-// Using the connection //
-//////////////////////////
-
-pub fn db_version(conn: &Connection) -> crate::Result<String> {
-    Ok(conn.query_row("select sqlite_version()", (), |row| {
-        let version: String = row.get(0)?;
-        Ok(version)
-    })?)
-}
-
-pub fn db_purge(conn: &Connection) -> crate::Result {
-    conn.execute_batch("delete from [file]")?;
-    Ok(())
+    pub fn entries(&self) -> impl Iterator<Item = (&Path, &FileHash)> {
+        self.files.iter().map(|(path, hash)| (path.deref(), hash))
+    }
 }
