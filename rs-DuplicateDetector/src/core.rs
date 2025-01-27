@@ -106,7 +106,7 @@ pub mod fs {
         let mut frontier = VecDeque::new();
         let mut visited = Vec::new();
 
-        frontier.push_back(dir.to_owned());
+        frontier.push_back(dir.to_path_buf());
         while let Some(dir) = frontier.pop_front() {
             for item in fs::read_dir(dir)? {
                 let path = item?.path();

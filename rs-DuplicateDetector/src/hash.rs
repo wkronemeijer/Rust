@@ -16,6 +16,10 @@ use sha2::Sha256;
 // FileHash //
 //////////////
 
+type HashingAlgo = Sha256;
+// TODO: Can we use ↑ to derive ↓?
+const HASH_BYTE_SIZE: usize = 32;
+
 #[derive(
     Debug,
     Clone,
@@ -29,8 +33,7 @@ use sha2::Sha256;
     Deserialize
 )]
 pub struct FileHash {
-    // TODO: Should we derive this 32 from Sha256 type (somehow)?
-    bytes: [u8; 32],
+    bytes: [u8; HASH_BYTE_SIZE],
 }
 
 impl FileHash {
@@ -61,7 +64,7 @@ impl FileHash {
 
         let file = File::open(path)?;
         let mut reader = BufReader::with_capacity(BUF_SIZE, file);
-        let mut hasher = Sha256::new();
+        let mut hasher = HashingAlgo::new();
 
         let mut buffer = [0; CHUNK_SIZE];
         loop {

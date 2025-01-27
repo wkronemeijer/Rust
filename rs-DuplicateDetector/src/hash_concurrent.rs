@@ -57,7 +57,6 @@ fn hash_files_mpsc<'a>(
             s.spawn(move || {
                 for &path in files_chunk {
                     let Ok(hash) = FileHash::from_contents(path) else {
-                        // TODO: error channel?
                         eprintln!("failed to hash {:?}", path);
                         continue;
                     };
