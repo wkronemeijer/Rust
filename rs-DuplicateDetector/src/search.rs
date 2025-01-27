@@ -5,7 +5,6 @@ use std::path::Path;
 
 use crate::core::collections::TinyVec;
 use crate::hash::FileHash;
-use crate::hash::PathWithHashRef;
 
 //////////////
 // Findings //
@@ -25,7 +24,7 @@ impl<'a> Deduplicator<'a> {
     pub fn file_count(&self) -> usize { self.file_count }
 
     /// Registers the hash for a given path
-    pub fn insert(&mut self, (path, hash): PathWithHashRef<'a>) {
+    pub fn insert(&mut self, (path, hash): (&'a Path, &'a FileHash)) {
         self.file_count += 1;
         self.entries.entry(hash).or_insert_with(TinyVec::new).push(path);
     }
@@ -41,8 +40,10 @@ impl<'a> Deduplicator<'a> {
     }
 }
 
-impl<'a> FromIterator<PathWithHashRef<'a>> for Deduplicator<'a> {
-    fn from_iter<I: IntoIterator<Item = PathWithHashRef<'a>>>(iter: I) -> Self {
+impl<'a> FromIterator<(&'a Path, &'a FileHash)> for Deduplicator<'a> {
+    fn from_iter<I: IntoIterator<Item = (&'a Path, &'a FileHash)>>(
+        iter: I,
+    ) -> Self {
         let mut result = Self::new();
         for item in iter {
             result.insert(item);

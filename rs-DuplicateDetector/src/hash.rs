@@ -5,7 +5,6 @@ use std::fs::File;
 use std::io::BufReader;
 use std::io::Read;
 use std::path::Path;
-use std::path::PathBuf;
 
 use serde::Deserialize;
 use serde::Serialize;
@@ -79,11 +78,3 @@ impl FileHash {
         Ok(FileHash { bytes })
     }
 }
-
-//////////////////
-// Path w/ Hash //
-//////////////////
-
-pub type PathWithHashRef<'a> = (&'a Path, &'a FileHash);
-pub type PathWithHash<'a> = (&'a Path, FileHash);
-pub type PathBufWithHash = (PathBuf, FileHash);

@@ -7,11 +7,11 @@ use std::sync::Arc;
 use std::sync::Mutex;
 use std::sync::mpsc;
 use std::thread::scope;
+use std::time::Instant;
 
 use clap::ValueEnum;
 
 use crate::hash::FileHash;
-use crate::hash::PathWithHash;
 
 ///////////////////////////
 // Parameters and return //
@@ -25,27 +25,29 @@ pub struct HashFilesOptions {
     pub parallelism: NonZero<usize>,
 }
 
-pub type HashFilesResult<'a> = Vec<PathWithHash<'a>>;
+pub type HashFilesResult<'a> = Vec<(&'a Path, FileHash)>;
 
 ////////////
 // Search //
 ////////////
 
+// IDEA:
+// N workers each process a chunk of the files, hashing each file
+// then send the (path, hash) through a channel
+// recv then inserts them into the result
 fn hash_files_mpsc<'a>(
     files: &[&'a Path],
     HashFilesOptions { parallelism, .. }: HashFilesOptions,
 ) -> HashFilesResult<'a> {
-    // IDEA:
-    // N workers each process a chunk of the files, hashing each file
-    // then send the (path, hash) through a channel
-    // recv then inserts them into the result
+    if files.is_empty() {
+        return vec![];
+    }
+
     const CHANNEL_SIZE: usize = 1 << 8;
 
     let file_count = files.len();
     let worker_count = parallelism.get();
     let chunk_size = file_count.div_ceil(worker_count);
-    // 10 files / 4 chunks ==> 3 files per chunk (and change)
-    // div_ceil so that there are at most worker_count chunks
 
     let mut results = Vec::with_capacity(file_count);
     scope(|s| {
@@ -80,18 +82,23 @@ fn hash_files_mpsc<'a>(
 // Search 2.0 //
 ////////////////
 
+// IDEA:
+// N workers each have a chunk of paths to turn into hashes
+// (path, hash) go into a vec
+// if mutex.try_lock() {for each in vec {insert(path, hash)}}
+// Big Q is whether this is faster or not
 fn hash_files_mutex<'a>(
     files: &[&'a Path],
     HashFilesOptions { parallelism, .. }: HashFilesOptions,
 ) -> HashFilesResult<'a> {
-    // IDEA:
-    // N workers each have a chunk of paths to turn into hashes
-    // (path, hash) go into a vec
-    // if mutex.try_lock() {for each in vec {insert(path, hash)}}
-    // Big Q is whether this is faster or not
+    if files.is_empty() {
+        return vec![];
+    }
+
     const BACKLOG_CAPACITY: usize = 1 << 5;
     const BACKLOG_DRAIN_THRESHOLD: usize =
         (BACKLOG_CAPACITY >> 2) + (BACKLOG_CAPACITY >> 1);
+
     let file_count = files.len();
     let worker_count = parallelism.get();
     let chunk_size = file_count.div_ceil(worker_count);
@@ -126,6 +133,42 @@ fn hash_files_mutex<'a>(
     Arc::into_inner(results).unwrap().into_inner().unwrap()
 }
 
+////////////////
+// Search 3.0 //
+////////////////
+
+// IDEA:
+// N workers workings over a chunk of (&Path, Option<FileHash>)
+// Replace None with Some
+// Then assert at the end
+fn hash_files_lockfree<'a>(
+    files: &[&'a Path],
+    HashFilesOptions { parallelism, .. }: HashFilesOptions,
+) -> HashFilesResult<'a> {
+    if files.is_empty() {
+        return vec![];
+    }
+
+    let file_count = files.len(); // != 0
+    let worker_count = parallelism.get(); // != 0
+    let chunk_size = file_count.div_ceil(worker_count); // ==> != 0
+
+    let mut results: Vec<(&Path, Option<FileHash>)> =
+        files.iter().map(|&file| (file, None)).collect();
+
+    scope(|s| {
+        for chunk in results.chunks_mut(chunk_size) {
+            s.spawn(move || {
+                for (file, hash) in chunk {
+                    *hash = FileHash::from_contents(file).ok();
+                }
+            });
+        }
+    });
+
+    results.into_iter().map(|(path, hash)| (path, hash.unwrap())).collect()
+}
+
 /////////////////////////
 // Choice of algorithm //
 /////////////////////////
@@ -136,6 +179,7 @@ pub enum ConcurrentHashingAlgorithmName {
     #[default]
     Mpsc,
     Mutex,
+    LockFree,
 }
 
 type ConcurrentHashingAlgorithm =
@@ -146,6 +190,7 @@ impl ConcurrentHashingAlgorithmName {
         match self {
             Self::Mpsc => hash_files_mpsc,
             Self::Mutex => hash_files_mutex,
+            Self::LockFree => hash_files_lockfree,
         }
     }
 
@@ -155,10 +200,20 @@ impl ConcurrentHashingAlgorithmName {
         options: HashFilesOptions,
     ) -> HashFilesResult<'a> {
         let file_count = files.len();
-        if file_count == 0 {
-            return vec![];
-        }
-        let result = self.function()(files, options);
+        let function = self.function();
+        let result = {
+            let timer = Instant::now();
+            let value = function(files, options);
+            let time = timer.elapsed();
+            let time_ms = time.as_millis();
+            let seconds_per_file =
+                (file_count as f64) / time.as_secs_f64().max(1.0);
+            eprintln!(
+                "hashed {} file(s) in {}ms ({:.0} file(s) per sec)",
+                file_count, time_ms, seconds_per_file
+            );
+            value
+        };
         let result_count = result.len();
         debug_assert_eq!(
             file_count, result_count,

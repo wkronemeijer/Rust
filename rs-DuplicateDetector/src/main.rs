@@ -18,23 +18,14 @@ use duplicate_detector::db::Database;
 use duplicate_detector::hash::FileHash;
 use duplicate_detector::hash_concurrent::HashFilesOptions;
 use duplicate_detector::search::Deduplicator;
-
-macro_rules! time {
-    ($e:expr) => {{
-        let start = Instant::now();
-        let result = $e;
-        let duration = start.elapsed();
-        eprintln!("executed {} in {}ms", stringify!($e), duration.as_millis());
-        result
-    }};
-}
+use duplicate_detector::time;
 
 pub fn main() -> crate::Result {
     let cli = Cli::parse(); // NB: parse exits on failure
     let algo = cli.algo();
     let style = cli.style();
     let directory = cli.directory();
-    let cache_path = match cli.incremental() {
+    let cache = match cli.incremental() {
         true => Some(Path::new(CACHE_FILE_NAME)),
         false => None,
     };
@@ -49,9 +40,9 @@ pub fn main() -> crate::Result {
     // Load data sources //
     ///////////////////////
 
-    eprintln!("opening index...");
+    eprintln!("searching...");
 
-    let (mut index, err) = Connection::<Database>::open(cache_path);
+    let (mut index, err) = time!(Connection::<Database>::open(cache));
     if let Some(e) = err {
         eprintln!("failed to open index: {}", e);
     }
@@ -60,7 +51,6 @@ pub fn main() -> crate::Result {
         index.clear();
     }
 
-    eprintln!("reading dirs...");
     let disk = time!(read_dir_all(directory)?);
 
     /////////////////////////////
@@ -95,7 +85,6 @@ pub fn main() -> crate::Result {
     // Execute //
     /////////////
 
-    eprintln!("hashing...");
     let new_file_hashes = time!(algo.hash_files(&files_to_hash, options));
 
     let files_to_insert: Vec<(PathBuf, FileHash)> = new_file_hashes
