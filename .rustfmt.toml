@@ -3,7 +3,7 @@ unstable_features = true
 
 # No neat way of sorting these options... 
 max_width = 80
-brace_style = "PreferSameLine"
+brace_style = "SameLineWhere"
 wrap_comments = false
 merge_derives = false
 group_imports = "StdExternalCrate"

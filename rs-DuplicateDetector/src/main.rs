@@ -23,8 +23,8 @@ macro_rules! time {
     ($e:expr) => {{
         let start = Instant::now();
         let result = $e;
-        let duration_ms = start.elapsed().as_millis();
-        eprintln!("\x1b[34m{} in {}ms\x1b[39m", stringify!($e), duration_ms);
+        let duration = start.elapsed();
+        eprintln!("executed {} in {}ms", stringify!($e), duration.as_millis());
         result
     }};
 }
@@ -51,7 +51,10 @@ pub fn main() -> crate::Result {
 
     eprintln!("opening index...");
 
-    let mut index = Connection::<Database>::open(cache_path)?;
+    let (mut index, err) = Connection::<Database>::open(cache_path);
+    if let Some(e) = err {
+        eprintln!("failed to open index: {}", e);
+    }
 
     if cli.purge_db() {
         index.clear();
@@ -101,6 +104,8 @@ pub fn main() -> crate::Result {
         .collect();
 
     for file in files_to_delete {
+        // do we actually need to remove files?
+        // if a file is modified, we wouldn't know at any rate
         index.remove(&file);
     }
 
@@ -110,7 +115,6 @@ pub fn main() -> crate::Result {
 
     if let Err(e) = index.save() {
         eprintln!("failed to save index: {}", e);
-        // continue
     }
 
     let findings = time!(Deduplicator::from_iter(index.entries()));

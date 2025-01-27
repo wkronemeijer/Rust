@@ -1,5 +1,7 @@
 use std::convert::Infallible;
 use std::fs;
+use std::fs::OpenOptions;
+use std::io::Read;
 use std::ops::Deref;
 use std::ops::DerefMut;
 use std::path::Path;
@@ -7,6 +9,40 @@ use std::path::PathBuf;
 
 use serde::Deserialize;
 use serde::Serialize;
+
+////////////////////
+// Serde wrappers //
+////////////////////
+
+mod serde_format {
+    // pub use serde_json::from_slice;
+    // pub use serde_json::to_vec;
+    pub use rmp_serde::from_slice;
+    pub use rmp_serde::to_vec;
+}
+
+/// Saves a [`Serialize`]able value to a file at the given path.
+fn save_to_file<T: Serialize>(path: &Path, value: &T) -> crate::Result {
+    let contents = serde_format::to_vec(value)?;
+    let bytes = contents.len();
+    fs::write(path, contents)?;
+    eprintln!("saved {} byte(s) to {}", bytes, path.display());
+    Ok(())
+}
+
+/// Loads a [`Deserialize`]able value from a file at the given path.
+///
+/// - The outer result contains IO errors, if any.
+/// - The inner option contains parsing errors, if any.
+fn load_from_file<T: for<'a> Deserialize<'a>>(
+    path: &Path,
+) -> crate::Result<Option<T>> {
+    let mut file =
+        OpenOptions::new().read(true).write(true).create(true).open(path)?;
+    let mut buffer = Vec::new();
+    file.read_to_end(&mut buffer)?;
+    Ok(serde_format::from_slice(&buffer).ok())
+}
 
 ////////////////
 // Connection //
@@ -27,44 +63,42 @@ impl<T> Connection<T> {
 }
 
 impl<T: Serialize> Connection<T> {
-    pub fn save(&mut self) -> crate::Result {
+    pub fn save(&self) -> crate::Result {
         if let Some(path) = &self.location {
-            let contents = serde_json::to_string(&self.inner)?;
-            fs::write(path, contents)?;
-        };
+            save_to_file(path, &self.inner)?;
+        }
         Ok(())
     }
 }
 
-impl<T: for<'a> Deserialize<'a> + Default> Connection<T> {
-    fn load<P: AsRef<Path>>(path: P) -> crate::Result<T> {
-        let contents = fs::read_to_string(path)?;
-        Ok(serde_json::from_str(&contents)?)
-    }
-
-    pub fn open_from_disk<P: Into<PathBuf>>(path: P) -> crate::Result<Self> {
-        let location = path.into();
-        let inner = match Self::load(&location) {
-            Ok(inner) => inner,
-            Err(e) => {
-                eprintln!("load error: {}", e);
-                T::default()
-            },
-        };
-        Ok(Connection { location: Some(location), inner })
-    }
-
+impl<T: Default> Connection<T> {
     pub fn open_in_memory() -> crate::Result<Self, Infallible> {
         let location = None;
         let inner = T::default();
         Ok(Connection { location, inner })
     }
+}
 
-    pub fn open<P: Into<PathBuf>>(path: Option<P>) -> crate::Result<Self> {
-        Ok(match path {
-            Some(path) => Self::open_from_disk(path)?,
-            None => Self::open_in_memory()?,
-        })
+impl<T: for<'a> Deserialize<'a> + Default> Connection<T> {
+    pub fn open_from_disk<P: AsRef<Path>>(path: P) -> crate::Result<Self> {
+        let path = path.as_ref();
+        let location = Some(path.to_path_buf());
+        let inner = load_from_file(&path)?.unwrap_or_else(T::default);
+        Ok(Connection { location, inner })
+    }
+
+    pub fn open<P: AsRef<Path>>(
+        path: Option<P>,
+    ) -> (Self, Option<crate::Error>) {
+        let error = match path {
+            Some(path) => Some(match Self::open_from_disk(path) {
+                Ok(result) => return (result, None),
+                Err(error) => error,
+            }),
+            None => None,
+        };
+        let Ok(value) = Self::open_in_memory();
+        (value, error)
     }
 }
 

@@ -19,7 +19,6 @@ pub struct Database {
     files: HashMap<PathBuf, FileHash>,
 }
 
-// Domain-specific methods
 impl Database {
     pub fn add(&mut self, path: PathBuf, hash: FileHash) {
         self.files.insert(path, hash);
