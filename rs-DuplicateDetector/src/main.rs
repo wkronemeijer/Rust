@@ -6,7 +6,6 @@ use std::ops::Deref;
 use std::path::Path;
 use std::path::PathBuf;
 use std::thread::available_parallelism;
-use std::time::Instant;
 
 use clap::Parser;
 use duplicate_detector::CACHE_FILE_NAME;
@@ -18,23 +17,21 @@ use duplicate_detector::db::Database;
 use duplicate_detector::hash::FileHash;
 use duplicate_detector::hash_concurrent::HashFilesOptions;
 use duplicate_detector::search::Deduplicator;
-use duplicate_detector::time;
 
 pub fn main() -> crate::Result {
-    let cli = Cli::parse(); // NB: parse exits on failure
+    let cli = Cli::parse(); // NB: parse() exits on failure
     let algo = cli.algo();
-    let style = cli.style();
+    let hash_style = cli.hash_style();
+    let path_style = cli.path_style();
     let directory = cli.directory();
     let cache = match cli.incremental() {
         true => Some(Path::new(CACHE_FILE_NAME)),
         false => None,
     };
-    let options = HashFilesOptions {
-        parallelism: match cli.parallel() {
-            true => available_parallelism()?,
-            false => NonZero::new(1).unwrap(),
-        },
-    };
+    let parallelism = (cli.parallelism())
+        .or_else(|| available_parallelism().ok())
+        .or_else(|| NonZero::new(1))
+        .unwrap();
 
     ///////////////////////
     // Load data sources //
@@ -42,16 +39,17 @@ pub fn main() -> crate::Result {
 
     eprintln!("searching...");
 
-    let (mut index, err) = time!(Connection::<Database>::open(cache));
+    let (mut index, err) = Connection::<Database>::open(cache);
     if let Some(e) = err {
         eprintln!("failed to open index: {}", e);
     }
-
-    if cli.purge_db() {
+    if cli.clean_index() {
         index.clear();
     }
 
-    let disk = time!(read_dir_all(directory)?);
+    let disk = read_dir_all(directory)?;
+
+    eprintln!("search complete");
 
     /////////////////////////////
     // Compare index with disk //
@@ -85,30 +83,52 @@ pub fn main() -> crate::Result {
     // Execute //
     /////////////
 
-    let new_file_hashes = time!(algo.hash_files(&files_to_hash, options));
+    let new_file_hashes = if files_to_hash.len() == 0 {
+        vec![]
+    } else {
+        eprintln!("hashing using '{}'×{}", algo, parallelism);
+        let options = HashFilesOptions { parallelism };
+        let value = algo.hash_files(&files_to_hash, options);
+        eprintln!("hashing complete");
+        value
+    };
 
     let files_to_insert: Vec<(PathBuf, FileHash)> = new_file_hashes
         .into_iter()
         .map(|(path, hash)| (path.to_path_buf(), hash))
         .collect();
 
+    ///////////////////
+    // Apply changes //
+    ///////////////////
+
+    // Index can contains paths of various different directories;
+    // This predicate selects those paths which belong to the current target.
+    let is_our_file = |file: &Path| file.starts_with(directory);
+    let mut did_modify = false;
+
     for file in files_to_delete {
-        // do we actually need to remove files?
-        // if a file is modified, we wouldn't know at any rate
-        index.remove(&file);
+        if is_our_file(&file) {
+            index.remove(&file);
+            did_modify = true;
+        }
     }
 
     for (path, hash) in files_to_insert {
         index.add(path, hash);
+        did_modify = true;
     }
 
-    if let Err(e) = index.save() {
-        eprintln!("failed to save index: {}", e);
+    if did_modify {
+        if let Err(e) = index.save() {
+            eprintln!("failed to save index: {}", e);
+        }
     }
 
-    let findings = time!(Deduplicator::from_iter(index.entries()));
-
-    eprintln!("search complete");
+    eprintln!("finding duplicates...");
+    let findings = Deduplicator::from_iter(
+        index.entries().filter(|(file, _)| is_our_file(file)),
+    );
     eprintln!();
 
     /////////////////////
@@ -121,9 +141,9 @@ pub fn main() -> crate::Result {
     for (hash, paths) in findings.duplicates() {
         let count = paths.len();
         duplicate_count += count;
-        println!("{count} file(s) with duplicate hash '{hash}':");
-        for path in paths {
-            println!("{}", style.try_apply(path).display());
+        println!("{count} file(s) with hash {}", hash_style.apply(hash));
+        for &path in paths {
+            println!("{}", path_style.apply(path).display());
         }
         println!();
     }

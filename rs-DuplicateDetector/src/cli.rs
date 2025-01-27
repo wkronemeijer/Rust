@@ -1,21 +1,50 @@
 use std::borrow::Cow;
-use std::fmt;
+use std::borrow::Cow::Borrowed;
+use std::borrow::Cow::Owned;
 use std::fs::canonicalize;
+use std::num::NonZero;
 use std::path::Path;
 use std::path::PathBuf;
 use std::path::absolute;
 
 use clap::Parser;
 use clap::ValueEnum;
+use strum::Display;
 
+use crate::hash::FileHash;
 use crate::hash_concurrent::ConcurrentHashingAlgorithmName;
+
+/////////////////////
+// Hash Formatting //
+/////////////////////
+
+#[derive(Debug, Default, Clone, Copy, ValueEnum, Display)]
+#[clap(rename_all = "kebab-case")]
+#[strum(serialize_all = "kebab-case")]
+pub enum HashStyle {
+    #[default]
+    Short,
+    Full,
+}
+
+impl HashStyle {
+    pub fn apply(self, hash: &FileHash) -> String {
+        let mut s = hash.to_string();
+        match self {
+            Self::Short => s.truncate(8), // hash string is always ASCII
+            Self::Full => {},
+        }
+        s
+    }
+}
 
 /////////////////////
 // Path Formatting //
 /////////////////////
-
-#[derive(Debug, Default, Clone, Copy, ValueEnum)]
+///
+#[derive(Debug, Default, Clone, Copy, ValueEnum, Display)]
 #[clap(rename_all = "kebab-case")]
+#[strum(serialize_all = "kebab-case")]
 pub enum PathStyle {
     #[default]
     Relative,
@@ -24,30 +53,24 @@ pub enum PathStyle {
 }
 
 impl PathStyle {
-    /// Applies a formatting style.
+    /// Tries to apply a formatting style.
     ///
     /// Can fail if the path is empty, the file at the path doesn't exist, etc.
-    pub fn apply(self, path: &Path) -> crate::Result<Cow<Path>> {
+    pub fn try_apply(self, path: &Path) -> crate::Result<Cow<Path>> {
         Ok(match self {
-            Self::Relative => Cow::Borrowed(path),
-            Self::Absolute => Cow::Owned(absolute(path)?),
-            Self::Canonical => Cow::Owned(canonicalize(path)?),
+            Self::Relative => Borrowed(path),
+            Self::Absolute => Owned(absolute(path)?),
+            Self::Canonical => Owned(canonicalize(path)?),
         })
     }
 
-    /// Tries to apply a formatting style,
+    /// Applies a formatting style,
     /// falling back to the original path if formatting fails.
-    pub fn try_apply(self, path: &Path) -> Cow<Path> {
-        match self.apply(path) {
+    pub fn apply(self, path: &Path) -> Cow<Path> {
+        match self.try_apply(path) {
             Ok(cow) => cow,
-            Err(_) => Cow::Borrowed(path),
+            Err(_) => Borrowed(path),
         }
-    }
-}
-
-impl fmt::Display for PathStyle {
-    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-        format!("{self:?}").to_ascii_lowercase().fmt(f)
     }
 }
 
@@ -64,13 +87,21 @@ pub struct Cli {
     /// The directory to search.
     directory: PathBuf,
 
-    /// Algorithm to search with.
+    /// Algorithm for concurrent hashing.
     #[arg(long, default_value_t)]
     algo: ConcurrentHashingAlgorithmName,
 
-    /// Formatting used for results.
+    /// Number of threads to use for hashing.
+    #[arg(long)]
+    threads: Option<usize>,
+
+    /// Format for hashes.
     #[arg(long, default_value_t)]
-    style: PathStyle,
+    hash_style: HashStyle,
+
+    /// Format for paths.
+    #[arg(long, default_value_t)]
+    path_style: PathStyle,
 
     /// Persist files hashes.
     #[arg(long)]
@@ -78,18 +109,24 @@ pub struct Cli {
 
     /// Clean cache before processing.
     #[arg(long)]
-    fresh: bool,
-
-    /// Restrict to use only 1 (worker) thread.
-    #[arg(long)]
-    unconcurrent: bool,
+    clean_cache: bool,
 }
 
 impl Cli {
+    // ...split the option name from the identifier
     pub fn algo(&self) -> ConcurrentHashingAlgorithmName { self.algo }
-    pub fn style(&self) -> PathStyle { self.style }
-    pub fn purge_db(&self) -> bool { self.fresh }
-    pub fn parallel(&self) -> bool { !self.unconcurrent }
+
+    pub fn hash_style(&self) -> HashStyle { self.hash_style }
+
+    pub fn path_style(&self) -> PathStyle { self.path_style }
+
+    pub fn clean_index(&self) -> bool { self.clean_cache }
+
     pub fn directory(&self) -> &Path { &self.directory }
+
     pub fn incremental(&self) -> bool { self.incremental }
+
+    pub fn parallelism(&self) -> Option<NonZero<usize>> {
+        self.threads.and_then(NonZero::new)
+    }
 }

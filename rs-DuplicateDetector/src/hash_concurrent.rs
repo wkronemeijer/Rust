@@ -1,15 +1,16 @@
 //! Items to compute the hash of a set of files, concurrently.
 
-use std::fmt;
 use std::num::NonZero;
 use std::path::Path;
 use std::sync::Arc;
 use std::sync::Mutex;
 use std::sync::mpsc;
 use std::thread::scope;
+use std::time::Duration;
 use std::time::Instant;
 
 use clap::ValueEnum;
+use strum::Display;
 
 use crate::hash::FileHash;
 
@@ -87,7 +88,7 @@ fn hash_files_mpsc<'a>(
 // (path, hash) go into a vec
 // if mutex.try_lock() {for each in vec {insert(path, hash)}}
 // Big Q is whether this is faster or not
-fn hash_files_mutex<'a>(
+fn hash_files_arc_mutex<'a>(
     files: &[&'a Path],
     HashFilesOptions { parallelism, .. }: HashFilesOptions,
 ) -> HashFilesResult<'a> {
@@ -173,44 +174,48 @@ fn hash_files_lockfree<'a>(
 // Choice of algorithm //
 /////////////////////////
 
-#[derive(Debug, Default, Clone, Copy, ValueEnum)]
+#[derive(Debug, Default, Clone, Copy, ValueEnum, Display)]
 #[clap(rename_all = "kebab-case")]
+#[strum(serialize_all = "kebab-case")]
 pub enum ConcurrentHashingAlgorithmName {
-    #[default]
     Mpsc,
-    Mutex,
+    ArcMutex,
+    #[default]
     LockFree,
 }
 
-type ConcurrentHashingAlgorithm =
-    for<'a> fn(&[&'a Path], HashFilesOptions) -> Vec<(&'a Path, FileHash)>;
-
 impl ConcurrentHashingAlgorithmName {
-    fn function(self) -> ConcurrentHashingAlgorithm {
-        match self {
-            Self::Mpsc => hash_files_mpsc,
-            Self::Mutex => hash_files_mutex,
-            Self::LockFree => hash_files_lockfree,
-        }
-    }
-
     pub fn hash_files<'a>(
         self,
         files: &[&'a Path],
         options: HashFilesOptions,
     ) -> HashFilesResult<'a> {
         let file_count = files.len();
-        let function = self.function();
+        let thread_count = options.parallelism.get();
+        let function = match self {
+            Self::Mpsc => hash_files_mpsc,
+            Self::ArcMutex => hash_files_arc_mutex,
+            Self::LockFree => hash_files_lockfree,
+        };
         let result = {
             let timer = Instant::now();
             let value = function(files, options);
-            let time = timer.elapsed();
-            let time_ms = time.as_millis();
-            let seconds_per_file =
-                (file_count as f64) / time.as_secs_f64().max(1.0);
+            let mut time = timer.elapsed();
+            if time.is_zero() {
+                time += Duration::from_millis(1);
+                // to prevent dividing by 0
+            }
+            let rate = {
+                let file_count = file_count as f64;
+                let seconds = time.as_secs_f64();
+                let thread_count = thread_count as f64;
+                file_count / seconds / thread_count
+            };
             eprintln!(
-                "hashed {} file(s) in {}ms ({:.0} file(s) per sec)",
-                file_count, time_ms, seconds_per_file
+                "hashed {} file(s) in {}ms ({:.1} files/sec/thread)",
+                file_count,
+                time.as_millis(),
+                rate
             );
             value
         };
@@ -220,11 +225,5 @@ impl ConcurrentHashingAlgorithmName {
             "input and output count must be equal"
         );
         result
-    }
-}
-
-impl fmt::Display for ConcurrentHashingAlgorithmName {
-    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-        format!("{self:?}").to_ascii_lowercase().fmt(f)
     }
 }
