@@ -3,7 +3,7 @@
 use std::collections::HashMap;
 use std::path::Path;
 
-use crate::core::collections::TinyVec;
+use crate::core::collections::tinyvec::TinyVec;
 use crate::hash::FileHash;
 
 //////////////

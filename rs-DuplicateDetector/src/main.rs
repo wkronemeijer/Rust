@@ -12,6 +12,7 @@ use duplicate_detector::CACHE_FILE_NAME;
 pub use duplicate_detector::Result;
 use duplicate_detector::cli::Cli;
 use duplicate_detector::connection::Connection;
+use duplicate_detector::core::collections::nonempty::NonEmptySlice;
 use duplicate_detector::core::fs::read_dir_all;
 use duplicate_detector::db::Database;
 use duplicate_detector::hash::FileHash;
@@ -83,15 +84,16 @@ pub fn main() -> crate::Result {
     // Execute //
     /////////////
 
-    let new_file_hashes = if files_to_hash.len() == 0 {
-        vec![]
-    } else {
-        eprintln!("hashing using '{}'×{}", algo, parallelism);
-        let options = HashFilesOptions { parallelism };
-        let value = algo.hash_files(&files_to_hash, options);
-        eprintln!("hashing complete");
-        value
-    };
+    let new_file_hashes =
+        if let Some(files_to_hash) = NonEmptySlice::new(&files_to_hash) {
+            eprintln!("hashing using '{}'×{}", algo, parallelism);
+            let options = HashFilesOptions { parallelism };
+            let value = algo.hash_files(files_to_hash, options);
+            eprintln!("hashing complete");
+            value
+        } else {
+            vec![]
+        };
 
     let files_to_insert: Vec<(PathBuf, FileHash)> = new_file_hashes
         .into_iter()
