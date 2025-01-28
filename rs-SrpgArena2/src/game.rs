@@ -1,3 +1,4 @@
+use anyhow::bail;
 use rand::thread_rng;
 
 use crate::core::slice_index_pair_checked;
@@ -82,14 +83,13 @@ impl UnitCollection {
     }
 
     pub fn push(&mut self, mut unit: Unit) -> crate::Result<UnitHandle> {
-        if let Some(unit_index) = self.next_index {
-            unit.id = unit_index;
-            self.units.insert(unit_index.index(), (unit_index, unit));
-            self.next_index = unit_index.next();
-            Ok(unit_index)
-        } else {
-            Err("not enough room".into())
-        }
+        let Some(unit_index) = self.next_index else {
+            bail!("not enough room")
+        };
+        unit.id = unit_index;
+        self.units.insert(unit_index.index(), (unit_index, unit));
+        self.next_index = unit_index.next();
+        Ok(unit_index)
     }
 
     // That's right, there is no pop()!
@@ -110,14 +110,14 @@ impl UnitCollection {
         self.units.iter_mut().map(|(_, u)| u)
     }
 
-    pub fn iter(&self) -> impl Iterator<Item = (UnitHandle, &Unit)> {
+    pub fn entries(&self) -> impl Iterator<Item = (UnitHandle, &Unit)> {
         self.units.iter().map(|(k, v)| (*k, v))
     }
 
-    pub fn iter_mut(
+    pub fn entries_mut(
         &mut self,
     ) -> impl Iterator<Item = (UnitHandle, &mut Unit)> {
-        self.units.iter_mut().map(|(k, v)| (*k, v))
+        self.units.iter_mut().map(|(id, unit)| (*id, unit))
     }
 }
 
@@ -394,7 +394,7 @@ impl Arena {
 
     fn alive_units(&self) -> impl Iterator<Item = UnitHandle> {
         self.combatants
-            .iter()
+            .entries()
             .filter(|(_, unit)| unit.is_alive())
             .map(|(x, _)| x)
     }
@@ -407,7 +407,7 @@ impl Arena {
 
         let candidates: Vec<_> = self
             .combatants
-            .iter()
+            .entries()
             .filter(|(idx, _)| attacker_idx != *idx)
             .collect();
 

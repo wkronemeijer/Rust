@@ -2,6 +2,7 @@ use std::panic::catch_unwind;
 use std::time::Duration;
 use std::time::Instant;
 
+use anyhow::anyhow;
 use ratatui::DefaultTerminal;
 use ratatui::Frame;
 use ratatui::crossterm::event::Event;
@@ -13,6 +14,7 @@ use ratatui::widgets::Block;
 use ratatui::widgets::BorderType;
 use ratatui::widgets::Borders;
 use ratatui::widgets::Paragraph;
+pub use srpg_arena::Error;
 pub use srpg_arena::Result;
 use srpg_arena::events::ObserverInstance;
 use srpg_arena::game::Arena;
@@ -78,7 +80,7 @@ fn run() {
 
 pub enum ExitReason {
     Success,
-    Failure(String),
+    Failure(crate::Error),
 }
 
 struct App {
@@ -94,7 +96,7 @@ impl App {
             None => self.arena = Some(init_arena()),
             Some(ref mut arena) => {
                 todo!();
-            }
+            },
         }
     }
 
@@ -112,9 +114,9 @@ impl App {
             Event::Key(KeyEvent { code, .. }) => match code {
                 KeyCode::Enter => self.advance(),
                 KeyCode::F(8) => self.exit(ExitReason::Success),
-                _ => {}
+                _ => {},
             },
-            _ => {}
+            _ => {},
         }
     }
 
@@ -133,8 +135,8 @@ impl App {
             if let Some(reason) = self.should_exit.take() {
                 return reason;
             }
-            if let Err(e) = terminal.draw(|f| self.draw(f)) {
-                return ExitReason::Failure(e.to_string());
+            if let Err(err) = terminal.draw(|f| self.draw(f)) {
+                return ExitReason::Failure(err.into());
             }
             self.handle_events();
         }
@@ -153,12 +155,8 @@ fn main() -> crate::Result {
     });
     ratatui::restore();
     match result {
-        Ok(ExitReason::Failure(message)) => {
-            Err(format!("exit caused by '{}'", message).into())
-        }
-        Err(err) => {
-            Err(format!("panic caused by '{:?}'", err.type_id()).into())
-        }
+        Ok(ExitReason::Failure(err)) => Err(anyhow!("exit caused by: {}", err)),
+        Err(err) => Err(anyhow!("panic caused by a(n) '{:?}'", err.type_id())),
         _ => Ok(()),
     }
 }
