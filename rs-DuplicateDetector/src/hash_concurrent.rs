@@ -12,6 +12,7 @@ use std::time::Instant;
 use clap::ValueEnum;
 use strum::Display;
 
+use crate::core::collections::nonempty::NonEmptySlice;
 use crate::hash::FileHash;
 
 ///////////////////////////
@@ -37,16 +38,12 @@ pub type HashFilesResult<'a> = Vec<(&'a Path, FileHash)>;
 // then send the (path, hash) through a channel
 // recv then inserts them into the result
 fn hash_files_mpsc<'a>(
-    files: &[&'a Path],
+    files: NonEmptySlice<&'a Path>,
     HashFilesOptions { parallelism, .. }: HashFilesOptions,
 ) -> HashFilesResult<'a> {
-    if files.is_empty() {
-        return vec![];
-    }
-
     const CHANNEL_SIZE: usize = 1 << 8;
 
-    let file_count = files.len();
+    let file_count = files.len().get();
     let worker_count = parallelism.get();
     let chunk_size = file_count.div_ceil(worker_count);
 
@@ -89,18 +86,14 @@ fn hash_files_mpsc<'a>(
 // if mutex.try_lock() {for each in vec {insert(path, hash)}}
 // Big Q is whether this is faster or not
 fn hash_files_arc_mutex<'a>(
-    files: &[&'a Path],
+    files: NonEmptySlice<&'a Path>,
     HashFilesOptions { parallelism, .. }: HashFilesOptions,
 ) -> HashFilesResult<'a> {
-    if files.is_empty() {
-        return vec![];
-    }
-
     const BACKLOG_CAPACITY: usize = 1 << 5;
     const BACKLOG_DRAIN_THRESHOLD: usize =
         (BACKLOG_CAPACITY >> 2) + (BACKLOG_CAPACITY >> 1);
 
-    let file_count = files.len();
+    let file_count = files.len().get();
     let worker_count = parallelism.get();
     let chunk_size = file_count.div_ceil(worker_count);
 
@@ -143,16 +136,12 @@ fn hash_files_arc_mutex<'a>(
 // Replace None with Some
 // Then assert at the end
 fn hash_files_lockfree<'a>(
-    files: &[&'a Path],
+    files: NonEmptySlice<&'a Path>,
     HashFilesOptions { parallelism, .. }: HashFilesOptions,
 ) -> HashFilesResult<'a> {
-    if files.is_empty() {
-        return vec![];
-    }
-
-    let file_count = files.len(); // != 0
-    let worker_count = parallelism.get(); // != 0
-    let chunk_size = file_count.div_ceil(worker_count); // ==> != 0
+    let file_count = files.len().get();
+    let worker_count = parallelism.get();
+    let chunk_size = file_count.div_ceil(worker_count);
 
     let mut results: Vec<(&Path, Option<FileHash>)> =
         files.iter().map(|&file| (file, None)).collect();
@@ -187,10 +176,10 @@ pub enum ConcurrentHashingAlgorithmName {
 impl ConcurrentHashingAlgorithmName {
     pub fn hash_files<'a>(
         self,
-        files: &[&'a Path],
+        files: NonEmptySlice<&'a Path>,
         options: HashFilesOptions,
     ) -> HashFilesResult<'a> {
-        let file_count = files.len();
+        let file_count = files.len().get();
         let thread_count = options.parallelism.get();
         let function = match self {
             Self::Mpsc => hash_files_mpsc,
