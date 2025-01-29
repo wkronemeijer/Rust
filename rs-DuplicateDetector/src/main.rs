@@ -1,6 +1,10 @@
 #![forbid(unsafe_code)]
 
 use std::collections::HashSet;
+use std::fmt::Write;
+use std::io::IsTerminal;
+use std::io::stderr;
+use std::io::stdout;
 use std::num::NonZero;
 use std::ops::Deref;
 use std::path::Path;
@@ -18,6 +22,8 @@ use duplicate_detector::db::Database;
 use duplicate_detector::hash::FileHash;
 use duplicate_detector::hash_concurrent::HashFilesOptions;
 use duplicate_detector::search::Deduplicator;
+
+fn is_terminal() -> bool { stdout().is_terminal() && stderr().is_terminal() }
 
 pub fn main() -> crate::Result {
     let cli = Cli::parse(); // NB: parse() exits on failure
@@ -38,8 +44,6 @@ pub fn main() -> crate::Result {
     // Load data sources //
     ///////////////////////
 
-    eprintln!("searching...");
-
     let (mut index, err) = Connection::<Database>::open(cache);
     if let Some(e) = err {
         eprintln!("failed to open index: {}", e);
@@ -49,8 +53,6 @@ pub fn main() -> crate::Result {
     }
 
     let disk = read_dir_all(directory)?;
-
-    eprintln!("search complete");
 
     /////////////////////////////
     // Compare index with disk //
@@ -86,10 +88,8 @@ pub fn main() -> crate::Result {
 
     let new_file_hashes =
         if let Some(files_to_hash) = NonEmptySlice::new(&files_to_hash) {
-            eprintln!("hashing using '{}'×{}", algo, parallelism);
             let options = HashFilesOptions { parallelism };
             let value = algo.hash_files(files_to_hash, options);
-            eprintln!("hashing complete");
             value
         } else {
             vec![]
@@ -127,36 +127,33 @@ pub fn main() -> crate::Result {
         }
     }
 
-    eprintln!("finding duplicates...");
-    let findings = Deduplicator::from_iter(
-        index.entries().filter(|(file, _)| is_our_file(file)),
-    );
-    eprintln!();
-
     /////////////////////
     // List duplicates //
     /////////////////////
 
-    let mut duplicate_count = 0;
+    let findings = Deduplicator::from_iter(
+        index.entries().filter(|(file, _)| is_our_file(file)),
+    );
+
+    let duplicate_count = findings.duplicate_count();
     let file_count = findings.file_count();
 
-    for (hash, paths) in findings.duplicates() {
-        let count = paths.len();
-        duplicate_count += count;
-        println!("{count} file(s) with hash {}", hash_style.apply(hash));
-        for &path in paths {
-            println!("{}", path_style.apply(path).display());
-        }
-        println!();
-    }
-
-    /////////////
-    // Summary //
-    /////////////
-
     eprintln!(
-        "found {} duplicate(s) amongst {} file(s)",
+        "\x1B[4mfound {} duplicate(s) amongst {} file(s)\x1B[24m",
         duplicate_count, file_count,
     );
+
+    let ref mut out = String::new();
+    for (hash, paths) in findings.duplicates() {
+        let count = paths.len();
+        let hash = hash_style.apply(hash);
+        writeln!(out, "\x1B[1m{} files with hash {}\x1B[22m:", count, hash)?;
+        for &path in paths {
+            let path = path_style.apply(path);
+            writeln!(out, "{}", path.display())?;
+        }
+    }
+    println!("{}", out.trim_ascii());
+
     Ok(())
 }
