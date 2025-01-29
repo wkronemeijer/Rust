@@ -6,10 +6,12 @@ use std::io::BufReader;
 use std::io::Read;
 use std::path::Path;
 
+use clap::ValueEnum;
 use serde::Deserialize;
 use serde::Serialize;
 use sha2::Digest;
 use sha2::Sha256;
+use strum::Display;
 
 //////////////
 // FileHash //
@@ -76,5 +78,29 @@ impl FileHash {
         let digest = hasher.finalize();
         let bytes = digest.into();
         Ok(FileHash { bytes })
+    }
+}
+
+/////////////////////
+// Hash Formatting //
+/////////////////////
+
+#[derive(Debug, Default, Clone, Copy, ValueEnum, Display)]
+#[clap(rename_all = "kebab-case")]
+#[strum(serialize_all = "kebab-case")]
+pub enum HashStyle {
+    #[default]
+    Short,
+    Full,
+}
+
+impl HashStyle {
+    pub fn apply(self, hash: &FileHash) -> String {
+        let hash = hash.to_string();
+        match self {
+            // 8 ASCII chars == 8 bytes
+            Self::Short => format!("{}(…)", &hash[0..8]),
+            Self::Full => hash,
+        }
     }
 }

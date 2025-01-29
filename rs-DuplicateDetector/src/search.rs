@@ -1,7 +1,15 @@
 //! Items to find duplicates with.
 
+use std::borrow::Cow;
+use std::borrow::Cow::Borrowed;
+use std::borrow::Cow::Owned;
 use std::collections::HashMap;
+use std::fs::canonicalize;
 use std::path::Path;
+use std::path::absolute;
+
+use clap::ValueEnum;
+use strum::Display;
 
 use crate::core::collections::tinyvec::TinyVec;
 use crate::hash::FileHash;
@@ -50,5 +58,41 @@ impl<'a> FromIterator<(&'a Path, &'a FileHash)> for Deduplicator<'a> {
             result.insert(item);
         }
         result
+    }
+}
+
+/////////////////////
+// Path Formatting //
+/////////////////////
+
+#[derive(Debug, Default, Clone, Copy, ValueEnum, Display)]
+#[clap(rename_all = "kebab-case")]
+#[strum(serialize_all = "kebab-case")]
+pub enum PathStyle {
+    #[default]
+    Relative,
+    Absolute,
+    Canonical,
+}
+
+impl PathStyle {
+    /// Tries to apply a formatting style.
+    ///
+    /// Can fail if the path is empty, the file at the path doesn't exist, etc.
+    pub fn try_apply(self, path: &Path) -> crate::Result<Cow<Path>> {
+        Ok(match self {
+            Self::Relative => Borrowed(path),
+            Self::Absolute => Owned(absolute(path)?),
+            Self::Canonical => Owned(canonicalize(path)?),
+        })
+    }
+
+    /// Applies a formatting style,
+    /// falling back to the original path if formatting fails.
+    pub fn apply(self, path: &Path) -> Cow<Path> {
+        match self.try_apply(path) {
+            Ok(cow) => cow,
+            Err(_) => Borrowed(path),
+        }
     }
 }

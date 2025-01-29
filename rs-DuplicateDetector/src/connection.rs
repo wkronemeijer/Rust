@@ -1,4 +1,3 @@
-use std::convert::Infallible;
 use std::fs;
 use std::fs::OpenOptions;
 use std::io::Read;
@@ -24,9 +23,9 @@ mod serde_format {
 /// Saves a [`Serialize`]able value to a file at the given path.
 fn save_to_file<T: Serialize>(path: &Path, value: &T) -> crate::Result {
     let contents = serde_format::to_vec(value)?;
-    let bytes = contents.len();
+    // let bytes = contents.len();
     fs::write(path, contents)?;
-    eprintln!("saved {} byte(s) to {}", bytes, path.display());
+    // eprintln!("saved {} byte(s) to {}", bytes, path.display());
     Ok(())
 }
 
@@ -72,7 +71,7 @@ impl<T: Serialize> Connection<T> {
 }
 
 impl<T: Default> Connection<T> {
-    pub fn open_in_memory() -> crate::Result<Self, Infallible> {
+    pub fn open_in_memory() -> crate::Result<Self> {
         let location = None;
         let inner = T::default();
         Ok(Connection { location, inner })
@@ -87,18 +86,11 @@ impl<T: for<'a> Deserialize<'a> + Default> Connection<T> {
         Ok(Connection { location, inner })
     }
 
-    pub fn open<P: AsRef<Path>>(
-        path: Option<P>,
-    ) -> (Self, Option<crate::Error>) {
-        let error = match path {
-            Some(path) => Some(match Self::open_from_disk(path) {
-                Ok(result) => return (result, None),
-                Err(error) => error,
-            }),
-            None => None,
-        };
-        let Ok(value) = Self::open_in_memory();
-        (value, error)
+    pub fn open<P: AsRef<Path>>(path: Option<P>) -> crate::Result<Self> {
+        match path {
+            Some(path) => Self::open_from_disk(path),
+            None => Self::open_in_memory(),
+        }
     }
 }
 
