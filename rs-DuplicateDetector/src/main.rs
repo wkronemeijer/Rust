@@ -23,7 +23,9 @@ use duplicate_detector::hash::FileHash;
 use duplicate_detector::hash_concurrent::HashFilesOptions;
 use duplicate_detector::search::Deduplicator;
 
-fn is_terminal() -> bool { stdout().is_terminal() && stderr().is_terminal() }
+pub fn is_terminal() -> bool {
+    stdout().is_terminal() && stderr().is_terminal()
+}
 
 pub fn main() -> crate::Result {
     let cli = Cli::parse(); // NB: parse() exits on failure
@@ -135,25 +137,29 @@ pub fn main() -> crate::Result {
         index.entries().filter(|(file, _)| is_our_file(file)),
     );
 
+    let ref mut entry = String::new();
+    for (hash, paths) in findings.duplicates() {
+        let count = paths.len();
+        let hash = hash_style.apply(hash);
+        writeln!(entry, "\x1B[1m{} files with hash {}\x1B[22m:", count, hash)?;
+        for &path in paths {
+            let path = path_style.apply(path);
+            writeln!(entry, "{}", path.display())?;
+        }
+        println!("{}", entry.trim_ascii());
+        entry.clear();
+    }
+
+    /////////////
+    // Summary //
+    /////////////
+
     let duplicate_count = findings.duplicate_count();
     let file_count = findings.file_count();
-
     eprintln!(
         "\x1B[4mfound {} duplicate(s) amongst {} file(s)\x1B[24m",
         duplicate_count, file_count,
     );
-
-    let ref mut out = String::new();
-    for (hash, paths) in findings.duplicates() {
-        let count = paths.len();
-        let hash = hash_style.apply(hash);
-        writeln!(out, "\x1B[1m{} files with hash {}\x1B[22m:", count, hash)?;
-        for &path in paths {
-            let path = path_style.apply(path);
-            writeln!(out, "{}", path.display())?;
-        }
-    }
-    println!("{}", out.trim_ascii());
 
     Ok(())
 }
