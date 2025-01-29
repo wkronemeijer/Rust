@@ -150,16 +150,5 @@ pub fn main() -> crate::Result {
         entry.clear();
     }
 
-    /////////////
-    // Summary //
-    /////////////
-
-    let duplicate_count = findings.duplicate_count();
-    let file_count = findings.file_count();
-    eprintln!(
-        "\x1B[4mfound {} duplicate(s) amongst {} file(s)\x1B[24m",
-        duplicate_count, file_count,
-    );
-
     Ok(())
 }
