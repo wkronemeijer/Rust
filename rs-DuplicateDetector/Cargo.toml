@@ -4,11 +4,18 @@ version = "0.1.0"
 edition = "2024"
 
 [profile.dev]
+strip = false
 incremental = true
-opt-level = 1      # makes it (unironically) 10× faster 
+opt-level = 1      # unironically makes it 10× faster 
+panic = "unwind"
+lto = false
 
 [profile.release]
 strip = true
+incremental = false
+opt-level = 3
+panic = "abort"
+lto = true
 
 [dependencies]
 anyhow = "1.0.95"
