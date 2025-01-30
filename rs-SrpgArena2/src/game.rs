@@ -1,7 +1,8 @@
 use anyhow::bail;
 use rand::thread_rng;
 
-use crate::core::slice_index_pair_checked;
+use crate::core::genmap::GenMap;
+use crate::core::slice::get_many_mut;
 use crate::events::DamageEvent;
 use crate::events::DeathEvent;
 use crate::events::HealEvent;
@@ -21,9 +22,13 @@ pub enum HitKind {
     Crit,
 }
 
+impl From<bool> for HitKind {
+    fn from(value: bool) -> Self { if value { Self::Crit } else { Self::Hit } }
+}
+
 impl HitKind {
     pub fn from_did_crit(did_crit: bool) -> Self {
-        if did_crit { HitKind::Crit } else { HitKind::Hit }
+        if did_crit { Self::Crit } else { Self::Hit }
     }
 }
 
@@ -75,7 +80,7 @@ impl UnitCollection {
         handle_1: UnitHandle,
         handle_2: UnitHandle,
     ) -> Option<(&mut Unit, &mut Unit)> {
-        let ((_, unit_1), (_, unit_2)) = slice_index_pair_checked(
+        let ((_, unit_1), (_, unit_2)) = get_many_mut(
             &mut self.units,
             (usize::from(handle_1.index), usize::from(handle_2.index)),
         )?;
@@ -457,4 +462,16 @@ impl Arena {
     pub fn advance() {
         todo!();
     }
+}
+
+/////////////
+// UnitMap //
+/////////////
+
+#[expect(unused)]
+fn test() {
+    let jimmy = Unit::new("Jimmy", Stats::default());
+
+    let mut map = GenMap::<Unit>::new();
+    map.insert(jimmy);
 }

@@ -1,10 +1,7 @@
 use std::mem::swap;
 
-/// Resets a reference to its default value.
-pub fn reset<T: Default>(var: &mut T) { *var = T::default(); }
-
 /// Allows for mutable access to two elements at distinct indices at once.
-pub fn slice_index_pair_checked<T>(
+pub fn get_many_mut<T>(
     slice: &mut [T],
     (mut i, mut j): (usize, usize),
 ) -> Option<(&mut T, &mut T)> {

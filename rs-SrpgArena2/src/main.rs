@@ -57,6 +57,7 @@ fn init_arena() -> Arena {
     arena
 }
 
+#[expect(unused)]
 fn run() {
     let mut arena = init_arena();
 
@@ -94,7 +95,7 @@ impl App {
     fn advance(&mut self) {
         match self.arena {
             None => self.arena = Some(init_arena()),
-            Some(ref mut arena) => {
+            Some(_) => {
                 todo!();
             },
         }

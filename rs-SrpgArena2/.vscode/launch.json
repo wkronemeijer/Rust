@@ -8,6 +8,7 @@
             
             "type": "cppvsdbg",
             "program": "${workspaceRoot}\\target\\debug\\srpg-arena.exe",
+            // "program": "${workspaceRoot}\\target\\debug\\deps\\srpg_arena-0408e4d040fe04fe.exe",
             "cwd": "${workspaceRoot}",
             "args": [],
             "environment": [],
