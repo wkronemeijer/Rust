@@ -177,6 +177,7 @@ pub fn start(
 
     let ref mut entry = String::new();
     for (hash, paths) in findings.duplicates() {
+        entry.clear();
         let count = paths.len();
         let hash = hash_style.apply(hash);
         writeln!(entry, "\x1B[1m{} files with hash {}\x1B[22m:", count, hash)?;
@@ -185,7 +186,6 @@ pub fn start(
             writeln!(entry, "{}", path.display())?;
         }
         println!("{}", entry.trim_ascii());
-        entry.clear();
     }
 
     Ok(())
