@@ -1,6 +1,8 @@
+use arrayvec::ArrayVec;
+
 use crate::stats::Stats;
 
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, Copy)]
 pub enum EquipmentSlot {
     Hand,
     Chest,
@@ -10,12 +12,14 @@ pub enum EquipmentSlot {
 #[derive(Debug, Clone)]
 pub struct EquipmentItem {
     name: String,
-    pub slot: EquipmentSlot,
-    pub attributes: Stats,
+    slot: EquipmentSlot,
+    pub attributes: Box<Stats>,
 }
 
 impl EquipmentItem {
     pub fn name(&self) -> &str { &self.name }
+
+    pub fn slot(&self) -> EquipmentSlot { self.slot }
 }
 
 // TODO: Support equipped and unequipped items
@@ -32,16 +36,14 @@ const INVENTORY_SIZE_LIMIT: usize = 8;
 
 #[derive(Debug, Default)]
 pub struct UnitInventory {
-    items: [Option<EquipmentItem>; INVENTORY_SIZE_LIMIT],
+    items: ArrayVec<EquipmentItem, INVENTORY_SIZE_LIMIT>,
 }
 
 impl UnitInventory {
-    pub fn new() -> Self {
-        UnitInventory { items: [const { None }; INVENTORY_SIZE_LIMIT] }
-    }
+    pub fn new() -> Self { UnitInventory { items: ArrayVec::new() } }
 
-    pub fn equipped_items(&self) -> impl Iterator<Item = &EquipmentItem> {
-        self.items.iter().filter_map(|item| item.as_ref())
+    pub fn iter(&self) -> impl Iterator<Item = &EquipmentItem> {
+        self.items.iter()
     }
 
     // Somehow, I need references to specific items

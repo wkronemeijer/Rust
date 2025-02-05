@@ -168,6 +168,8 @@ impl StatTable {
 
 struct PassiveModifier {}
 
+struct ProportionalModifier {}
+
 struct ConditionalModifier {}
 
 struct StatModifierSet {}
@@ -180,6 +182,10 @@ impl StatTable {
     pub fn compute(&self, modifiers: &StatModifierSet) -> StatTable {
         todo!();
     }
+}
+
+pub struct CachedModifierSet {
+    was_modified: bool,
 }
 
 /////////////

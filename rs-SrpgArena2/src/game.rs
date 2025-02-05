@@ -11,7 +11,7 @@ use crate::events::MissEvent;
 use crate::events::Observer;
 use crate::items::UnitInventory;
 use crate::rng::double_rng_hit;
-use crate::rng::overflowing_chance_hit;
+use crate::rng::increment_hit;
 use crate::rng::single_rng_hit;
 use crate::stats::Resources;
 use crate::stats::Stats;
@@ -175,8 +175,8 @@ impl Unit {
     fn collect_stats(&self) -> Stats {
         let mut stats = Stats::default();
         stats.include(&self.attributes);
-        for item in self.equipment.equipped_items() {
-            stats.include(&item.attributes);
+        for item in self.equipment.iter() {
+            stats.include(&*item.attributes);
         }
         stats
     }
@@ -254,21 +254,16 @@ impl Unit {
         // Feels like more reason to split out attributes as a AddToStats instance
 
         self.attributes.vitality +=
-            overflowing_chance_hit(random, stats.vitality_growth);
+            increment_hit(random, stats.vitality_growth);
         self.attributes.strength +=
-            overflowing_chance_hit(random, stats.strength_growth);
-        self.attributes.magic +=
-            overflowing_chance_hit(random, stats.magic_growth);
-        self.attributes.skill +=
-            overflowing_chance_hit(random, stats.skill_growth);
-        self.attributes.speed +=
-            overflowing_chance_hit(random, stats.speed_growth);
-        self.attributes.luck +=
-            overflowing_chance_hit(random, stats.luck_growth);
-        self.attributes.defense +=
-            overflowing_chance_hit(random, stats.defense_growth);
+            increment_hit(random, stats.strength_growth);
+        self.attributes.magic += increment_hit(random, stats.magic_growth);
+        self.attributes.skill += increment_hit(random, stats.skill_growth);
+        self.attributes.speed += increment_hit(random, stats.speed_growth);
+        self.attributes.luck += increment_hit(random, stats.luck_growth);
+        self.attributes.defense += increment_hit(random, stats.defense_growth);
         self.attributes.resistance +=
-            overflowing_chance_hit(random, stats.resistance_growth);
+            increment_hit(random, stats.resistance_growth);
     }
 
     pub fn level_up(&mut self) -> bool {

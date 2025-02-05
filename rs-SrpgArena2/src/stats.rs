@@ -1,6 +1,7 @@
 use std::marker::PhantomData;
 use std::ops::AddAssign;
 use std::ops::BitOrAssign;
+use std::ops::Deref;
 
 ///////////////
 // Resources //
@@ -162,8 +163,15 @@ impl<'a> FinalStats<'a> {
     pub fn stats(&self) -> &Stats { &self.stats }
 }
 
+impl<'a> Deref for FinalStats<'a> {
+    type Target = Stats;
+
+    fn deref(&self) -> &Self::Target { &self.stats }
+}
+
 impl Stats {
-    pub(crate) fn compute(self: &mut Stats) -> FinalStats {
+    #[must_use]
+    pub(crate) fn compute(self: &Stats) -> FinalStats {
         let mut this = self.clone();
 
         this.maximum_life += 1 + 2 * this.vitality;
