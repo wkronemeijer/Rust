@@ -11,8 +11,8 @@ use std::process::ExitCode;
 use std::thread::available_parallelism;
 
 use clap::Parser;
-use duplicate_detector::CACHE_FILE_NAME;
 pub use duplicate_detector::Result;
+use duplicate_detector::connection::CacheFormat;
 use duplicate_detector::connection::Connection;
 use duplicate_detector::core::collections::nonempty::NonEmptySlice;
 use duplicate_detector::core::fs::read_dir_all;
@@ -23,6 +23,7 @@ use duplicate_detector::hash_concurrent::ConcurrentHashingAlgorithmName;
 use duplicate_detector::hash_concurrent::HashFilesOptions;
 use duplicate_detector::search::Deduplicator;
 use duplicate_detector::search::PathStyle;
+use url::Url;
 
 ////////////////////
 // CLI Parameters //
@@ -52,13 +53,17 @@ pub struct Cli {
     #[arg(long, default_value_t)]
     pub path_style: PathStyle,
 
-    /// Persist files hashes.
+    /// Persist files hashes in a file.
     #[arg(long)]
     pub incremental: bool,
 
     /// Clean cache before processing.
     #[arg(long)]
     pub clean_cache: bool,
+
+    /// Cache storage format.
+    #[arg(long, default_value_t)]
+    pub cache_format: CacheFormat,
 }
 
 //////////
@@ -74,16 +79,20 @@ pub fn start(
         path_style,
         incremental,
         clean_cache,
+        cache_format,
     }: Cli,
 ) -> crate::Result {
     ///////////////////////
     // Load data sources //
     ///////////////////////
 
-    let mut index = Connection::<Database>::open(match incremental {
-        true => Some(Path::new(CACHE_FILE_NAME)),
-        false => None,
-    })?;
+    let mut index = Connection::<Database>::open(
+        match incremental {
+            true => Some(cache_format.default_file_name()),
+            false => None,
+        },
+        cache_format,
+    )?;
     if clean_cache {
         index.clear();
     }
@@ -183,7 +192,7 @@ pub fn start(
         let hash = hash_style.apply(hash);
         writeln!(entry, "\x1B[1m{} files with hash {}\x1B[22m:", count, hash)?;
         for &path in paths {
-            let url = ::url::Url::from_file_path(&canonicalize(path)?).unwrap();
+            let url = Url::from_file_path(&canonicalize(path)?).unwrap();
             let path = path_style.apply(path);
             let path = path.display();
             const OSC: &str = "\x1B]";

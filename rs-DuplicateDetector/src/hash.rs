@@ -33,6 +33,8 @@ const HASH_BYTE_SIZE: usize = 32;
     Serialize,
     Deserialize
 )]
+#[repr(transparent)]
+#[serde(transparent)]
 pub struct FileHash {
     bytes: [u8; HASH_BYTE_SIZE],
 }
