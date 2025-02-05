@@ -2,6 +2,7 @@
 
 use std::collections::HashSet;
 use std::fmt::Write;
+use std::fs::canonicalize;
 use std::num::NonZero;
 use std::ops::Deref;
 use std::path::Path;
@@ -182,8 +183,12 @@ pub fn start(
         let hash = hash_style.apply(hash);
         writeln!(entry, "\x1B[1m{} files with hash {}\x1B[22m:", count, hash)?;
         for &path in paths {
+            let url = ::url::Url::from_file_path(&canonicalize(path)?).unwrap();
             let path = path_style.apply(path);
-            writeln!(entry, "{}", path.display())?;
+            let path = path.display();
+            const OSC: &str = "\x1B]";
+            const ST: &str = "\x1B\\";
+            writeln!(entry, "{OSC}8;;{url}{ST}{path}{OSC}8;;{ST}")?;
         }
         println!("{}", entry.trim_ascii());
     }
