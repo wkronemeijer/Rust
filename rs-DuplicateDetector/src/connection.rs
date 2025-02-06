@@ -99,7 +99,7 @@ impl CacheFormat {
 ////////////////
 
 #[derive(Debug)]
-enum ConnectionKind {
+pub enum ConnectionKind {
     Memory,
     Disk { file: PathBuf, format: CacheFormat },
 }
@@ -128,30 +128,28 @@ impl<T: Serialize> Connection<T> {
 
 impl<T: Default> Connection<T> {
     pub fn open_in_memory() -> crate::Result<Self> {
-        let kind = ConnectionKind::Memory;
         let inner = T::default();
+        let kind = ConnectionKind::Memory;
         Ok(Connection { kind, inner })
     }
 }
 
 impl<T: for<'a> Deserialize<'a> + Default> Connection<T> {
-    pub fn open_from_disk<P: AsRef<Path>>(
-        path: P,
+    fn open_from_disk(
+        file: PathBuf,
         format: CacheFormat,
     ) -> crate::Result<Self> {
-        let path = path.as_ref();
-        let kind = ConnectionKind::Disk { file: path.to_path_buf(), format };
-        let inner = format.load_from_file(&path)?.unwrap_or_else(T::default);
+        let inner = format.load_from_file(&file)?.unwrap_or_else(T::default);
+        let kind = ConnectionKind::Disk { file, format };
         Ok(Connection { kind, inner })
     }
 
-    pub fn open<P: AsRef<Path>>(
-        path: Option<P>,
-        format: CacheFormat,
-    ) -> crate::Result<Self> {
-        match path {
-            Some(path) => Self::open_from_disk(path, format),
-            None => Self::open_in_memory(),
+    pub fn open(kind: ConnectionKind) -> crate::Result<Self> {
+        match kind {
+            ConnectionKind::Disk { file, format } => {
+                Self::open_from_disk(file, format)
+            },
+            ConnectionKind::Memory => Self::open_in_memory(),
         }
     }
 }

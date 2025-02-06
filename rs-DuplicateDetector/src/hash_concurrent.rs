@@ -23,11 +23,12 @@ use crate::hash::FileHash;
 // I need to split the lifetime of the slice from the lifetime of the path
 // ...don't know how 😅
 
-pub struct HashFilesOptions {
-    pub parallelism: NonZero<usize>,
+struct Options<'a> {
+    pub files: NonEmptySlice<'a, &'a Path>,
+    pub threads: NonZero<usize>,
 }
 
-pub type HashFilesResult<'a> = Vec<(&'a Path, FileHash)>;
+type Return<'a> = Vec<(&'a Path, FileHash)>;
 
 ////////////
 // Search //
@@ -37,14 +38,11 @@ pub type HashFilesResult<'a> = Vec<(&'a Path, FileHash)>;
 // N workers each process a chunk of the files, hashing each file
 // then send the (path, hash) through a channel
 // recv then inserts them into the result
-fn hash_files_mpsc<'a>(
-    files: NonEmptySlice<&'a Path>,
-    HashFilesOptions { parallelism, .. }: HashFilesOptions,
-) -> HashFilesResult<'a> {
+fn hash_files_mpsc(Options { files, threads, .. }: Options) -> Return {
     const CHANNEL_SIZE: usize = 1 << 8;
 
     let file_count = files.len().get();
-    let worker_count = parallelism.get();
+    let worker_count = threads.get();
     let chunk_size = file_count.div_ceil(worker_count);
 
     let mut results = Vec::with_capacity(file_count);
@@ -85,16 +83,13 @@ fn hash_files_mpsc<'a>(
 // (path, hash) go into a vec
 // if mutex.try_lock() {for each in vec {insert(path, hash)}}
 // Big Q is whether this is faster or not
-fn hash_files_arc_mutex<'a>(
-    files: NonEmptySlice<&'a Path>,
-    HashFilesOptions { parallelism, .. }: HashFilesOptions,
-) -> HashFilesResult<'a> {
+fn hash_files_arc_mutex(Options { files, threads, .. }: Options) -> Return {
     const BACKLOG_CAPACITY: usize = 1 << 5;
     const BACKLOG_DRAIN_THRESHOLD: usize =
         (BACKLOG_CAPACITY >> 2) + (BACKLOG_CAPACITY >> 1);
 
     let file_count = files.len().get();
-    let worker_count = parallelism.get();
+    let worker_count = threads.get();
     let chunk_size = file_count.div_ceil(worker_count);
 
     let results = Arc::new(Mutex::new(Vec::with_capacity(file_count)));
@@ -135,12 +130,9 @@ fn hash_files_arc_mutex<'a>(
 // N workers workings over a chunk of (&Path, Option<FileHash>)
 // Replace None with Some
 // Then assert at the end
-fn hash_files_lockfree<'a>(
-    files: NonEmptySlice<&'a Path>,
-    HashFilesOptions { parallelism, .. }: HashFilesOptions,
-) -> HashFilesResult<'a> {
+fn hash_files_lockfree(Options { files, threads, .. }: Options) -> Return {
     let file_count = files.len().get();
-    let worker_count = parallelism.get();
+    let worker_count = threads.get();
     let chunk_size = file_count.div_ceil(worker_count);
 
     let mut results: Vec<(&Path, Option<FileHash>)> =
@@ -166,33 +158,47 @@ fn hash_files_lockfree<'a>(
 #[derive(Debug, Default, Clone, Copy, ValueEnum, Display)]
 #[clap(rename_all = "kebab-case")]
 #[strum(serialize_all = "kebab-case")]
-pub enum ConcurrentHashingAlgorithmName {
+pub enum AlgorithmName {
     Mpsc,
     ArcMutex,
     #[default]
     LockFree,
 }
 
-impl ConcurrentHashingAlgorithmName {
-    pub fn hash_files<'a>(
-        self,
-        files: NonEmptySlice<&'a Path>,
-        options: HashFilesOptions,
-    ) -> HashFilesResult<'a> {
-        let file_count = files.len().get();
-        let thread_count = options.parallelism.get();
-        let function = match self {
+impl AlgorithmName {
+    fn implementation(self) -> fn(Options) -> Return {
+        match self {
             Self::Mpsc => hash_files_mpsc,
             Self::ArcMutex => hash_files_arc_mutex,
             Self::LockFree => hash_files_lockfree,
-        };
+        }
+    }
+}
+
+#[derive(Debug)]
+pub struct HashFilesConfiguration {
+    algorithm: AlgorithmName,
+    threads: NonZero<usize>,
+}
+
+impl HashFilesConfiguration {
+    pub fn new(algorithm: AlgorithmName, threads: NonZero<usize>) -> Self {
+        HashFilesConfiguration { algorithm, threads }
+    }
+
+    pub fn run<'a>(self, files: &'a [&'a Path]) -> Return<'a> {
+        let HashFilesConfiguration { algorithm, threads } = self;
+        let Some(files) = NonEmptySlice::new(files) else { return vec![] };
+
+        let file_count = files.len().get();
+        let thread_count = threads.get();
+        let function = algorithm.implementation();
         let result = {
             let timer = Instant::now();
-            let value = function(files, options);
+            let value = function(Options { files, threads });
             let mut time = timer.elapsed();
             if time.is_zero() {
-                time += Duration::from_millis(1);
-                // to prevent dividing by 0
+                time += Duration::from_millis(1); // to prevent dividing by 0
             }
             let rate = {
                 let file_count = file_count as f64;

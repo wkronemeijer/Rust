@@ -1,32 +1,21 @@
 #![forbid(unsafe_code)]
 
-use std::collections::HashSet;
-use std::fmt::Write;
-use std::fs::canonicalize;
 use std::num::NonZero;
-use std::ops::Deref;
-use std::path::MAIN_SEPARATOR;
-use std::path::Path;
 use std::path::PathBuf;
 use std::process::ExitCode;
 use std::thread::available_parallelism;
 
 use clap::Parser;
+use duplicate_detector::Options;
 pub use duplicate_detector::Result;
 use duplicate_detector::connection::CacheFormat;
-use duplicate_detector::connection::Connection;
+use duplicate_detector::connection::ConnectionKind;
 use duplicate_detector::core::ansi::AnsiColor;
 use duplicate_detector::core::ansi::Styleable;
-use duplicate_detector::core::collections::nonempty::NonEmptySlice;
-use duplicate_detector::core::fs::read_dir_all;
-use duplicate_detector::db::Database;
-use duplicate_detector::hash::FileHash;
 use duplicate_detector::hash::HashStyle;
-use duplicate_detector::hash_concurrent::ConcurrentHashingAlgorithmName;
-use duplicate_detector::hash_concurrent::HashFilesOptions;
-use duplicate_detector::search::Deduplicator;
+use duplicate_detector::hash_concurrent::AlgorithmName;
+use duplicate_detector::hash_concurrent::HashFilesConfiguration;
 use duplicate_detector::search::PathStyle;
-use url::Url;
 
 ////////////////////
 // CLI Parameters //
@@ -42,7 +31,7 @@ pub struct Cli {
 
     /// Algorithm for concurrent hashing.
     #[arg(long, default_value_t)]
-    pub algo: ConcurrentHashingAlgorithmName,
+    pub algorithm: AlgorithmName,
 
     /// Number of threads to use for hashing.
     #[arg(long)]
@@ -73,14 +62,14 @@ pub struct Cli {
     pub cache_format: CacheFormat,
 }
 
-//////////
-// Main //
-//////////
+///////////
+// Main* //
+///////////
 
 pub fn start(
     Cli {
         directory,
-        algo,
+        algorithm,
         threads,
         hash_style,
         path_style,
@@ -90,144 +79,37 @@ pub fn start(
         cache_format,
     }: Cli,
 ) -> crate::Result {
-    ///////////////////////
-    // Load data sources //
-    ///////////////////////
-
-    let cache_path = match incremental {
-        true => Some(match cache_path {
-            Some(ref file) => file,
-            None => cache_format.default_file_name(),
-        }),
-        false => None,
+    let cache = match incremental {
+        true => ConnectionKind::Disk {
+            file: match cache_path {
+                Some(file) => file,
+                None => cache_format.default_file_name().to_path_buf(),
+            },
+            format: cache_format,
+        },
+        false => ConnectionKind::Memory,
     };
 
-    let mut index = Connection::<Database>::open(cache_path, cache_format)?;
-    if clean_cache {
-        index.clear();
-    }
-    let disk = read_dir_all(&directory)?;
-
-    /////////////////////////////
-    // Compare index with disk //
-    /////////////////////////////
-
-    // Files in the index
-    let index_files: HashSet<&Path> = index.paths().collect();
-
-    // Files on disk
-    let disk_files: HashSet<&Path> =
-        disk.iter().map(|path| path.deref()).collect();
-
-    // Deleted files == Indexed files not on disk
-    let deleted_files: HashSet<&Path> =
-        index_files.difference(&disk_files).copied().collect();
-
-    // New files == Disk files not indexed
-    let new_files: HashSet<&Path> =
-        disk_files.difference(&index_files).copied().collect();
-
-    ////////////////////////
-    // Set plan of action //
-    ////////////////////////
-
-    let files_to_hash: Vec<&Path> = new_files.into_iter().collect();
-
-    let files_to_delete: Vec<PathBuf> =
-        deleted_files.into_iter().map(|path| path.to_path_buf()).collect();
-
-    /////////////
-    // Execute //
-    /////////////
-
-    let parallelism = threads
+    let threads = threads
         .and_then(NonZero::new)
         .or_else(|| available_parallelism().ok())
         .or_else(|| NonZero::new(1))
         .unwrap();
+    let config = HashFilesConfiguration::new(algorithm, threads);
 
-    let new_file_hashes =
-        if let Some(files_to_hash) = NonEmptySlice::new(&files_to_hash) {
-            let options = HashFilesOptions { parallelism };
-            let value = algo.hash_files(files_to_hash, options);
-            value
-        } else {
-            vec![]
-        };
-
-    let files_to_insert: Vec<(PathBuf, FileHash)> = new_file_hashes
-        .into_iter()
-        .map(|(path, hash)| (path.to_path_buf(), hash))
-        .collect();
-
-    ///////////////////
-    // Apply changes //
-    ///////////////////
-
-    // Index can contains paths of various different directories;
-    // This predicate selects those paths which belong to the current target.
-    let is_our_file = |file: &Path| file.starts_with(&directory);
-    let mut did_modify = false;
-
-    for file in files_to_delete {
-        if is_our_file(&file) {
-            index.remove(&file);
-            did_modify = true;
-        }
-    }
-
-    for (path, hash) in files_to_insert {
-        index.add(path, hash);
-        did_modify = true;
-    }
-
-    if did_modify {
-        if let Err(e) = index.save() {
-            eprintln!("failed to save index: {}", e);
-        }
-    }
-
-    /////////////////////
-    // List duplicates //
-    /////////////////////
-
-    let findings = Deduplicator::from_iter(
-        index.entries().filter(|(file, _)| is_our_file(file)),
-    );
-
-    let ref mut entry = String::new();
-    for (hash, paths) in findings.duplicates() {
-        entry.clear();
-        let count = paths.len();
-        let hash = hash_style.apply(hash);
-        let header = format!("{} files with hash {}", count, hash);
-        writeln!(entry, "{}:", header.bold())?;
-        for &path in paths {
-            let dir = path_style.apply(path.parent().unwrap());
-            let file = Path::new(path.file_name().unwrap());
-
-            let canonical_file_path = canonicalize(path)?;
-            let file_url = Url::from_file_path(&canonical_file_path).unwrap();
-
-            let canonical_dir_path = canonical_file_path.parent().unwrap();
-            let dir_url = Url::from_file_path(&canonical_dir_path).unwrap();
-
-            writeln!(
-                entry,
-                "{}{}{}",
-                dir.display().link(&dir_url),
-                MAIN_SEPARATOR,
-                file.display().link(&file_url),
-            )?;
-        }
-        println!("{}", entry.trim_ascii());
-    }
-    Ok(())
+    duplicate_detector::run(Options {
+        directory,
+        config,
+        cache,
+        hash_style,
+        path_style,
+        clean_cache,
+    })
 }
 
-/////////////////
-// Actual Main //
-/////////////////
+//////////
+// Main //
+//////////
 
 pub fn main() -> ExitCode {
     let options = Cli::parse(); // parse() exits on failure

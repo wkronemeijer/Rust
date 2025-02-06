@@ -3,3 +3,18 @@
 pub mod ansi;
 pub mod collections;
 pub mod fs;
+
+#[macro_export]
+macro_rules! time {
+    ($e:expr) => {{
+        let start = Instant::now();
+        let result = $e;
+        let duration = start.elapsed();
+        eprintln!(
+            "\x1b[90mexecuted {} in {}ms\x1b[39m",
+            stringify!($e),
+            duration.as_millis()
+        );
+        result
+    }};
+}
