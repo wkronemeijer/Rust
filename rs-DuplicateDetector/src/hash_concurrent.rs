@@ -5,7 +5,7 @@ use std::path::Path;
 use std::sync::Arc;
 use std::sync::Mutex;
 use std::sync::mpsc;
-use std::thread::scope;
+use std::thread;
 use std::time::Duration;
 use std::time::Instant;
 
@@ -48,7 +48,7 @@ fn hash_files_mpsc<'a>(
     let chunk_size = file_count.div_ceil(worker_count);
 
     let mut results = Vec::with_capacity(file_count);
-    scope(|s| {
+    thread::scope(|s| {
         let (sender, receiver) = mpsc::sync_channel(CHANNEL_SIZE);
 
         // Worker
@@ -98,7 +98,7 @@ fn hash_files_arc_mutex<'a>(
     let chunk_size = file_count.div_ceil(worker_count);
 
     let results = Arc::new(Mutex::new(Vec::with_capacity(file_count)));
-    scope(|s| {
+    thread::scope(|s| {
         for files_chunk in files.chunks(chunk_size) {
             let results = results.clone();
             s.spawn(move || {
@@ -146,7 +146,7 @@ fn hash_files_lockfree<'a>(
     let mut results: Vec<(&Path, Option<FileHash>)> =
         files.iter().map(|&file| (file, None)).collect();
 
-    scope(|s| {
+    thread::scope(|s| {
         for chunk in results.chunks_mut(chunk_size) {
             s.spawn(move || {
                 for (file, hash) in chunk {

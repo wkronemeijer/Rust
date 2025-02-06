@@ -22,41 +22,40 @@ pub enum CacheFormat {
     #[default]
     MessagePack,
     Json,
-    PrettyJson,
+    FormattedJson,
 }
 
 impl CacheFormat {
-    // Foreshadowing...
     pub fn default_file_name(self) -> &'static Path {
         Path::new(match self {
             Self::MessagePack => "hash-cache.dat",
             Self::Json => "hash-cache.json",
-            Self::PrettyJson => "hash-cache-pretty.json",
+            Self::FormattedJson => "hash-cache.jsonc",
         })
     }
 }
 
 // Per-backend serialize and deserialize
 impl CacheFormat {
-    pub fn from_slice<'a, T: Deserialize<'a>>(
+    pub fn from_bytes<'a, T: Deserialize<'a>>(
         self,
-        source: &'a [u8],
+        bytes: &'a [u8],
     ) -> crate::Result<T> {
         Ok(match self {
-            Self::MessagePack => rmp_serde::from_slice(source)?,
-            Self::Json => serde_json::from_slice(source)?,
-            Self::PrettyJson => serde_json::from_slice(source)?,
+            Self::MessagePack => rmp_serde::from_slice(bytes)?,
+            Self::Json => serde_json::from_slice(bytes)?,
+            Self::FormattedJson => serde_json::from_slice(bytes)?,
         })
     }
 
-    pub fn to_vec<T: Serialize + ?Sized>(
+    pub fn to_bytes<T: Serialize + ?Sized>(
         self,
         value: &T,
     ) -> crate::Result<Vec<u8>> {
         Ok(match self {
             Self::MessagePack => rmp_serde::to_vec(value)?,
             Self::Json => serde_json::to_vec(value)?,
-            Self::PrettyJson => serde_json::to_vec_pretty(value)?,
+            Self::FormattedJson => serde_json::to_vec_pretty(value)?,
         })
     }
 }
@@ -70,7 +69,7 @@ impl CacheFormat {
         path: &Path,
         value: &T,
     ) -> crate::Result<usize> {
-        let contents = self.to_vec(value)?;
+        let contents = self.to_bytes(value)?;
         let bytes = contents.len();
         fs::write(path, contents)?;
         Ok(bytes)
@@ -91,7 +90,7 @@ impl CacheFormat {
             .open(path)?;
         let mut buffer = Vec::new();
         file.read_to_end(&mut buffer)?;
-        Ok(self.from_slice(&buffer).ok())
+        Ok(self.from_bytes(&buffer).ok())
     }
 }
 

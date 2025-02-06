@@ -61,7 +61,11 @@ pub struct Cli {
     #[arg(long)]
     pub clean_cache: bool,
 
-    /// Cache storage format.
+    /// Where to store the cache.
+    #[arg(long)]
+    pub cache_path: Option<PathBuf>,
+
+    /// Format of the cache.
     #[arg(long, default_value_t)]
     pub cache_format: CacheFormat,
 }
@@ -79,6 +83,7 @@ pub fn start(
         path_style,
         incremental,
         clean_cache,
+        cache_path,
         cache_format,
     }: Cli,
 ) -> crate::Result {
@@ -86,13 +91,15 @@ pub fn start(
     // Load data sources //
     ///////////////////////
 
-    let mut index = Connection::<Database>::open(
-        match incremental {
-            true => Some(cache_format.default_file_name()),
-            false => None,
-        },
-        cache_format,
-    )?;
+    let cache_path = match incremental {
+        true => Some(match cache_path {
+            Some(ref file) => file,
+            None => cache_format.default_file_name(),
+        }),
+        false => None,
+    };
+
+    let mut index = Connection::<Database>::open(cache_path, cache_format)?;
     if clean_cache {
         index.clear();
     }
@@ -205,8 +212,12 @@ pub fn start(
     Ok(())
 }
 
+/////////////////
+// Actual Main //
+/////////////////
+
 pub fn main() -> ExitCode {
-    let options = Cli::parse(); // NB: parse() exits on failure
+    let options = Cli::parse(); // parse() exits on failure
     match start(options) {
         Ok(()) => ExitCode::SUCCESS,
         Err(err) => {
