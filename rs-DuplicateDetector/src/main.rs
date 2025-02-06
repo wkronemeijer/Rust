@@ -5,6 +5,7 @@ use std::fmt::Write;
 use std::fs::canonicalize;
 use std::num::NonZero;
 use std::ops::Deref;
+use std::path::MAIN_SEPARATOR;
 use std::path::Path;
 use std::path::PathBuf;
 use std::process::ExitCode;
@@ -202,10 +203,22 @@ pub fn start(
         let header = format!("{} files with hash {}", count, hash);
         writeln!(entry, "{}:", header.bold())?;
         for &path in paths {
-            let canonical_path = canonicalize(path)?;
-            let file_url = Url::from_file_path(&canonical_path).unwrap();
-            let file_path = path_style.apply(path);
-            writeln!(entry, "{}", file_path.display().link(&file_url))?;
+            let dir = path_style.apply(path.parent().unwrap());
+            let file = Path::new(path.file_name().unwrap());
+
+            let canonical_file_path = canonicalize(path)?;
+            let file_url = Url::from_file_path(&canonical_file_path).unwrap();
+
+            let canonical_dir_path = canonical_file_path.parent().unwrap();
+            let dir_url = Url::from_file_path(&canonical_dir_path).unwrap();
+
+            writeln!(
+                entry,
+                "{}{}{}",
+                dir.display().link(&dir_url),
+                MAIN_SEPARATOR,
+                file.display().link(&file_url),
+            )?;
         }
         println!("{}", entry.trim_ascii());
     }
