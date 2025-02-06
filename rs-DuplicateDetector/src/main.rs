@@ -14,6 +14,8 @@ use clap::Parser;
 pub use duplicate_detector::Result;
 use duplicate_detector::connection::CacheFormat;
 use duplicate_detector::connection::Connection;
+use duplicate_detector::core::ansi::AnsiColor;
+use duplicate_detector::core::ansi::Styleable;
 use duplicate_detector::core::collections::nonempty::NonEmptySlice;
 use duplicate_detector::core::fs::read_dir_all;
 use duplicate_detector::db::Database;
@@ -197,18 +199,16 @@ pub fn start(
         entry.clear();
         let count = paths.len();
         let hash = hash_style.apply(hash);
-        writeln!(entry, "\x1B[1m{} files with hash {}\x1B[22m:", count, hash)?;
+        let header = format!("{} files with hash {}", count, hash);
+        writeln!(entry, "{}:", header.bold())?;
         for &path in paths {
-            let url = Url::from_file_path(&canonicalize(path)?).unwrap();
-            let path = path_style.apply(path);
-            let path = path.display();
-            const OSC: &str = "\x1B]";
-            const ST: &str = "\x1B\\";
-            writeln!(entry, "{OSC}8;;{url}{ST}{path}{OSC}8;;{ST}")?;
+            let canonical_path = canonicalize(path)?;
+            let file_url = Url::from_file_path(&canonical_path).unwrap();
+            let file_path = path_style.apply(path);
+            writeln!(entry, "{}", file_path.display().link(&file_url))?;
         }
         println!("{}", entry.trim_ascii());
     }
-
     Ok(())
 }
 
@@ -220,8 +220,8 @@ pub fn main() -> ExitCode {
     let options = Cli::parse(); // parse() exits on failure
     match start(options) {
         Ok(()) => ExitCode::SUCCESS,
-        Err(err) => {
-            eprintln!("\x1b[31m{}\x1b[37m", err);
+        Err(error) => {
+            eprintln!("{}", error.color(AnsiColor::Red));
             ExitCode::FAILURE
         },
     }
