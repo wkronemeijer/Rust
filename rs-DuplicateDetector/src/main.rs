@@ -116,6 +116,7 @@ pub fn main() -> ExitCode {
     match start(options) {
         Ok(()) => ExitCode::SUCCESS,
         Err(error) => {
+            // TODO: Read https://docs.rs/anyhow/latest/anyhow/struct.Error.html#display-representations to include causes as well
             eprintln!("{}", error.color(AnsiColor::Red));
             ExitCode::FAILURE
         },

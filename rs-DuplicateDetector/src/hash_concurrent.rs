@@ -13,6 +13,9 @@ use clap::ValueEnum;
 use strum::Display;
 
 use crate::core::collections::nonempty::NonEmptySlice;
+use crate::core::collections::nonempty::NonEmptyVec;
+use crate::core::error::AggregateError;
+use crate::core::error::partition_results;
 use crate::hash::FileHash;
 
 ///////////////////////////
@@ -28,7 +31,36 @@ struct Options<'a> {
     pub threads: NonZero<usize>,
 }
 
-type Return<'a> = Vec<(&'a Path, FileHash)>;
+type ReturnItem<'a> = (&'a Path, FileHash);
+
+type Return<'a> = crate::Result<Vec<ReturnItem<'a>>>;
+
+fn process_one(path: &Path) -> crate::Result<ReturnItem> {
+    let hash_result = FileHash::from_contents(path);
+    match hash_result {
+        Ok(hash) => Ok((path, hash)),
+        Err(error) => {
+            let context = format!("failed to hash {}", path.display());
+            Err(error.context(context))
+        },
+    }
+}
+
+/// Turns a sequence of results into a result of a sequence.
+///
+/// Unlike the stdlib conversion method,
+/// this function accumulates all errors into an [`AggregateError`].
+fn sequence<T, I>(iter: I) -> crate::Result<Vec<T>>
+where
+    I: IntoIterator<Item = crate::Result<T>>,
+{
+    let (values, errors) = partition_results(iter);
+    if let Some(errors) = NonEmptyVec::new(errors) {
+        Err(crate::Error::new(AggregateError::new(errors)))
+    } else {
+        Ok(values)
+    }
+}
 
 ////////////
 // Search //
@@ -38,7 +70,7 @@ type Return<'a> = Vec<(&'a Path, FileHash)>;
 // N workers each process a chunk of the files, hashing each file
 // then send the (path, hash) through a channel
 // recv then inserts them into the result
-fn hash_files_mpsc(Options { files, threads, .. }: Options) -> Return {
+fn algorithm_mpsc(Options { files, threads, .. }: Options) -> Return {
     const CHANNEL_SIZE: usize = 1 << 8;
 
     let file_count = files.len().get();
@@ -46,32 +78,28 @@ fn hash_files_mpsc(Options { files, threads, .. }: Options) -> Return {
     let chunk_size = file_count.div_ceil(worker_count);
 
     let mut results = Vec::with_capacity(file_count);
-    thread::scope(|s| {
+    thread::scope(|scope| {
         let (sender, receiver) = mpsc::sync_channel(CHANNEL_SIZE);
 
         // Worker
         for files_chunk in files.chunks(chunk_size) {
             let sender = sender.clone();
-            s.spawn(move || {
+            scope.spawn(move || {
                 for &path in files_chunk {
-                    let Ok(hash) = FileHash::from_contents(path) else {
-                        eprintln!("failed to hash {:?}", path);
-                        continue;
-                    };
-                    sender.send((path, hash)).unwrap();
+                    sender.send(process_one(path)).unwrap();
                 }
             });
         }
 
         // Collector
         let results = &mut results;
-        s.spawn(move || {
+        scope.spawn(move || {
             while let Ok(item) = receiver.recv() {
                 results.push(item);
             }
         });
     });
-    results
+    sequence(results)
 }
 
 ////////////////
@@ -83,43 +111,38 @@ fn hash_files_mpsc(Options { files, threads, .. }: Options) -> Return {
 // (path, hash) go into a vec
 // if mutex.try_lock() {for each in vec {insert(path, hash)}}
 // Big Q is whether this is faster or not
-fn hash_files_arc_mutex(Options { files, threads, .. }: Options) -> Return {
-    const BACKLOG_CAPACITY: usize = 1 << 5;
-    const BACKLOG_DRAIN_THRESHOLD: usize =
-        (BACKLOG_CAPACITY >> 2) + (BACKLOG_CAPACITY >> 1);
+fn algorithm_arc_mutex(Options { files, threads, .. }: Options) -> Return {
+    const POOL_CAP: usize = 1 << 5;
+    const POOL_DRAIN_THRESHOLD: usize = (POOL_CAP >> 2) + (POOL_CAP >> 1);
 
     let file_count = files.len().get();
     let worker_count = threads.get();
     let chunk_size = file_count.div_ceil(worker_count);
 
     let results = Arc::new(Mutex::new(Vec::with_capacity(file_count)));
-    thread::scope(|s| {
+    thread::scope(|scope| {
         for files_chunk in files.chunks(chunk_size) {
             let results = results.clone();
-            s.spawn(move || {
-                let mut backlog = Vec::with_capacity(BACKLOG_CAPACITY);
+            scope.spawn(move || {
+                let mut pool = Vec::with_capacity(POOL_CAP);
                 for &file in files_chunk {
-                    let Ok(hash) = FileHash::from_contents(file) else {
-                        eprintln!("failed to hash {:?}", file);
-                        continue;
-                    };
-                    backlog.push((file, hash));
-                    if backlog.len() >= BACKLOG_DRAIN_THRESHOLD {
-                        // NB: non-blocking lock()
+                    pool.push(process_one(file));
+                    // NB: non-blocking lock()
+                    if pool.len() >= POOL_DRAIN_THRESHOLD {
                         if let Ok(mut results) = results.try_lock() {
-                            results.extend(backlog.drain(..));
+                            results.extend(pool.drain(..));
                         }
                     }
                 }
                 // NB: blocking lock()
                 if let Ok(mut results) = results.lock() {
-                    results.extend(backlog.drain(..));
+                    results.extend(pool.drain(..));
                 }
             });
         }
     });
     // threads have joined, so there is exactly 1 reference to an unlocked mutex
-    Arc::into_inner(results).unwrap().into_inner().unwrap()
+    sequence(Arc::into_inner(results).unwrap().into_inner().unwrap())
 }
 
 ////////////////
@@ -130,25 +153,28 @@ fn hash_files_arc_mutex(Options { files, threads, .. }: Options) -> Return {
 // N workers workings over a chunk of (&Path, Option<FileHash>)
 // Replace None with Some
 // Then assert at the end
-fn hash_files_lockfree(Options { files, threads, .. }: Options) -> Return {
+fn algorithm_lock_free(Options { files, threads, .. }: Options) -> Return {
     let file_count = files.len().get();
     let worker_count = threads.get();
     let chunk_size = file_count.div_ceil(worker_count);
 
-    let mut results: Vec<(&Path, Option<FileHash>)> =
+    // None == not yet computed
+    // Some(Ok(hash)) == hash computed
+    // Some(Err(_)) == failed to hash
+    let mut results: Vec<(&Path, Option<crate::Result<FileHash>>)> =
         files.iter().map(|&file| (file, None)).collect();
 
-    thread::scope(|s| {
+    thread::scope(|scope| {
         for chunk in results.chunks_mut(chunk_size) {
-            s.spawn(move || {
+            scope.spawn(move || {
                 for (file, hash) in chunk {
-                    *hash = FileHash::from_contents(file).ok();
+                    *hash = Some(FileHash::from_contents(file));
                 }
             });
         }
     });
 
-    results.into_iter().map(|(path, hash)| (path, hash.unwrap())).collect()
+    sequence(results.into_iter().map(|(path, hash)| Ok((path, hash.unwrap()?))))
 }
 
 /////////////////////////
@@ -168,9 +194,9 @@ pub enum AlgorithmName {
 impl AlgorithmName {
     fn implementation(self) -> fn(Options) -> Return {
         match self {
-            Self::Mpsc => hash_files_mpsc,
-            Self::ArcMutex => hash_files_arc_mutex,
-            Self::LockFree => hash_files_lockfree,
+            Self::Mpsc => algorithm_mpsc,
+            Self::ArcMutex => algorithm_arc_mutex,
+            Self::LockFree => algorithm_lock_free,
         }
     }
 }
@@ -188,14 +214,14 @@ impl HashFilesConfiguration {
 
     pub fn run<'a>(self, files: &'a [&'a Path]) -> Return<'a> {
         let HashFilesConfiguration { algorithm, threads } = self;
-        let Some(files) = NonEmptySlice::new(files) else { return vec![] };
+        let Some(files) = NonEmptySlice::new(files) else { return Ok(vec![]) };
 
         let file_count = files.len().get();
         let thread_count = threads.get();
         let function = algorithm.implementation();
         let result = {
             let timer = Instant::now();
-            let value = function(Options { files, threads });
+            let value = function(Options { files, threads })?;
             let mut time = timer.elapsed();
             if time.is_zero() {
                 time += Duration::from_millis(1); // to prevent dividing by 0
@@ -219,6 +245,6 @@ impl HashFilesConfiguration {
             file_count, result_count,
             "input and output count must be equal"
         );
-        result
+        Ok(result)
     }
 }

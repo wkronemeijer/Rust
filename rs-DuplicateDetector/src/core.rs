@@ -2,6 +2,7 @@
 
 pub mod ansi;
 pub mod collections;
+pub mod error;
 pub mod fs;
 
 #[macro_export]

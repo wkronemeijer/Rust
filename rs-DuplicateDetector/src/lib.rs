@@ -102,7 +102,7 @@ pub fn run(
     /////////////
 
     let files_to_insert: Vec<(PathBuf, FileHash)> = config
-        .run(&files_to_hash)
+        .run(&files_to_hash)?
         .into_iter()
         .map(|(path, hash)| (path.to_path_buf(), hash))
         .collect();
@@ -112,7 +112,7 @@ pub fn run(
     ///////////////////
 
     // Index can contains paths of various different directories;
-    // This predicate selects those paths which belong to the current target.
+    // This predicate selects those paths which are descendants of our target.
     let is_our_file = |file: &Path| file.starts_with(&directory);
     let mut did_modify = false;
 
