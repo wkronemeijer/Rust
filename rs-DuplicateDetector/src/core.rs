@@ -4,6 +4,7 @@ pub mod ansi;
 pub mod collections;
 pub mod error;
 pub mod fs;
+pub mod sync;
 
 #[macro_export]
 macro_rules! time {

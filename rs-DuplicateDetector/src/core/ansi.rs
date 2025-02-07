@@ -17,6 +17,10 @@ pub const CSI: &str = "\x1B[";
 pub const OSC: &str = "\x1B]";
 pub const ST: &str = "\x1B\\";
 
+pub const CLEAR_LINE: &str = "\x1b[2K";
+pub const HIDE_CURSOR: &str = "\x1b[?25l";
+pub const SHOW_CURSOR: &str = "\x1b[?25h";
+
 /////////////////////
 // Simple wrappers //
 /////////////////////
@@ -105,6 +109,18 @@ impl Color for AnsiColor {
 
 #[derive(Debug, Clone, Copy)]
 pub struct BrightAnsiColor(pub AnsiColor);
+
+#[expect(non_upper_case_globals)]
+impl BrightAnsiColor {
+    pub const Black: BrightAnsiColor = BrightAnsiColor(AnsiColor::Black);
+    pub const Red: BrightAnsiColor = BrightAnsiColor(AnsiColor::Red);
+    pub const Green: BrightAnsiColor = BrightAnsiColor(AnsiColor::Green);
+    pub const Yellow: BrightAnsiColor = BrightAnsiColor(AnsiColor::Yellow);
+    pub const Blue: BrightAnsiColor = BrightAnsiColor(AnsiColor::Blue);
+    pub const Magenta: BrightAnsiColor = BrightAnsiColor(AnsiColor::Magenta);
+    pub const Cyan: BrightAnsiColor = BrightAnsiColor(AnsiColor::Cyan);
+    pub const White: BrightAnsiColor = BrightAnsiColor(AnsiColor::White);
+}
 
 impl AnsiColor {
     pub fn bright(self) -> BrightAnsiColor { BrightAnsiColor(self) }

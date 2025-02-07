@@ -12,11 +12,16 @@ use std::time::Instant;
 use clap::ValueEnum;
 use strum::Display;
 
+use crate::core::ansi::BrightAnsiColor;
+use crate::core::ansi::Styleable;
 use crate::core::collections::nonempty::NonEmptySlice;
 use crate::core::collections::nonempty::NonEmptyVec;
 use crate::core::error::AggregateError;
 use crate::core::error::partition_results;
+use crate::core::sync::cancellation_token;
 use crate::hash::FileHash;
+use crate::progress::BRAILLE_8;
+use crate::progress::spawn_spinner;
 
 ///////////////////////////
 // Parameters and return //
@@ -71,6 +76,7 @@ where
 // then send the (path, hash) through a channel
 // recv then inserts them into the result
 fn algorithm_mpsc(Options { files, threads, .. }: Options) -> Return {
+    const SPINNER_PERIOD: Duration = Duration::from_millis(1000);
     const CHANNEL_SIZE: usize = 1 << 8;
 
     let file_count = files.len().get();
@@ -91,13 +97,19 @@ fn algorithm_mpsc(Options { files, threads, .. }: Options) -> Return {
             });
         }
 
+        let (source, token) = cancellation_token();
+
         // Collector
         let results = &mut results;
         scope.spawn(move || {
             while let Ok(item) = receiver.recv() {
                 results.push(item);
             }
+            source.cancel();
         });
+
+        // UI
+        spawn_spinner(scope, BRAILLE_8, SPINNER_PERIOD, token);
     });
     sequence(results)
 }
@@ -185,9 +197,9 @@ fn algorithm_lock_free(Options { files, threads, .. }: Options) -> Return {
 #[clap(rename_all = "kebab-case")]
 #[strum(serialize_all = "kebab-case")]
 pub enum AlgorithmName {
+    #[default]
     Mpsc,
     ArcMutex,
-    #[default]
     LockFree,
 }
 
@@ -232,12 +244,14 @@ impl HashFilesConfiguration {
                 let thread_count = thread_count as f64;
                 file_count / seconds / thread_count
             };
-            eprintln!(
+
+            let message = format!(
                 "hashed {} file(s) in {}ms ({:.1} files/sec/thread)",
                 file_count,
                 time.as_millis(),
                 rate
             );
+            eprintln!("{}", message.color(BrightAnsiColor::Blue));
             value
         };
         let result_count = result.len();

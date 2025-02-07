@@ -5,6 +5,7 @@ pub mod core;
 pub mod db;
 pub mod hash;
 pub mod hash_concurrent;
+pub mod progress;
 pub mod search;
 
 use std::collections::HashSet;
