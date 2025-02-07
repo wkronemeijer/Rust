@@ -13,34 +13,31 @@ use crate::core::ansi::HIDE_CURSOR;
 use crate::core::ansi::SHOW_CURSOR;
 use crate::core::sync::CancellationToken;
 
-pub const BRAILLE_6: &str = concat!(
-    '\u{2837}', '\u{282F}', '\u{281F}', '\u{283B}', '\u{283D}', '\u{283E}',
-);
-pub const BRAILLE_8: &str = concat!(
-    '\u{28F7}', '\u{28EF}', '\u{28DF}', '\u{287F}', '\u{28BF}', '\u{28FB}',
-    '\u{28FD}', '\u{28FE}',
-);
+// From https://github.com/sindresorhus/cli-spinners/blob/main/spinners.json
+pub const BRAILLE_CIRCLE: &[&str] =
+    &["⢎ ", "⠎⠁", "⠊⠑", "⠈⠱", " ⡱", "⢀⡰", "⢄⡠", "⢆⡀"];
 
 pub fn spawn_spinner<'s, 'e>(
     scope: &'s Scope<'s, 'e>,
-    symbols: &'e str,
+    frames: &'e [&'e str],
     period: Duration,
     token: CancellationToken,
 ) -> ScopedJoinHandle<'s, ()> {
     const CAPACITY: usize = 1 << 8;
 
+    let frame_count = frames.len() as u32;
+    let time_per_step = period / frame_count;
+
     scope.spawn(move || {
         let stderr = stderr().lock();
-        // Buffer stderr to prevent flickering
         let mut out = BufWriter::with_capacity(CAPACITY, stderr);
+        // ↑ buffer stderr to prevent flickering
 
-        let mut chars = symbols.chars().cycle();
-        let symbol_count = symbols.chars().count() as u32;
-        let time_per_step = period / symbol_count;
+        let mut frame_loop = frames.into_iter().cycle();
 
         write!(out, "{}", HIDE_CURSOR).unwrap();
-        while let Some(char) = chars.next() {
-            write!(out, "{}\r", CLEAR_LINE).unwrap(); // Note the \r
+        while let Some(&char) = frame_loop.next() {
+            write!(out, "{}\r", CLEAR_LINE).unwrap();
             if token.cancelled() {
                 break;
             }

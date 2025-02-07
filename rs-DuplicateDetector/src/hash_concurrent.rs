@@ -20,7 +20,7 @@ use crate::core::error::AggregateError;
 use crate::core::error::partition_results;
 use crate::core::sync::cancellation_token;
 use crate::hash::FileHash;
-use crate::progress::BRAILLE_8;
+use crate::progress::BRAILLE_CIRCLE;
 use crate::progress::spawn_spinner;
 
 ///////////////////////////
@@ -76,7 +76,8 @@ where
 // then send the (path, hash) through a channel
 // recv then inserts them into the result
 fn algorithm_mpsc(Options { files, threads, .. }: Options) -> Return {
-    const SPINNER_PERIOD: Duration = Duration::from_millis(1000);
+    const SPINNER_PERIOD: Duration = Duration::from_millis(500);
+    const WAIT_PERIOD: Duration = Duration::from_millis(1500);
     const CHANNEL_SIZE: usize = 1 << 8;
 
     let file_count = files.len().get();
@@ -97,19 +98,19 @@ fn algorithm_mpsc(Options { files, threads, .. }: Options) -> Return {
             });
         }
 
-        let (source, token) = cancellation_token();
-
         // Collector
+        let (spinning, token) = cancellation_token();
         let results = &mut results;
         scope.spawn(move || {
             while let Ok(item) = receiver.recv() {
                 results.push(item);
             }
-            source.cancel();
+            thread::sleep(WAIT_PERIOD);
+            spinning.cancel();
         });
 
         // UI
-        spawn_spinner(scope, BRAILLE_8, SPINNER_PERIOD, token);
+        spawn_spinner(scope, BRAILLE_CIRCLE, SPINNER_PERIOD, token);
     });
     sequence(results)
 }
