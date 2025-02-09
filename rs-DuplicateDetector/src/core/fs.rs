@@ -6,13 +6,12 @@ use std::path::PathBuf;
 
 /// Recursively reads a directory and returns a list of all files.
 /// Returned paths are relative to the given directory.
-pub fn read_dir_all(dir: &Path) -> io::Result<Vec<PathBuf>> {
+pub fn read_dir_all<P: AsRef<Path>>(dir: P) -> io::Result<Vec<PathBuf>> {
     // FIXME: One circular symbolic link and this blows up
     // TODO: Maybe turns this into an iterator?
     let mut frontier = VecDeque::new();
     let mut visited = Vec::new();
-
-    frontier.push_back(dir.to_path_buf());
+    frontier.push_back(dir.as_ref().to_path_buf());
     while let Some(dir) = frontier.pop_front() {
         for item in fs::read_dir(dir)? {
             let path = item?.path();

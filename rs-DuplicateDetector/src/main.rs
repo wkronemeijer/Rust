@@ -1,6 +1,7 @@
 #![forbid(unsafe_code)]
 
 use std::num::NonZero;
+use std::path::Path;
 use std::path::PathBuf;
 use std::process::ExitCode;
 use std::thread::available_parallelism;
@@ -27,7 +28,7 @@ use duplicate_detector::search::PathStyle;
 #[deny(missing_docs)]
 pub struct Cli {
     /// The directory to search.
-    pub directory: PathBuf,
+    pub directories: Vec<PathBuf>,
 
     /// Algorithm for concurrent hashing.
     #[arg(long, default_value_t)]
@@ -68,7 +69,7 @@ pub struct Cli {
 
 pub fn start(
     Cli {
-        directory,
+        mut directories,
         algorithm,
         threads,
         hash_style,
@@ -97,8 +98,12 @@ pub fn start(
         .unwrap();
     let config = HashFilesConfiguration::new(algorithm, threads);
 
+    if directories.len() == 0 {
+        directories.push(Path::new(".").to_path_buf());
+    }
+
     duplicate_detector::run(Options {
-        directory,
+        directories,
         config,
         cache,
         hash_style,

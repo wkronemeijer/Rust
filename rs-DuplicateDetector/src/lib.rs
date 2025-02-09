@@ -42,7 +42,7 @@ pub type Result<T = (), E = Error> = ::std::result::Result<T, E>;
 //////////
 
 pub struct Options {
-    pub directory: PathBuf,
+    pub directories: Vec<PathBuf>,
     pub config: HashFilesConfiguration,
     pub hash_style: HashStyle,
     pub path_style: PathStyle,
@@ -52,7 +52,7 @@ pub struct Options {
 
 pub fn run(
     Options {
-        directory,
+        directories,
         config,
         hash_style,
         path_style,
@@ -68,7 +68,15 @@ pub fn run(
     if clean_cache {
         index.clear();
     }
-    let disk = read_dir_all(&directory)?;
+    let disk: Vec<PathBuf> = {
+        let mut all_files = Vec::new();
+        for dir in &directories {
+            all_files.extend(read_dir_all(dir)?);
+        }
+        // directories.iter().flat_map(read_dir_all).flatten()
+        // ...has the same result, but ignores errors
+        all_files
+    };
 
     /////////////////////////////
     // Compare index with disk //
@@ -114,7 +122,8 @@ pub fn run(
 
     // Index can contains paths of various different directories;
     // This predicate selects those paths which are descendants of our target.
-    let is_our_file = |file: &Path| file.starts_with(&directory);
+    let is_our_file =
+        |file: &Path| directories.iter().any(|dir| file.starts_with(dir));
     let mut did_modify = false;
 
     for file in files_to_delete {
