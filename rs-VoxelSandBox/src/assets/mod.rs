@@ -45,11 +45,13 @@ pub fn load_png_as_texture(
 }
 
 pub fn load_terrain_texture(gl: &impl Facade) -> crate::Result<TiledTexture> {
-    todo!();
+    let texture = load_png_as_texture(gl, TERRAIN_PNG)?;
+    Ok(TiledTexture::new(texture, TERRAIN_TILESIZE))
 }
 
 pub fn load_font_texture(gl: &impl Facade) -> crate::Result<TiledTexture> {
-    todo!();
+    let texture = load_png_as_texture(gl, FONT_PNG)?;
+    Ok(TiledTexture::new(texture, FONT_TILESIZE))
 }
 
 ///////////

@@ -3,6 +3,8 @@ pub mod renderer;
 use std::collections::btree_map::BTreeMap;
 use std::collections::btree_map::Entry::Occupied;
 use std::collections::btree_map::Entry::Vacant;
+use std::sync::atomic::AtomicBool;
+use std::sync::atomic::Ordering;
 
 use glium::Program;
 use glium::VertexBuffer;
@@ -18,11 +20,12 @@ use glium::uniforms::Sampler;
 use glium::uniforms::SamplerBehavior;
 use glium::uniforms::Uniforms;
 
+use crate::assets::FONT_TILESIZE;
 use crate::core::fused_shader::split_shader;
 use crate::display::Mesh;
+use crate::mat4;
 use crate::uvec2;
 use crate::vec2;
-use crate::vec3;
 use crate::vec4;
 
 #[derive(Debug, Clone, Copy)]
@@ -34,6 +37,7 @@ implement_vertex!(TextVertex, pos, tex);
 
 pub fn text_uniforms<'a>(
     font: &'a CompressedTexture2d,
+    projection: mat4,
     color: vec4,
     background: vec4,
 ) -> impl Uniforms {
@@ -44,6 +48,7 @@ pub fn text_uniforms<'a>(
     });
     uniform! {
         font: font,
+        projection: projection.to_cols_array_2d(),
         color: color.to_array(),
         background: background.to_array()
     }
@@ -59,30 +64,34 @@ pub fn text_program(gl: &impl Facade) -> crate::Result<Program> {
 ///////////
 
 /// Wrapper containing all styling information to draw a string.
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub struct Label<'a> {
     /// The text to draw.
     pub text: &'a str,
     /// Where to start drawing.
     pub top_left: vec2,
-    /// "Size" of the label, which refers to the height of the bounding box.
-    pub size: f32,
+    /// Height of the bounding box in **pixels**.
+    pub size: vec2,
     /// Letter color. Defaults to white.
-    pub color: vec3,
+    pub color: vec4,
     /// Background color. Defaults to None, which is fully transparent.
-    pub background: Option<vec3>,
+    pub background: vec4,
 }
 
-impl<'a> Default for Label<'a> {
-    fn default() -> Self {
-        Self {
-            text: "",
+impl<'a> Label<'a> {
+    fn new(text: &'a str) -> Self {
+        Label {
+            text,
             top_left: vec2(0.0, 0.0),
-            size: 0.1,
-            color: vec3(1.0, 1.0, 1.0),
-            background: None,
+            size: FONT_TILESIZE.as_vec2() * 2.0,
+            color: vec4::ONE,       // Opaqua white
+            background: vec4::ZERO, // Transparent black
         }
     }
+}
+
+impl Default for Label<'static> {
+    fn default() -> Self { Label::new("") }
 }
 
 ///////////////
@@ -97,10 +106,6 @@ pub struct CharAtlas {
 
 impl CharAtlas {
     fn new() -> Self { CharAtlas { map: BTreeMap::new() } }
-
-    fn insert_pos(&mut self, c: char, x: u32, y: u32) {
-        self.map.insert(c, uvec2(x, y));
-    }
 
     pub fn from_font_map(font_map: &str) -> Self {
         let mut result = Self::new();
@@ -134,20 +139,60 @@ impl CharAtlas {
 
 pub type TextMesh = Mesh<VertexBuffer<TextVertex>, NoIndices>;
 
-/// Generates a mesh for entire chunk.
-/// Maps (0,0,0) to (0f,0f,0f), so still needs a model transform.
 pub fn text_mesh(
     gl: &impl Facade,
     string: &str,
-    _step: u32,
+    atlas: &CharAtlas,
+    atlas_size: vec2,
+    frame_size: vec2,
+    glyph_size: vec2,
+    tile_size: vec2,
+    text_top_left: vec2,
 ) -> crate::Result<TextMesh> {
-    let ref mut vertices = Vec::<TextVertex>::new();
+    let mut vertices = Vec::<TextVertex>::new();
 
-    let mut push_char = |c: char| {};
+    let mut push_vertex = |xy: vec2, uv: vec2| {
+        vertices.push(TextVertex { pos: xy.into(), tex: uv.into() });
+    };
 
-    string.chars().for_each(push_char);
+    let mut push_quad = |c: char, top_left: vec2| {
+        /*
+        Reference:
+        S---R
+        |  /|
+        | / |
+        |/  |
+        P---Q
+        */
 
-    let vertices = VertexBuffer::new(gl, &vertices)?;
+        let tex_s = atlas.cell(c).as_vec2() * glyph_size + vec2::Y * atlas_size;
+        let tex_r = tex_s + glyph_size * vec2::X;
+        let tex_p = tex_s + glyph_size * vec2::Y;
+        let tex_q = tex_r + glyph_size * vec2::Y;
+
+        let pos_s = top_left;
+        let pos_r = pos_s + tile_size * vec2::X;
+        let pos_p = pos_s - tile_size * vec2::Y;
+        let pos_q = pos_r - tile_size * vec2::Y;
+
+        push_vertex(pos_p, tex_p / atlas_size);
+        push_vertex(pos_q, tex_q / atlas_size);
+        push_vertex(pos_r, tex_r / atlas_size);
+
+        push_vertex(pos_r, tex_r / atlas_size);
+        push_vertex(pos_s, tex_s / atlas_size);
+        push_vertex(pos_p, tex_p / atlas_size);
+    };
+
+    let mut position = vec2(text_top_left.x, frame_size.y - text_top_left.y);
+    let step = vec2::X * tile_size.x;
+
+    for c in string.chars() {
+        push_quad(c, position);
+        position += step;
+    }
+
+    let vertices = VertexBuffer::immutable(gl, &vertices)?;
     let indices = NoIndices(PrimitiveType::TrianglesList);
     Ok(Mesh { vertices, indices })
 }

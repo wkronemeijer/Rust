@@ -58,4 +58,6 @@ impl Camera {
         self.change_yaw(delta.x);
         self.change_pitch(delta.y);
     }
+
+    pub fn position(&self) -> vec3 { self.position }
 }

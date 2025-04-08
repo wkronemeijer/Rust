@@ -190,9 +190,10 @@ impl Application {
 impl Application {
     // Needs mut to update last_draw time
     pub fn draw(&mut self) -> crate::Result {
-        self.renderer.pre_draw(&self.display, &self.game)?;
+        let gl = &self.display;
+        self.renderer.pre_draw(gl, &self.game)?;
 
-        let mut frame = self.display.draw();
+        let mut frame = gl.draw();
         frame.clear_color(0.0, 0.0, 0.0, 1.0);
         {
             let frame = &mut frame;
@@ -203,8 +204,21 @@ impl Application {
             // and text renderer now just needs to store its stuff somewhere
             // no globals or closures like JS!
             self.renderer.draw_world(frame, &self.camera)?;
-            self.renderer.draw_text(frame, Label {
+            self.renderer.draw_text(gl, frame, &Label {
                 text: "Hello, world!",
+                top_left: vec2(0.0, 0.0),
+                ..Default::default()
+            })?;
+
+            self.renderer.draw_text(gl, frame, &Label {
+                text: &format!("{:.2}", self.camera.position()),
+                top_left: vec2(0.0, 32.0),
+                ..Default::default()
+            })?;
+
+            self.renderer.draw_text(gl, frame, &Label {
+                text: "Hello, world!",
+                top_left: vec2(0.0, 64.0),
                 ..Default::default()
             })?;
         }
@@ -236,7 +250,7 @@ impl ApplicationHandler for Application {
                 self.try_tick();
                 self.try_update();
                 self.draw().expect("drawing failed");
-            }
+            },
             Resized(inner_size) => self.display.resize(inner_size.into()),
             ///////////
             // Input //
@@ -263,17 +277,17 @@ impl ApplicationHandler for Application {
                         None => Some(Fullscreen::Borderless(None)),
                         Some(_) => None,
                     })
-                }
+                },
                 _ => self.input.process_key_event(key_event),
             },
             MouseInput { button, state, .. } => match (button, state) {
                 (MouseButton::Left, Pressed) => {
                     self.grab_cursor();
-                }
-                _ => {}
+                },
+                _ => {},
             },
             CloseRequested => event_loop.exit(),
-            _ => {}
+            _ => {},
         }
     }
 
@@ -290,9 +304,9 @@ impl ApplicationHandler for Application {
                 // according to https://github.com/bevyengine/bevy/issues/1149
                 // ...and they continue when you hit the edge of the screen.
                 self.input.process_motion_event(delta);
-            }
+            },
 
-            _ => {}
+            _ => {},
         }
     }
 

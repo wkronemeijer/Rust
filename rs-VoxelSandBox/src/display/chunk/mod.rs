@@ -106,7 +106,7 @@ fn add_block_vertices(
         return;
     }
 
-    let mut push_tri = |xyz: vec3, uv: vec2, l: f32| {
+    let mut push_vertex = |xyz: vec3, uv: vec2, l: f32| {
         vertices.push(ChunkVertex {
             pos: xyz.into(),
             tex: uv.into(),
@@ -148,12 +148,12 @@ fn add_block_vertices(
         }
 
         let l = get_light_level(f);
-        push_tri(vp, p, l);
-        push_tri(vq, q, l);
-        push_tri(vr, r, l);
-        push_tri(vr, r, l);
-        push_tri(vs, s, l);
-        push_tri(vp, p, l);
+        push_vertex(vp, p, l);
+        push_vertex(vq, q, l);
+        push_vertex(vr, r, l);
+        push_vertex(vr, r, l);
+        push_vertex(vs, s, l);
+        push_vertex(vp, p, l);
     };
 
     let a = chunk_pos(tile_idx);
@@ -184,7 +184,7 @@ pub fn chunk_mesh(
     for tile_idx in ChunkToTileIndex::every() {
         add_block_vertices(vertices, world, chunk_idx, tile_idx);
     }
-    let vertices = VertexBuffer::new(gl, &vertices)?;
+    let vertices = VertexBuffer::immutable(gl, &vertices)?;
     let indices = NoIndices(PrimitiveType::TrianglesList);
     Ok(Mesh { vertices, indices })
 }

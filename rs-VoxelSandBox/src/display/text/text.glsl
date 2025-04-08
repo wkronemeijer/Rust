@@ -37,9 +37,9 @@ void main() {
     // - foreground is (1.0, 1.0, 1.0)
     // - background is (1.0, 0.0, 1.0)
     float sigma = texture(font, uv).g; 
-    vec4 color = mix(color, background, sigma);
-    if (color.a < 0.99) {
+    vec4 c = mix(background, color, sigma);
+    if (c.a < 0.95) {
         discard;
     }
-    outputColor = color;
+    outputColor = c;
 }

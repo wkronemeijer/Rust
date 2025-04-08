@@ -71,9 +71,10 @@ impl AppRenderer {
 
     pub fn draw_text(
         &self,
+        gl: &impl Facade,
         frame: &mut impl Surface,
-        label: Label,
+        label: &Label,
     ) -> crate::Result {
-        self.text.draw(frame, label)
+        self.text.draw(gl, frame, label)
     }
 }

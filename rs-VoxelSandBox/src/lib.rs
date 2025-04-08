@@ -3,6 +3,27 @@
 #![forbid(unsafe_code)]
 // #![warn(missing_docs)]
 
+////////////
+// Macros //
+////////////
+
+#[macro_export]
+macro_rules! once {
+    ($body:block) => {{
+        use std::sync::atomic::AtomicBool;
+        use std::sync::atomic::Ordering;
+
+        static ONCE: AtomicBool = AtomicBool::new(true);
+        if ONCE.swap(false, Ordering::Acquire) {
+            $body
+        }
+    }};
+}
+
+/////////////
+// Modules //
+/////////////
+
 pub mod app;
 pub mod assets;
 pub mod camera;
