@@ -204,6 +204,8 @@ impl Application {
             // and text renderer now just needs to store its stuff somewhere
             // no globals or closures like JS!
             self.renderer.draw_world(frame, &self.camera)?;
+
+            // Debug info
             self.renderer.draw_text(gl, frame, &Label {
                 text: "Hello, world!",
                 top_left: vec2(0.0, 0.0),
@@ -217,7 +219,10 @@ impl Application {
             })?;
 
             self.renderer.draw_text(gl, frame, &Label {
-                text: "Hello, world!",
+                text: &format!(
+                    "fps: {:.0}",
+                    1.0 / self.last_draw.elapsed().as_secs_f64()
+                ),
                 top_left: vec2(0.0, 64.0),
                 ..Default::default()
             })?;
