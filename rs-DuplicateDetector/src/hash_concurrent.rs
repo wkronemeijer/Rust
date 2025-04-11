@@ -13,7 +13,8 @@ use clap::ValueEnum;
 use strum::Display;
 
 use crate::core::ansi::BrightAnsiColor;
-use crate::core::ansi::Styleable;
+use crate::core::ansi::ColorTarget;
+use crate::core::ansi::Colored;
 use crate::core::collections::nonempty::NonEmptySlice;
 use crate::core::collections::nonempty::NonEmptyVec;
 use crate::core::error::AggregateError;
@@ -93,7 +94,7 @@ fn algorithm_mpsc(Options { files, threads, .. }: Options) -> Return {
             let sender = sender.clone();
             scope.spawn(move || {
                 for &path in files_chunk {
-                    sender.send(process_one(path)).unwrap();
+                    sender.send(process_one(path)).expect("failed to send");
                 }
             });
         }
@@ -104,6 +105,8 @@ fn algorithm_mpsc(Options { files, threads, .. }: Options) -> Return {
         scope.spawn(move || {
             while let Ok(item) = receiver.recv() {
                 results.push(item);
+
+                let percent = (100 * results.len() / file_count).clamp(0, 100);
             }
             thread::sleep(WAIT_PERIOD);
             spinning.cancel();
@@ -252,7 +255,14 @@ impl HashFilesConfiguration {
                 time.as_millis(),
                 rate
             );
-            eprintln!("{}", message.color(BrightAnsiColor::Blue));
+            eprintln!(
+                "{}",
+                Colored(
+                    ColorTarget::Foreground,
+                    BrightAnsiColor::Blue,
+                    &message
+                )
+            );
             value
         };
         let result_count = result.len();

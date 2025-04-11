@@ -77,6 +77,7 @@ impl FileHash {
             }
             hasher.update(&buffer[..bytes_read]);
         }
+
         let digest = hasher.finalize();
         let bytes = digest.into();
         Ok(FileHash { bytes })

@@ -20,7 +20,8 @@ use url::Url;
 
 use crate::connection::Connection;
 use crate::connection::ConnectionKind;
-use crate::core::ansi::Styleable;
+use crate::core::ansi::Anchor;
+use crate::core::ansi::Bold;
 use crate::core::fs::read_dir_all;
 use crate::db::Database;
 use crate::hash::FileHash;
@@ -158,7 +159,7 @@ pub fn run(
         let count = paths.len();
         let hash = hash_style.apply(hash);
         let header = format!("{} files with hash {}", count, hash);
-        writeln!(entry, "{}:", header.bold())?;
+        writeln!(entry, "{}:", Bold(&header))?;
         for &path in paths {
             let dir = path_style.apply(path.parent().unwrap());
             let file = Path::new(path.file_name().unwrap());
@@ -172,9 +173,9 @@ pub fn run(
             writeln!(
                 entry,
                 "{}{}{}",
-                dir.display().link(&dir_url),
+                Anchor(&dir_url, dir.display()),
                 MAIN_SEPARATOR,
-                file.display().link(&file_url),
+                Anchor(&file_url, file.display()),
             )?;
         }
         println!("{}", entry.trim_ascii());

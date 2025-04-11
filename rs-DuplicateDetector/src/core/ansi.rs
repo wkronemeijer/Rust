@@ -17,9 +17,9 @@ pub const CSI: &str = "\x1B[";
 pub const OSC: &str = "\x1B]";
 pub const ST: &str = "\x1B\\";
 
-pub const CLEAR_LINE: &str = "\x1b[2K";
-pub const HIDE_CURSOR: &str = "\x1b[?25l";
-pub const SHOW_CURSOR: &str = "\x1b[?25h";
+pub const CLEAR_LINE: &str = "\x1B[2K";
+pub const HIDE_CURSOR: &str = "\x1B[?25l";
+pub const SHOW_CURSOR: &str = "\x1B[?25h";
 
 /////////////////////
 // Simple wrappers //
@@ -28,11 +28,12 @@ pub const SHOW_CURSOR: &str = "\x1b[?25h";
 macro_rules! sgr_wrapper {
     ($ty:ident, $on:literal, $off:literal) => {
         #[derive(Debug)]
-        pub struct $ty<'a, T: ?Sized>(pub &'a T);
+        #[repr(transparent)]
+        pub struct $ty<T>(pub T);
 
-        impl<'a, T: Display + ?Sized> Display for $ty<'a, T> {
+        impl<T: Display> Display for $ty<T> {
             fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-                let $ty(inner) = *self;
+                let $ty(inner) = self;
                 // concat! doesn't like it if I put CSI in here
                 write!(f, concat!("\x1B[", $on, "m{}\x1B[", $off, "m"), inner)
             }
@@ -112,14 +113,14 @@ pub struct BrightAnsiColor(pub AnsiColor);
 
 #[expect(non_upper_case_globals)]
 impl BrightAnsiColor {
-    pub const Black: BrightAnsiColor = BrightAnsiColor(AnsiColor::Black);
-    pub const Red: BrightAnsiColor = BrightAnsiColor(AnsiColor::Red);
-    pub const Green: BrightAnsiColor = BrightAnsiColor(AnsiColor::Green);
-    pub const Yellow: BrightAnsiColor = BrightAnsiColor(AnsiColor::Yellow);
-    pub const Blue: BrightAnsiColor = BrightAnsiColor(AnsiColor::Blue);
-    pub const Magenta: BrightAnsiColor = BrightAnsiColor(AnsiColor::Magenta);
-    pub const Cyan: BrightAnsiColor = BrightAnsiColor(AnsiColor::Cyan);
-    pub const White: BrightAnsiColor = BrightAnsiColor(AnsiColor::White);
+    pub const Black: BrightAnsiColor = Self(AnsiColor::Black);
+    pub const Red: BrightAnsiColor = Self(AnsiColor::Red);
+    pub const Green: BrightAnsiColor = Self(AnsiColor::Green);
+    pub const Yellow: BrightAnsiColor = Self(AnsiColor::Yellow);
+    pub const Blue: BrightAnsiColor = Self(AnsiColor::Blue);
+    pub const Magenta: BrightAnsiColor = Self(AnsiColor::Magenta);
+    pub const Cyan: BrightAnsiColor = Self(AnsiColor::Cyan);
+    pub const White: BrightAnsiColor = Self(AnsiColor::White);
 }
 
 impl AnsiColor {
@@ -154,8 +155,12 @@ impl Color for RgbColor {
     }
 }
 
+///////////////////
+// Color styling //
+///////////////////
+
 #[derive(Debug)]
-pub struct Colored<'a, C, T: ?Sized>(ColorTarget, C, &'a T);
+pub struct Colored<'a, C, T: ?Sized>(pub ColorTarget, pub C, pub &'a T);
 
 impl<'a, C: Color, T: Display + ?Sized> Display for Colored<'a, C, T> {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
@@ -183,47 +188,58 @@ impl<'a, C: Color, T: Display + ?Sized> Display for Colored<'a, C, T> {
     }
 }
 
-//////////////////////
-// Complex wrappers //
-//////////////////////
+////////////
+// Anchor //
+////////////
 
 #[derive(Debug)]
-pub struct Anchor<'a, T: ?Sized>(pub &'a Url, pub &'a T);
+pub struct Anchor<'a, T: Display>(pub &'a Url, pub T);
 
-impl<'a, T: Display + ?Sized> Display for Anchor<'a, T> {
+impl<'a, T: Display> Display for Anchor<'a, T> {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-        let Anchor(href, content) = *self;
+        let Anchor(href, content) = self;
         write!(f, "{OSC}8;;{href}{ST}{content}{OSC}8;;{ST}")
     }
 }
 
-///////////////////////
-// Convenience trait //
-///////////////////////
+//////////////////////
+// Set window title //
+//////////////////////
 
-// TODO: Use a better name
-pub trait Styleable {
-    fn bold(&self) -> Bold<Self> { Bold(self) }
-    fn faint(&self) -> Faint<Self> { Faint(self) }
-    fn italic(&self) -> Italic<Self> { Italic(self) }
-    fn hidden(&self) -> Hidden<Self> { Hidden(self) }
-    fn deleted(&self) -> Deleted<Self> { Deleted(self) }
-    fn inverted(&self) -> Inverted<Self> { Inverted(self) }
-    fn underlined(&self) -> Underlined<Self> { Underlined(self) }
+#[derive(Debug)]
+pub struct SetWindowTitle<T>(pub T);
 
-    /// Sets the text color.
-    fn color<C>(&self, color: C) -> Colored<C, Self> {
-        Colored(ColorTarget::Foreground, color, self)
-    }
-
-    /// Sets the background color.
-    fn background<C>(&self, color: C) -> Colored<C, Self> {
-        Colored(ColorTarget::Background, color, self)
-    }
-
-    fn link<'a>(&'a self, href: &'a Url) -> Anchor<'a, Self> {
-        Anchor(href, self)
+impl<T: Display> Display for SetWindowTitle<T> {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        let SetWindowTitle(inner) = self;
+        write!(f, "{OSC}0;{inner}{ST}")
     }
 }
 
-impl<T: Display + ?Sized> Styleable for T {}
+//////////////////
+// Set progress //
+//////////////////
+
+#[derive(Debug, Default, Clone, Copy)]
+pub enum SetProgress {
+    #[default]
+    Done,
+    Continue(u8),
+    Paused(u8),
+    Error(u8),
+    Indeterminate,
+}
+
+impl Display for SetProgress {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        let (code, mut pct) = match *self {
+            SetProgress::Done => (0, 0),
+            SetProgress::Continue(pct) => (1, pct),
+            SetProgress::Error(pct) => (2, pct),
+            SetProgress::Indeterminate => (3, 0),
+            SetProgress::Paused(pct) => (4, pct),
+        };
+        pct = pct.clamp(0, 100);
+        write!(f, "{OSC}9;4;{code};{pct}{ST}")
+    }
+}

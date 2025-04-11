@@ -12,7 +12,8 @@ pub use duplicate_detector::Result;
 use duplicate_detector::connection::CacheFormat;
 use duplicate_detector::connection::ConnectionKind;
 use duplicate_detector::core::ansi::AnsiColor;
-use duplicate_detector::core::ansi::Styleable;
+use duplicate_detector::core::ansi::ColorTarget;
+use duplicate_detector::core::ansi::Colored;
 use duplicate_detector::hash::HashStyle;
 use duplicate_detector::hash_concurrent::AlgorithmName;
 use duplicate_detector::hash_concurrent::HashFilesConfiguration;
@@ -117,12 +118,15 @@ pub fn start(
 //////////
 
 pub fn main() -> ExitCode {
-    let options = Cli::parse(); // parse() exits on failure
+    let options = Cli::parse(); // NB: parse() exits on failure
     match start(options) {
         Ok(()) => ExitCode::SUCCESS,
         Err(error) => {
             // TODO: Read https://docs.rs/anyhow/latest/anyhow/struct.Error.html#display-representations to include causes as well
-            eprintln!("{}", error.color(AnsiColor::Red));
+            eprintln!(
+                "{}",
+                Colored(ColorTarget::Foreground, AnsiColor::Red, &error)
+            );
             ExitCode::FAILURE
         },
     }
