@@ -17,10 +17,20 @@ use num_traits::Float;
 #[expect(non_camel_case_types)]
 #[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash)]
 pub enum Stat {
+    LEVEL = 1,
+
+    ///////////////
+    // Keystones //
+    ///////////////
+    CRIT_BOOST,
+    /// Attack first override.
+    VANTAGE,
+    WARY_FIGHTER,
+
     ////////////////
     // Attributes //
     ////////////////
-    VITALITY = 1,
+    VITALITY,
     STRENGTH,
     MAGIC,
     DEXTERITY,
@@ -54,20 +64,14 @@ pub enum Stat {
     AVOID,
     CRIT_HIT,
     CRIT_AVOID,
-
-    ///////////////
-    // Keystones //
-    ///////////////
-    CRIT_BOOST,
-    /// Attack first override.
-    VANTAGE,
-    WARY_FIGHTER,
 }
 
 impl fmt::Display for Stat {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         // TODO: use undo_screaming_snake_case
         match self {
+            Self::LEVEL => "level",
+
             Self::VITALITY => "vitality",
             Self::STRENGTH => "strength",
             Self::MAGIC => "magic",
@@ -112,18 +116,49 @@ impl fmt::Display for Stat {
 // Maybe swap for f64 and see what happens
 pub type StatValue = f32;
 
+////////////////
+// Conditions //
+////////////////
+
+#[derive(Debug, Clone, Copy)]
+enum Condition {
+    LowLife,
+    DualWielding,
+}
+
+impl Condition {
+    fn offset(self) -> u8 { self as u8 }
+}
+
+struct ConditionSet {
+    // TODO: Somewhere include a compiler error if
+    value: u64,
+}
+
+impl ConditionSet {
+    pub fn has(&self, cond: Condition) -> bool {
+        (self.value & (1 << cond.offset())) != 0
+    }
+
+    pub fn add(&mut self, cond: Condition) {
+        self.value |= (1 << cond.offset())
+    }
+
+    pub fn remove(&mut self, cond: Condition) {
+        self.value &= !(1 << cond.offset())
+    }
+
+    // Some kind of subset fn so we can have multiple conditions
+}
+
 ///////////////////
 // Stat Modifier //
 ///////////////////
 
-struct ModifierCondition {
-    is_low_life: bool,
-}
-
 struct CompleteModifier {
     pub target: (StatValue, ModifierKind, Stat),
     pub ratio: Option<(StatValue, Stat)>,
-    pub condition: Option<ModifierCondition>,
+    pub condition: Option<Condition>,
 }
 
 impl CompleteModifier {
@@ -148,6 +183,7 @@ pub enum ModifierKind {
     Increased,
     More,
     Final,
+    // Min, Max,
 }
 
 #[derive(Debug, Clone)]
@@ -221,54 +257,11 @@ struct ModifierSet {
 }
 
 impl ModifierSet {
-    pub fn new() -> Self { ModifierSet { modifier_by_name: HashMap::new() } }
+    pub fn new() -> Self { ModifierSet { modifiers: HashMap::new() } }
 
-    pub fn add(&mut self, name: impl Into<CompleteModifier>) {
-        use hash_map::Entry::*;
-        let CompleteModifier { target, ratio, condition } = name.into();
-        match self.modifier_by_name.entry(target) {
-            Vacant(entry) => {
-                entry.insert(effect);
-            },
-            Occupied(mut entry) => {
-                entry.get_mut().merge(&effect);
-            },
-        }
-    }
+    pub fn add(&mut self, name: impl Into<CompleteModifier>) { todo!() }
 
-    fn get(&self, name: Stat) -> StatValue {
-        match self.modifier_by_name.get(&name) {
-            Some(effect) => effect.finalize(),
-            None => StatValue::ZERO,
-        }
-    }
-}
-
-trait Fiddle {
-    fn added(self, stat: Stat) -> CompleteModifier;
-    fn increased(self, stat: Stat) -> CompleteModifier;
-    fn more(self, stat: Stat) -> CompleteModifier;
-}
-
-impl Fiddle for f64 {
-    fn added(self, stat: Stat) -> CompleteModifier {
-        CompleteModifier::new(self, ModifierKind::Added, stat)
-    }
-    fn increased(self, stat: Stat) -> CompleteModifier {
-        CompleteModifier::new(self, ModifierKind::Increased, stat)
-    }
-    fn more(self, stat: Stat) -> CompleteModifier {
-        CompleteModifier::new(self, ModifierKind::More, stat)
-    }
-}
-
-macro_rules! percent {
-    ($l:literal %) => {
-        StatValue::from_cents($l as f64)
-    };
-    ($l:literal) => {
-        StatValue::from_whole($l as f64)
-    };
+    fn get(&self, name: Stat) -> StatValue { todo!() }
 }
 
 #[cfg(test)]
@@ -286,13 +279,9 @@ mod tests {
         mods.add(modifier(0.25, Increased, STRENGTH));
         mods.add(modifier(0.10, More, STRENGTH));
         mods.add(modifier(1.0, Final, VANTAGE));
-        mods.add(1.0.added(STRENGTH));
-        mods.add(percent!(15%).increased(STRENGTH));
-
-        let value = percent!(15);
 
         let str = mods.get(STRENGTH);
 
-        assert_eq!(*str, 5.0);
+        assert_eq!(str, 5.0);
     }
 }

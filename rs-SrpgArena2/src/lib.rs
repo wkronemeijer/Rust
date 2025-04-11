@@ -1,5 +1,4 @@
 #![feature(map_many_mut)]
-
 pub mod core;
 pub mod events;
 pub mod game;

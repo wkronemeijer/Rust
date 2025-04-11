@@ -5,6 +5,20 @@ edition = "2024"
 
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
+[profile.dev]
+strip = false
+incremental = true
+opt-level = 1      # unironically makes it 10× faster 
+panic = "unwind"
+lto = false
+
+[profile.release]
+strip = true
+incremental = false
+opt-level = 3
+panic = "abort"
+lto = true
+
 [dependencies]
 anyhow = "1.0.95"
 arrayvec = "0.7.6"
@@ -13,7 +27,3 @@ num-traits = "0.2.19"
 rand = "0.8.5"
 ratatui = "0.29.0"
 thiserror = "2.0.11"
-
-[profile.release]
-# considering the number crunching, this is important for correctness
-overflow-checks = true

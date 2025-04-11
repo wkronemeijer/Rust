@@ -7,6 +7,10 @@ use std::marker::PhantomData;
 use std::mem::replace;
 use std::num::NonZero;
 
+////////////
+// Handle //
+////////////
+
 #[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash)]
 struct Gen {
     value: NonZero<u32>,
@@ -19,38 +23,43 @@ impl Gen {
         Some(Gen { value: self.value.checked_add(1)? })
     }
 
-    fn bump(&mut self) { *self = self.next().unwrap_or(Self::ONE) }
+    fn increment(&mut self) { *self = self.next().unwrap_or(Self::ONE) }
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash)]
-struct GenMapIndex {
+struct Index {
     inner: u32,
 }
 
-impl From<GenMapIndex> for usize {
-    fn from(value: GenMapIndex) -> Self { value.inner.try_into().unwrap() }
+impl From<Index> for usize {
+    fn from(value: Index) -> Self { value.inner.try_into().unwrap() }
 }
 
-impl From<usize> for GenMapIndex {
-    fn from(value: usize) -> Self {
-        GenMapIndex { inner: value.try_into().unwrap() }
-    }
+impl From<usize> for Index {
+    fn from(value: usize) -> Self { Index { inner: value.try_into().unwrap() } }
 }
 
 /// A handle for a value in a generational map.
+///
+/// Note that you can use an handle from one collection
+/// on a totally unrelated collection;
+/// this is not unsafe in terms of memory but may give weird results.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash)]
-pub struct Handle<T> {
+pub struct Handle<T: ?Sized> {
     generation: Gen,
-    index: GenMapIndex,
+    index: Index,
     item_type: PhantomData<T>,
 }
 
-impl<T> Handle<T> {
-    pub fn coerce<U>(self) -> Handle<U> {
-        let Handle { generation, index, .. } = self;
-        Handle { generation, index, item_type: PhantomData }
-    }
+impl<T: ?Sized> Handle<T> {
+    const NICHE_OPT: () = if size_of::<Self>() != size_of::<Option<Self>>() {
+        panic!("Handle should allow niche optimization")
+    };
 }
+
+////////////
+// GenMap //
+////////////
 
 #[derive(Debug, Clone)]
 struct Slot<T> {
@@ -59,7 +68,7 @@ struct Slot<T> {
 }
 
 impl<T> Slot<T> {
-    pub fn new() -> Self { Self { generation: Gen::ONE, value: None } }
+    pub fn new() -> Self { Slot { generation: Gen::ONE, value: None } }
 
     pub fn is_empty(&self) -> bool { self.value.is_none() }
 
@@ -76,7 +85,7 @@ impl<T> Slot<T> {
 
     pub fn clear(&mut self) {
         if let Some(_) = replace(&mut self.value, None) {
-            self.generation.bump();
+            self.generation.increment();
         }
     }
 }
@@ -86,12 +95,9 @@ pub struct GenMap<T> {
     slots: Vec<Slot<T>>,
 }
 
-/////////////////////////
-// Internal operations //
-/////////////////////////
-
+// Private
 impl<T> GenMap<T> {
-    fn reuse_empty_index(&self) -> Option<usize> {
+    fn find_empty_slot_index(&self) -> Option<usize> {
         for (index, slot) in self.slots.iter().enumerate() {
             if slot.is_empty() {
                 return Some(index)
@@ -100,18 +106,24 @@ impl<T> GenMap<T> {
         None
     }
 
-    fn create_new_index(&mut self) -> usize {
+    fn create_new_slot_index(&mut self) -> usize {
         let index = self.slots.len();
         self.slots.push(Slot::new());
         index
     }
 
-    fn new_index(&mut self) -> usize {
-        if let Some(index) = self.reuse_empty_index() {
+    fn new_slot_index(&mut self) -> usize {
+        if let Some(index) = self.find_empty_slot_index() {
             index
         } else {
-            self.create_new_index()
+            self.create_new_slot_index()
         }
+    }
+
+    fn new_slot(&mut self) -> (Index, &mut Slot<T>) {
+        let index = self.new_slot_index();
+        let slot = self.slots.get_mut(index).unwrap();
+        (index.into(), slot)
     }
 
     fn to_index(&self, handle: Handle<T>) -> Option<usize> {
@@ -121,8 +133,7 @@ impl<T> GenMap<T> {
     }
 
     fn get_slot(&self, handle: Handle<T>) -> Option<&Slot<T>> {
-        let index = self.to_index(handle)?;
-        self.slots.get(index)
+        self.slots.get(self.to_index(handle)?)
     }
 
     fn get_slot_mut(&mut self, hendle: Handle<T>) -> Option<&mut Slot<T>> {
@@ -131,10 +142,7 @@ impl<T> GenMap<T> {
     }
 }
 
-////////////////////////
-// External interface //
-////////////////////////
-
+// Public
 impl<T> GenMap<T> {
     /// Creates a new generational map with no items.
     pub fn new() -> Self { GenMap { slots: Vec::new() } }
@@ -147,10 +155,8 @@ impl<T> GenMap<T> {
     /// Adds a value to this map, returning a handle to that value.
     #[must_use]
     pub fn insert(&mut self, value: T) -> Handle<T> {
-        let index = self.new_index();
-        let slot = self.slots.get_mut(index).unwrap();
+        let (index, slot) = self.new_slot();
         let generation = slot.generation;
-        let index = index.into();
         slot.fill(value);
         Handle { generation, index, item_type: PhantomData }
     }
