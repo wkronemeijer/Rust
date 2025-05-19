@@ -15,7 +15,6 @@ use duplicate_detector::core::ansi::AnsiColor;
 use duplicate_detector::core::ansi::ColorTarget;
 use duplicate_detector::core::ansi::Colored;
 use duplicate_detector::hash::HashStyle;
-use duplicate_detector::hash_concurrent::AlgorithmName;
 use duplicate_detector::hash_concurrent::HashFilesConfiguration;
 use duplicate_detector::search::PathStyle;
 
@@ -31,10 +30,6 @@ pub struct Cli {
     /// The directory to search.
     pub directories: Vec<PathBuf>,
 
-    /// Algorithm for concurrent hashing.
-    #[arg(long, default_value_t)]
-    pub algorithm: AlgorithmName,
-
     /// Number of threads to use for hashing.
     #[arg(long)]
     pub threads: Option<usize>,
@@ -47,6 +42,7 @@ pub struct Cli {
     #[arg(long, default_value_t)]
     pub path_style: PathStyle,
 
+    // TODO: Invert this, store hashes (with time) in a AppData/Local cache
     /// Persist files hashes in a file.
     #[arg(long)]
     pub incremental: bool,
@@ -71,7 +67,6 @@ pub struct Cli {
 pub fn start(
     Cli {
         mut directories,
-        algorithm,
         threads,
         hash_style,
         path_style,
@@ -97,15 +92,15 @@ pub fn start(
         .or_else(|| available_parallelism().ok())
         .or_else(|| NonZero::new(1))
         .unwrap();
-    let config = HashFilesConfiguration::new(algorithm, threads);
+    let config = HashFilesConfiguration { threads };
 
     if directories.len() == 0 {
         directories.push(Path::new(".").to_path_buf());
     }
 
     duplicate_detector::run(Options {
-        directories,
         config,
+        directories,
         cache,
         hash_style,
         path_style,

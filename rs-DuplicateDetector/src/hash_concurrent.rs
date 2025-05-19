@@ -3,19 +3,11 @@
 use std::io::stderr;
 use std::num::NonZero;
 use std::path::Path;
-use std::sync::Arc;
-use std::sync::Mutex;
 use std::sync::mpsc;
 use std::thread;
 use std::time::Duration;
 use std::time::Instant;
 
-use clap::ValueEnum;
-use strum::Display;
-
-use crate::core::ansi::BrightAnsiColor;
-use crate::core::ansi::ColorTarget;
-use crate::core::ansi::Colored;
 use crate::core::collections::nonempty::NonEmptySlice;
 use crate::core::collections::nonempty::NonEmptyVec;
 use crate::core::error::AggregateError;
@@ -26,10 +18,6 @@ use crate::progress::StatusLine;
 ///////////////////////////
 // Parameters and return //
 ///////////////////////////
-
-// pub type HashFilesParamters<'a, 'b: 'a> = &'b[&'a Path]
-// I need to split the lifetime of the slice from the lifetime of the path
-// ...don't know how 😅
 
 struct Options<'a> {
     pub files: NonEmptySlice<'a, &'a Path>,
@@ -75,7 +63,7 @@ where I: IntoIterator<Item = crate::Result<T>> {
 // recv then inserts them into the result
 fn algorithm_mpsc(Options { files, threads, .. }: Options) -> Return {
     const UPDATE_PERIOD: Duration = Duration::from_millis(100);
-    const WAIT_PERIOD: Duration = Duration::from_millis(1500);
+    const WAIT_PERIOD: Duration = Duration::from_millis(500);
     const CHANNEL_SIZE: usize = 1 << 8;
 
     let file_count = files.len().get();
@@ -91,7 +79,9 @@ fn algorithm_mpsc(Options { files, threads, .. }: Options) -> Return {
             let sender = sender.clone();
             scope.spawn(move || {
                 for &path in files_chunk {
-                    sender.send(process_one(path)).expect("failed to send");
+                    if let Err(_) = sender.send(process_one(path)) {
+                        break;
+                    }
                 }
             });
         }
@@ -128,163 +118,28 @@ fn algorithm_mpsc(Options { files, threads, .. }: Options) -> Return {
     sequence(results)
 }
 
-////////////////
-// Search 2.0 //
-////////////////
-
-// IDEA:
-// N workers each have a chunk of paths to turn into hashes
-// (path, hash) go into a vec
-// if mutex.try_lock() {for each in vec {insert(path, hash)}}
-// Big Q is whether this is faster or not
-fn algorithm_arc_mutex(Options { files, threads, .. }: Options) -> Return {
-    const POOL_CAP: usize = 1 << 5;
-    const POOL_DRAIN_THRESHOLD: usize = (POOL_CAP >> 2) + (POOL_CAP >> 1);
-
-    let file_count = files.len().get();
-    let worker_count = threads.get();
-    let chunk_size = file_count.div_ceil(worker_count);
-
-    let results = Arc::new(Mutex::new(Vec::with_capacity(file_count)));
-    thread::scope(|scope| {
-        for files_chunk in files.chunks(chunk_size) {
-            let results = results.clone();
-            scope.spawn(move || {
-                let mut pool = Vec::with_capacity(POOL_CAP);
-                for &file in files_chunk {
-                    pool.push(process_one(file));
-                    // NB: non-blocking lock()
-                    if pool.len() >= POOL_DRAIN_THRESHOLD {
-                        if let Ok(mut results) = results.try_lock() {
-                            results.extend(pool.drain(..));
-                        }
-                    }
-                }
-                // NB: blocking lock()
-                if let Ok(mut results) = results.lock() {
-                    results.extend(pool.drain(..));
-                }
-            });
-        }
-    });
-    // threads have joined, so there is exactly 1 reference to an unlocked mutex
-    sequence(Arc::into_inner(results).unwrap().into_inner().unwrap())
-}
-
-////////////////
-// Search 3.0 //
-////////////////
-
-// IDEA:
-// N workers workings over a chunk of (&Path, Option<FileHash>)
-// Replace None with Some
-// Then assert at the end
-fn algorithm_lock_free(Options { files, threads, .. }: Options) -> Return {
-    let file_count = files.len().get();
-    let worker_count = threads.get();
-    let chunk_size = file_count.div_ceil(worker_count);
-
-    // None == not yet computed
-    // Some(Ok(hash)) == hash computed
-    // Some(Err(_)) == failed to hash
-    let mut results: Vec<(&Path, Option<crate::Result<FileHash>>)> =
-        files.iter().map(|&file| (file, None)).collect();
-
-    thread::scope(|scope| {
-        for chunk in results.chunks_mut(chunk_size) {
-            scope.spawn(move || {
-                for (file, hash) in chunk {
-                    *hash = Some(FileHash::from_contents(file));
-                }
-            });
-        }
-    });
-
-    sequence(results.into_iter().map(|(path, hash)| Ok((path, hash.unwrap()?))))
-}
-
 /////////////////////////
 // Choice of algorithm //
 /////////////////////////
 
-#[derive(Debug, Default, Clone, Copy, ValueEnum, Display)]
-#[clap(rename_all = "kebab-case")]
-#[strum(serialize_all = "kebab-case")]
-/// The name of the algorithm used for finding duplicates.
-pub enum AlgorithmName {
-    #[default]
-    /// Uses a channel.
-    Mpsc,
-    /// Uses a mutex to a single list.
-    ArcMutex,
-    /// Works on partitions of a vector in parallel.
-    LockFree,
-}
-
-impl AlgorithmName {
-    fn implementation(self) -> fn(Options) -> Return {
-        match self {
-            Self::Mpsc => algorithm_mpsc,
-            Self::ArcMutex => algorithm_arc_mutex,
-            Self::LockFree => algorithm_lock_free,
-        }
-    }
-}
-
 #[derive(Debug)]
 /// Options for the algorithm.
 pub struct HashFilesConfiguration {
-    algorithm: AlgorithmName,
-    threads: NonZero<usize>,
+    /// The number of threads to use.
+    pub threads: NonZero<usize>,
 }
 
 impl HashFilesConfiguration {
-    /// Creates a new configuration.
-    pub fn new(algorithm: AlgorithmName, threads: NonZero<usize>) -> Self {
-        HashFilesConfiguration { algorithm, threads }
-    }
-
     /// Uses the configuration to find duplicate files in a list of files.
     pub fn run<'a>(self, files: &'a [&'a Path]) -> Return<'a> {
-        let HashFilesConfiguration { algorithm, threads } = self;
+        let HashFilesConfiguration { threads } = self;
         let Some(files) = NonEmptySlice::new(files) else { return Ok(vec![]) };
 
-        let file_count = files.len().get();
-        let thread_count = threads.get();
-        let function = algorithm.implementation();
-        let result = {
-            let timer = Instant::now();
-            let value = function(Options { files, threads })?;
-            let mut time = timer.elapsed();
-            if time.is_zero() {
-                time += Duration::from_millis(1); // to prevent dividing by 0
-            }
-            let rate = {
-                let file_count = file_count as f64;
-                let seconds = time.as_secs_f64();
-                let thread_count = thread_count as f64;
-                file_count / seconds / thread_count
-            };
-
-            let message = format!(
-                "hashed {} file(s) in {}ms ({:.1} files/sec/thread)",
-                file_count,
-                time.as_millis(),
-                rate
-            );
-            eprintln!(
-                "{}",
-                Colored(
-                    ColorTarget::Foreground,
-                    BrightAnsiColor::Blue,
-                    &message
-                )
-            );
-            value
-        };
-        let result_count = result.len();
+        let result = algorithm_mpsc(Options { files, threads })?;
+        let in_count = files.len().get();
+        let out_count = result.len();
         debug_assert_eq!(
-            file_count, result_count,
+            in_count, out_count,
             "input and output count must be equal"
         );
         Ok(result)

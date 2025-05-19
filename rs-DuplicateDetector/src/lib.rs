@@ -51,7 +51,7 @@ pub type Result<T = (), E = Error> = ::std::result::Result<T, E>;
 pub struct Options {
     /// Where to look for duplicates.
     pub directories: Vec<PathBuf>,
-    /// Specifiy the algorithm to use.
+    /// Options for hashing.
     pub config: HashFilesConfiguration,
     /// How to format the hashes of the duplicates found.
     pub hash_style: HashStyle,

@@ -35,11 +35,7 @@ macro_rules! sgr_wrapper {
     ($ty:ident, $on:literal, $off:literal) => {
         #[derive(Debug)]
         #[repr(transparent)]
-        #[doc = concat!(
-                                                    "ANSI sequence to apply ",
-                                                    stringify!($ty),
-                                                    " to a span of text."
-                                                )]
+        #[doc = concat!("ANSI sequence to apply ", stringify!($ty), " to a span of text.")]
         pub struct $ty<T>(pub T);
 
         impl<T: Display> Display for $ty<T> {
