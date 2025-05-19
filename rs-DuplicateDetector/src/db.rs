@@ -23,8 +23,10 @@ pub struct Database {
 impl Database {
     /// Adds a record to this database.
     pub fn add(&mut self, path: PathBuf, hash: FileHash) {
+        // TODO: Check for absolute path
         self.files.insert(path, hash);
     }
+
     /// Removes a record from this database.
     pub fn remove(&mut self, path: &Path) { self.files.remove(path); }
 

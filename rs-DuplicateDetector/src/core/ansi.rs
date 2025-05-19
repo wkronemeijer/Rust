@@ -2,6 +2,10 @@
 //! similar to [`::std::path::Display`].
 //!
 //! Based on https://en.wikipedia.org/wiki/ANSI_escape_code.
+//!
+//! So far I have been unable to find a ANSI styling library that
+//! supports hyperlinks.
+//! Hyperlinks are essential to making the output of this program easier to use.
 
 use std::fmt;
 use std::fmt::Display;

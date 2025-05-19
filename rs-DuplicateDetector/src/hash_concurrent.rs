@@ -14,7 +14,7 @@ use crate::core::error::AggregateError;
 use crate::core::error::partition_results;
 use crate::hash::FileHash;
 use crate::hash::FileHasher;
-use crate::progress::StatusLine;
+use crate::status_line::StatusLine;
 
 ///////////////////////////
 // Parameters and return //
@@ -131,14 +131,15 @@ impl HashFilesConfiguration {
     pub fn run<'a>(self, files: &'a [&'a Path]) -> Return<'a> {
         let HashFilesConfiguration { threads } = self;
         let Some(files) = NonEmptySlice::new(files) else { return Ok(vec![]) };
-
         let result = algorithm_mpsc(Options { files, threads })?;
+
         let in_count = files.len().get();
         let out_count = result.len();
         debug_assert_eq!(
             in_count, out_count,
             "input and output count must be equal"
         );
+
         Ok(result)
     }
 }

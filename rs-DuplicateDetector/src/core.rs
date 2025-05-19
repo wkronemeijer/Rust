@@ -4,7 +4,6 @@ pub mod ansi;
 pub mod collections;
 pub mod error;
 pub mod fs;
-pub mod sync;
 
 #[macro_export]
 /// Like [`dbg!`], but prints the time taken to stderr.

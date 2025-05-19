@@ -8,8 +8,8 @@ pub mod core;
 pub mod db;
 pub mod hash;
 pub mod hash_concurrent;
-pub mod progress;
 pub mod search;
+pub mod status_line;
 
 use std::collections::HashSet;
 use std::fmt::Write;
