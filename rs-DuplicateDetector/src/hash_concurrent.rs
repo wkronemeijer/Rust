@@ -1,5 +1,6 @@
 //! Items to compute the hash of a set of files, concurrently.
 
+use std::io::stderr;
 use std::num::NonZero;
 use std::path::Path;
 use std::sync::Arc;
@@ -19,10 +20,8 @@ use crate::core::collections::nonempty::NonEmptySlice;
 use crate::core::collections::nonempty::NonEmptyVec;
 use crate::core::error::AggregateError;
 use crate::core::error::partition_results;
-use crate::core::sync::cancellation_token;
 use crate::hash::FileHash;
-use crate::progress::BRAILLE_CIRCLE;
-use crate::progress::spawn_spinner;
+use crate::progress::StatusLine;
 
 ///////////////////////////
 // Parameters and return //
@@ -75,15 +74,15 @@ where I: IntoIterator<Item = crate::Result<T>> {
 // then send the (path, hash) through a channel
 // recv then inserts them into the result
 fn algorithm_mpsc(Options { files, threads, .. }: Options) -> Return {
-    const SPINNER_PERIOD: Duration = Duration::from_millis(500);
+    const UPDATE_PERIOD: Duration = Duration::from_millis(100);
     const WAIT_PERIOD: Duration = Duration::from_millis(1500);
     const CHANNEL_SIZE: usize = 1 << 8;
 
     let file_count = files.len().get();
     let worker_count = threads.get();
     let chunk_size = file_count.div_ceil(worker_count);
-
     let mut results = Vec::with_capacity(file_count);
+
     thread::scope(|scope| {
         let (sender, receiver) = mpsc::sync_channel(CHANNEL_SIZE);
 
@@ -98,20 +97,33 @@ fn algorithm_mpsc(Options { files, threads, .. }: Options) -> Return {
         }
 
         // Collector
-        let (spinning, token) = cancellation_token();
         let results = &mut results;
         scope.spawn(move || {
+            let mut status_line = StatusLine::new(stderr().lock());
+            let mut last_update = Instant::now();
+
+            let mut update = |so_far: usize| {
+                let percent = (100 * so_far / file_count).clamp(0, 100);
+
+                status_line.writeln(&format!(
+                    "hashed {} of {} file(s) ({}%)",
+                    so_far, file_count, percent,
+                ));
+            };
+
+            update(results.len());
             while let Ok(item) = receiver.recv() {
                 results.push(item);
-
-                let percent = (100 * results.len() / file_count).clamp(0, 100);
+                if last_update.elapsed() > UPDATE_PERIOD {
+                    last_update = Instant::now();
+                    update(results.len());
+                }
             }
-            thread::sleep(WAIT_PERIOD);
-            spinning.cancel();
-        });
+            update(results.len());
 
-        // UI
-        spawn_spinner(scope, BRAILLE_CIRCLE, SPINNER_PERIOD, token);
+            thread::sleep(WAIT_PERIOD);
+            status_line.close();
+        });
     });
     sequence(results)
 }
