@@ -2,8 +2,7 @@
 
 use std::fmt;
 use std::fs::File;
-use std::io::BufReader;
-use std::io::Read;
+use std::io::copy;
 use std::path::Path;
 
 use clap::ValueEnum;
@@ -55,32 +54,25 @@ impl fmt::Display for FileHash {
     }
 }
 
-///////////////
-// Hash File //
-///////////////
+///////////////////
+// Multi-hashing //
+///////////////////
 
-impl FileHash {
-    /// Computes the file hash of a file at the given path.
-    ///
-    /// Based on https://stackoverflow.com/a/71606608
-    pub fn from_contents(path: &Path) -> crate::Result<FileHash> {
-        const BUF_SIZE: usize = 1 << 14;
-        const CHUNK_SIZE: usize = 1 << 10;
+/// Re-usable file hasher.
+pub struct FileHasher {
+    hasher: HashingAlgo,
+}
 
-        let file = File::open(path)?;
-        let mut reader = BufReader::with_capacity(BUF_SIZE, file);
-        let mut hasher = HashingAlgo::new();
+impl FileHasher {
+    /// Creates a new re-usable file hasher.
+    pub fn new() -> Self { FileHasher { hasher: HashingAlgo::new() } }
 
-        let mut buffer = [0; CHUNK_SIZE];
-        loop {
-            let bytes_read = reader.read(&mut buffer)?;
-            if bytes_read == 0 {
-                break
-            }
-            hasher.update(&buffer[..bytes_read]);
-        }
+    /// Creates a hash from the contents of the file at the given path.
+    pub fn from_contents(&mut self, path: &Path) -> crate::Result<FileHash> {
+        let mut file = File::open(path)?;
+        copy(&mut file, &mut self.hasher)?;
 
-        let digest = hasher.finalize();
+        let digest = self.hasher.finalize_reset();
         let bytes = digest.into();
         Ok(FileHash { bytes })
     }

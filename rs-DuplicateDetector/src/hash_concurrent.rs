@@ -13,6 +13,7 @@ use crate::core::collections::nonempty::NonEmptyVec;
 use crate::core::error::AggregateError;
 use crate::core::error::partition_results;
 use crate::hash::FileHash;
+use crate::hash::FileHasher;
 use crate::progress::StatusLine;
 
 ///////////////////////////
@@ -27,17 +28,6 @@ struct Options<'a> {
 type ReturnItem<'a> = (&'a Path, FileHash);
 
 type Return<'a> = crate::Result<Vec<ReturnItem<'a>>>;
-
-fn process_one(path: &Path) -> crate::Result<ReturnItem> {
-    let hash_result = FileHash::from_contents(path);
-    match hash_result {
-        Ok(hash) => Ok((path, hash)),
-        Err(error) => {
-            let context = format!("failed to hash {}", path.display());
-            Err(error.context(context))
-        },
-    }
-}
 
 /// Turns a sequence of results into a result of a sequence.
 ///
@@ -78,8 +68,16 @@ fn algorithm_mpsc(Options { files, threads, .. }: Options) -> Return {
         for files_chunk in files.chunks(chunk_size) {
             let sender = sender.clone();
             scope.spawn(move || {
+                let mut hasher = FileHasher::new();
                 for &path in files_chunk {
-                    if let Err(_) = sender.send(process_one(path)) {
+                    let message = match hasher.from_contents(path) {
+                        Ok(hash) => Ok((path, hash)),
+                        Err(error) => Err(error.context(format!(
+                            "failed to hash '{}'",
+                            path.display()
+                        ))),
+                    };
+                    if let Err(_) = sender.send(message) {
                         break;
                     }
                 }
@@ -94,7 +92,6 @@ fn algorithm_mpsc(Options { files, threads, .. }: Options) -> Return {
 
             let mut update = |so_far: usize| {
                 let percent = (100 * so_far / file_count).clamp(0, 100);
-
                 status_line.writeln(&format!(
                     "hashed {} of {} file(s) ({}%)",
                     so_far, file_count, percent,
