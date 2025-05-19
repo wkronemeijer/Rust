@@ -9,7 +9,6 @@ use std::thread::available_parallelism;
 use clap::Parser;
 use duplicate_detector::Options;
 pub use duplicate_detector::Result;
-use duplicate_detector::connection::CacheFormat;
 use duplicate_detector::connection::ConnectionKind;
 use duplicate_detector::core::ansi::AnsiColor;
 use duplicate_detector::core::ansi::ColorTarget;
@@ -54,10 +53,6 @@ pub struct Cli {
     /// Where to store the cache.
     #[arg(long)]
     pub cache_path: Option<PathBuf>,
-
-    /// Format of the cache.
-    #[arg(long, default_value_t)]
-    pub cache_format: CacheFormat,
 }
 
 ///////////
@@ -73,16 +68,14 @@ pub fn start(
         incremental,
         clean_cache,
         cache_path,
-        cache_format,
     }: Cli,
 ) -> crate::Result {
     let cache = match incremental {
         true => ConnectionKind::Disk {
             file: match cache_path {
                 Some(file) => file,
-                None => cache_format.default_file_name().to_path_buf(),
+                None => Path::new("hash-cache.dat").to_path_buf(),
             },
-            format: cache_format,
         },
         false => ConnectionKind::Memory,
     };
