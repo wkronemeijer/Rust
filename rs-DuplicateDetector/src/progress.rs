@@ -14,9 +14,11 @@ use crate::core::ansi::SHOW_CURSOR;
 use crate::core::sync::CancellationToken;
 
 // From https://github.com/sindresorhus/cli-spinners/blob/main/spinners.json
+/// A set of strings represeting a Braille spinner. e.g. `⠎⠁`
 pub const BRAILLE_CIRCLE: &[&str] =
     &["⢎ ", "⠎⠁", "⠊⠑", "⠈⠱", " ⡱", "⢀⡰", "⢄⡠", "⢆⡀"];
 
+/// Starts a spinner. This method takes a lock on stderr.
 pub fn spawn_spinner<'s, 'e>(
     scope: &'s Scope<'s, 'e>,
     frames: &'e [&'e str],

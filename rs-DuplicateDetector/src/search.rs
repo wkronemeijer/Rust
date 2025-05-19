@@ -68,10 +68,14 @@ impl<'a> FromIterator<(&'a Path, &'a FileHash)> for Deduplicator<'a> {
 #[derive(Debug, Default, Clone, Copy, ValueEnum, Display)]
 #[clap(rename_all = "kebab-case")]
 #[strum(serialize_all = "kebab-case")]
+/// Formatting for paths
 pub enum PathStyle {
     #[default]
+    /// Format relative to the current working directory.
     Relative,
+    /// Format as an absolute path, but without resolving symlinks.
     Absolute,
+    /// Format as the canonical path by resolving symlinks.
     Canonical,
 }
 

@@ -13,12 +13,18 @@ use url::Url;
 // Constants //
 ///////////////
 
+/// (C)ontrol (S)equence (I)nitiator
 pub const CSI: &str = "\x1B[";
+/// (O)perating (S)system (C)ommand
 pub const OSC: &str = "\x1B]";
+/// (S)tring (T)erminator
 pub const ST: &str = "\x1B\\";
 
+/// ANSI sequence to clear the entire line.
 pub const CLEAR_LINE: &str = "\x1B[2K";
+/// ANSI sequence to hide the cursor.
 pub const HIDE_CURSOR: &str = "\x1B[?25l";
+/// ANSI sequence to show the cursor.
 pub const SHOW_CURSOR: &str = "\x1B[?25h";
 
 /////////////////////
@@ -29,6 +35,11 @@ macro_rules! sgr_wrapper {
     ($ty:ident, $on:literal, $off:literal) => {
         #[derive(Debug)]
         #[repr(transparent)]
+        #[doc = concat!(
+                                                    "ANSI sequence to apply ",
+                                                    stringify!($ty),
+                                                    " to a span of text."
+                                                )]
         pub struct $ty<T>(pub T);
 
         impl<T: Display> Display for $ty<T> {
@@ -58,12 +69,16 @@ sgr_wrapper!(Deleted, 9, 29);
 // CSI 38;2;255;0;0 m ==> color: #FF0000;
 
 #[derive(Debug, Clone, Copy)]
+/// Where to apply the color.
 pub enum ColorTarget {
+    /// Apply the color to the foreground/letter/fill.
     Foreground,
+    /// Apply the color to the background.
     Background,
 }
 
 impl ColorTarget {
+    /// The base value to use for a given target.
     pub fn base(self) -> u8 {
         match self {
             Self::Foreground => 30,
@@ -71,10 +86,13 @@ impl ColorTarget {
         }
     }
 
+    /// Undo the color
     pub fn reset(self) -> u8 { self.base() + 9 }
 }
 
+/// All things usable as ANSI colors.
 pub trait Color {
+    /// Generates the SGR sequence to set the given color.
     fn args(&self, target: ColorTarget) -> impl Iterator<Item = u8>;
 }
 
@@ -83,18 +101,28 @@ pub trait Color {
 /////////////////
 
 #[derive(Debug, Clone, Copy)]
+/// Basic, 3-bit ANSI colors.
 pub enum AnsiColor {
+    /// Black.
     Black = 0,
+    /// Red.
     Red = 1,
+    /// Green.
     Green = 2,
+    /// Yellow.
     Yellow = 3,
+    /// Blue.
     Blue = 4,
+    /// Magenta.
     Magenta = 5,
+    /// Cyan.
     Cyan = 6,
+    /// White.
     White = 7,
 }
 
 impl AnsiColor {
+    /// The offset from the black for this given color.
     pub fn offset(self) -> u8 { self as u8 }
 }
 
@@ -109,21 +137,31 @@ impl Color for AnsiColor {
 /////////////////
 
 #[derive(Debug, Clone, Copy)]
+/// ANSI 3-bit colors, but brighter.
 pub struct BrightAnsiColor(pub AnsiColor);
 
 #[expect(non_upper_case_globals)]
 impl BrightAnsiColor {
+    /// Bright Black. Typically displays as dark gray.
     pub const Black: BrightAnsiColor = Self(AnsiColor::Black);
+    /// Bright Red.
     pub const Red: BrightAnsiColor = Self(AnsiColor::Red);
+    /// Bright Green.
     pub const Green: BrightAnsiColor = Self(AnsiColor::Green);
+    /// Bright Yellow.
     pub const Yellow: BrightAnsiColor = Self(AnsiColor::Yellow);
+    /// Bright Blue.
     pub const Blue: BrightAnsiColor = Self(AnsiColor::Blue);
+    /// Bright Magenta.
     pub const Magenta: BrightAnsiColor = Self(AnsiColor::Magenta);
+    /// Bright Cyan.
     pub const Cyan: BrightAnsiColor = Self(AnsiColor::Cyan);
+    /// Bright White. Typically displays as light gray.
     pub const White: BrightAnsiColor = Self(AnsiColor::White);
 }
 
 impl AnsiColor {
+    /// Upgrades an 3-bit ANSI color to its brighter variant.
     pub fn bright(self) -> BrightAnsiColor { BrightAnsiColor(self) }
 }
 
@@ -146,6 +184,7 @@ impl Color for BrightAnsiColor {
 //////////////////
 
 #[derive(Debug, Clone, Copy)]
+/// Full, 24-bit RGB ANSI color.
 pub struct RgbColor(pub u8, pub u8, pub u8);
 
 impl Color for RgbColor {
@@ -160,6 +199,7 @@ impl Color for RgbColor {
 ///////////////////
 
 #[derive(Debug)]
+/// A colored span of text.
 pub struct Colored<'a, C, T: ?Sized>(pub ColorTarget, pub C, pub &'a T);
 
 impl<'a, C: Color, T: Display + ?Sized> Display for Colored<'a, C, T> {
@@ -193,6 +233,7 @@ impl<'a, C: Color, T: Display + ?Sized> Display for Colored<'a, C, T> {
 ////////////
 
 #[derive(Debug)]
+/// A hypertext anchor, which contains a URI to somewhere.
 pub struct Anchor<'a, T: Display>(pub &'a Url, pub T);
 
 impl<'a, T: Display> Display for Anchor<'a, T> {
@@ -207,6 +248,7 @@ impl<'a, T: Display> Display for Anchor<'a, T> {
 //////////////////////
 
 #[derive(Debug)]
+/// When outputted, sets the title of the window.
 pub struct SetWindowTitle<T>(pub T);
 
 impl<T: Display> Display for SetWindowTitle<T> {
@@ -221,12 +263,19 @@ impl<T: Display> Display for SetWindowTitle<T> {
 //////////////////
 
 #[derive(Debug, Default, Clone, Copy)]
+/// When outputted, sets the progress of the window.
+/// On Windows, this displays as a bar over the taskbar icon.
 pub enum SetProgress {
     #[default]
+    /// Process is complete.
     Done,
+    /// Process is continueing, and currently at the given percentage.
     Continue(u8),
+    /// Process is paused, and currently at the given percentage.
     Paused(u8),
+    /// Process has failed at the given percentage.
     Error(u8),
+    /// Process progress is unknown.
     Indeterminate,
 }
 

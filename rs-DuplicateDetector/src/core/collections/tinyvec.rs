@@ -1,3 +1,5 @@
+//! A custom implementation of SmallVec, which stores the first element inline.
+
 use std::iter::empty;
 use std::iter::once;
 use std::mem::take;
@@ -10,8 +12,11 @@ use std::slice;
 #[derive(Debug, Default, Clone)]
 pub enum TinyVec<T> {
     #[default]
+    /// The Vec is empty
     Empty,
+    /// The Vec contains a single element.
     Single(T),
+    /// The Vec contains more than 1 element.
     Multiple(Vec<T>),
 }
 

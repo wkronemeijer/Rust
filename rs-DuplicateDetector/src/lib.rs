@@ -1,4 +1,7 @@
+//! Helps detect duplicates.
+
 #![forbid(unsafe_code)]
+#![warn(missing_docs)]
 
 pub mod connection;
 pub mod core;
@@ -34,23 +37,33 @@ use crate::search::PathStyle;
 // Error types //
 /////////////////
 
+/// This libraries error type. A synonym for [`::anyhow::Error`].
 pub type Error = ::anyhow::Error;
 
+/// This libraries result type.
 pub type Result<T = (), E = Error> = ::std::result::Result<T, E>;
 
 //////////
 // Main //
 //////////
 
+/// Options for finding duplicates.
 pub struct Options {
+    /// Where to look for duplicates.
     pub directories: Vec<PathBuf>,
+    /// Specifiy the algorithm to use.
     pub config: HashFilesConfiguration,
+    /// How to format the hashes of the duplicates found.
     pub hash_style: HashStyle,
+    /// How to format the path to the duplicates found.
     pub path_style: PathStyle,
+    /// Where to (re)store previously found information on duplicates.
     pub cache: ConnectionKind,
+    /// Whether to wipe the cache before computation.
     pub clean_cache: bool,
 }
 
+/// Finds duplicates using the specified parameters.
 pub fn run(
     Options {
         directories,

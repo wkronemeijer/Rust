@@ -34,12 +34,14 @@ const HASH_BYTE_SIZE: usize = 32;
     Deserialize
 )]
 #[repr(transparent)]
-#[serde(transparent)]
+#[serde(transparent)] // TODO: Store it as a hex string, not as an array of bytes
+/// The hashed contents of a file.
 pub struct FileHash {
     bytes: [u8; HASH_BYTE_SIZE],
 }
 
 impl FileHash {
+    /// Returns the bytes of this hash.
     pub fn bytes(&self) -> &[u8] { &self.bytes }
 }
 
@@ -91,13 +93,17 @@ impl FileHash {
 #[derive(Debug, Default, Clone, Copy, ValueEnum, Display)]
 #[clap(rename_all = "kebab-case")]
 #[strum(serialize_all = "kebab-case")]
+/// How to display hashes.
 pub enum HashStyle {
     #[default]
+    /// Truncate long hashes.
     Short,
+    /// Display the full hash.
     Full,
 }
 
 impl HashStyle {
+    /// Uses the style to formnat a hash.
     pub fn apply(self, hash: &FileHash) -> String {
         let hash = hash.to_string();
         match self {

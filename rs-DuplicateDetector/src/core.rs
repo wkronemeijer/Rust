@@ -7,6 +7,7 @@ pub mod fs;
 pub mod sync;
 
 #[macro_export]
+/// Like [`dbg!`], but prints the time taken to stderr.
 macro_rules! time {
     ($e:expr) => {{
         let start = Instant::now();

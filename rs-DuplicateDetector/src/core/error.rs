@@ -1,3 +1,5 @@
+//! Contains additional error utilities;
+
 use std::error::Error as StdError;
 use std::fmt;
 use std::ops::Deref;
@@ -9,10 +11,9 @@ use crate::core::collections::nonempty::NonEmptyVec;
 // Parition `Result`s //
 ////////////////////////
 
+/// Splits a list of results into a list of values and errors.
 pub fn partition_results<T, E, I>(iter: I) -> (Vec<T>, Vec<E>)
-where
-    I: IntoIterator<Item = Result<T, E>>,
-{
+where I: IntoIterator<Item = Result<T, E>> {
     let iter = iter.into_iter();
     let size = iter.size_hint().0;
     let mut values = Vec::with_capacity(size);
@@ -33,12 +34,14 @@ where
 /////////////////////
 
 #[derive(Debug)]
+/// An error respresting a non-empty list of errors.
 pub struct AggregateError {
     /// Invariant: never empty
     errors: NonEmptyVec<crate::Error>,
 }
 
 impl AggregateError {
+    /// Creates a new aggregate error.
     pub fn new(errors: NonEmptyVec<crate::Error>) -> Self {
         AggregateError { errors }
     }
@@ -69,6 +72,6 @@ impl fmt::Display for AggregateError {
 
 impl StdError for AggregateError {
     fn source(&self) -> Option<&(dyn StdError + 'static)> {
-        Some(self.errors.first().as_ref())
+        Some(self.errors.as_slice().first().as_ref())
     }
 }

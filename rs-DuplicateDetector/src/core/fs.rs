@@ -1,3 +1,5 @@
+//! Contains additional file system routines.
+
 use std::collections::VecDeque;
 use std::fs;
 use std::io;
@@ -21,7 +23,7 @@ pub fn read_dir_all<P: AsRef<Path>>(dir: P) -> io::Result<Vec<PathBuf>> {
             } else if stat.is_file() {
                 visited.push(path);
             } else {
-                // only visited if we symlink_metdata
+                // only visited if we symlink_metadata
             }
         }
     }

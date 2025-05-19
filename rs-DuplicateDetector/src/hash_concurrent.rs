@@ -57,9 +57,7 @@ fn process_one(path: &Path) -> crate::Result<ReturnItem> {
 /// Unlike the stdlib conversion method,
 /// this function accumulates all errors into an [`AggregateError`].
 fn sequence<T, I>(iter: I) -> crate::Result<Vec<T>>
-where
-    I: IntoIterator<Item = crate::Result<T>>,
-{
+where I: IntoIterator<Item = crate::Result<T>> {
     let (values, errors) = partition_results(iter);
     if let Some(errors) = NonEmptyVec::new(errors) {
         Err(crate::Error::new(AggregateError::new(errors)))
@@ -200,10 +198,14 @@ fn algorithm_lock_free(Options { files, threads, .. }: Options) -> Return {
 #[derive(Debug, Default, Clone, Copy, ValueEnum, Display)]
 #[clap(rename_all = "kebab-case")]
 #[strum(serialize_all = "kebab-case")]
+/// The name of the algorithm used for finding duplicates.
 pub enum AlgorithmName {
     #[default]
+    /// Uses a channel.
     Mpsc,
+    /// Uses a mutex to a single list.
     ArcMutex,
+    /// Works on partitions of a vector in parallel.
     LockFree,
 }
 
@@ -218,16 +220,19 @@ impl AlgorithmName {
 }
 
 #[derive(Debug)]
+/// Options for the algorithm.
 pub struct HashFilesConfiguration {
     algorithm: AlgorithmName,
     threads: NonZero<usize>,
 }
 
 impl HashFilesConfiguration {
+    /// Creates a new configuration.
     pub fn new(algorithm: AlgorithmName, threads: NonZero<usize>) -> Self {
         HashFilesConfiguration { algorithm, threads }
     }
 
+    /// Uses the configuration to find duplicate files in a list of files.
     pub fn run<'a>(self, files: &'a [&'a Path]) -> Return<'a> {
         let HashFilesConfiguration { algorithm, threads } = self;
         let Some(files) = NonEmptySlice::new(files) else { return Ok(vec![]) };
