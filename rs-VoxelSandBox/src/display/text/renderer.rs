@@ -7,7 +7,6 @@ use glium::texture::CompressedTexture2d;
 use super::CharAtlas;
 use super::Label;
 use super::text_program;
-use crate::assets::FONT_GRIDSIZE;
 use crate::assets::FONT_PNG;
 use crate::assets::FONT_PNG_DIMENSIONS;
 use crate::assets::FONT_TILESIZE;
@@ -18,7 +17,6 @@ use crate::display::text::text_mesh;
 use crate::display::text::text_uniforms;
 use crate::mat4;
 use crate::uvec2;
-use crate::vec2;
 
 //////////////////
 // TextRenderer //

@@ -45,9 +45,9 @@ impl TiledTexture {
         let step @ vec2 { x: x_step, y: y_step } = self.uv_step;
 
         let bottom_left = index.as_vec2() * step;
-        let bottom_right = bottom_left + x_step;
-        let top_left = bottom_left + y_step;
-        let top_right = bottom_right + y_step;
+        let bottom_right = bottom_left + x_step * vec2::X;
+        let top_left = bottom_left + y_step * vec2::Y;
+        let top_right = bottom_right + y_step * vec2::Y;
         Some(UvQuad { top_left, top_right, bottom_left, bottom_right })
     }
 }

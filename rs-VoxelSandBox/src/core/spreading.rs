@@ -29,12 +29,12 @@ fn every_vec1_u32(this: u32) -> impl Iterator<Item = i32> + Clone {
 }
 
 // When can we have gen functions...
-fn every_vec2_u32(this: uvec2) -> impl Iterator<Item = ivec2> {
+fn every_vec2_u32(_: uvec2) -> impl Iterator<Item = ivec2> {
     todo!();
     empty()
 }
 
-fn every_vec3_u32(this: uvec3) -> impl Iterator<Item = ivec3> {
+fn every_vec3_u32(_: uvec3) -> impl Iterator<Item = ivec3> {
     todo!();
     empty()
 }
@@ -54,8 +54,7 @@ fn every_vec3_u32(this: uvec3) -> impl Iterator<Item = ivec3> {
 // You /could/ use a wrapper struct
 // But meeeeeeh
 pub trait SizeLike
-where
-    Self: Copy, {
+where Self: Copy {
     type Offset: Copy;
 
     /// Returns whether this size is "empty", i.e. contains no points at all.

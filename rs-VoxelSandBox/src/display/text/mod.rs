@@ -3,8 +3,6 @@ pub mod renderer;
 use std::collections::btree_map::BTreeMap;
 use std::collections::btree_map::Entry::Occupied;
 use std::collections::btree_map::Entry::Vacant;
-use std::sync::atomic::AtomicBool;
-use std::sync::atomic::Ordering;
 
 use glium::Program;
 use glium::VertexBuffer;
