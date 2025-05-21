@@ -4,7 +4,17 @@
 #![warn(missing_docs)]
 
 pub mod connection;
-pub mod core;
+pub mod core {
+    //! Stuff that should be in [`core`], but isn't.
+    pub mod ansi;
+    pub mod collections {
+        //! Contains additional collections.
+        pub mod nonempty;
+        pub mod tinyvec;
+    }
+    pub mod error;
+    pub mod fs;
+}
 pub mod db;
 pub mod hash;
 pub mod hash_concurrent;
