@@ -6,11 +6,14 @@ use std::path::PathBuf;
 use std::process::ExitCode;
 use std::thread::available_parallelism;
 
+use anyhow::Context;
 use clap::Parser;
+use directories::ProjectDirs;
 use duplicate_detector::Options;
 pub use duplicate_detector::Result;
 use duplicate_detector::connection::ConnectionKind;
 use duplicate_detector::core::ansi::AnsiColor;
+use duplicate_detector::core::ansi::Bold;
 use duplicate_detector::core::ansi::ColorTarget;
 use duplicate_detector::core::ansi::Colored;
 use duplicate_detector::hash::HashStyle;
@@ -59,6 +62,15 @@ pub struct Cli {
 // Main* //
 ///////////
 
+const ORG_NAME: &str = "Bliksem Software";
+const APP_NAME: &str = "Duplicate Detector";
+
+fn global_cache_path() -> crate::Result<PathBuf> {
+    let dirs = ProjectDirs::from("frl", ORG_NAME, APP_NAME)
+        .context("failed to find user directory")?;
+    Ok(dirs.cache_dir().join("hash-cache.dat"))
+}
+
 pub fn start(
     Cli {
         mut directories,
@@ -71,12 +83,10 @@ pub fn start(
     }: Cli,
 ) -> crate::Result {
     let cache = match incremental {
-        true => ConnectionKind::Disk {
-            file: match cache_path {
-                Some(file) => file,
-                None => Path::new("hash-cache.dat").to_path_buf(),
-            },
-        },
+        true => ConnectionKind::Disk(match cache_path {
+            Some(file) => file,
+            None => global_cache_path()?,
+        }),
         false => ConnectionKind::Memory,
     };
 
@@ -110,11 +120,12 @@ pub fn main() -> ExitCode {
     match start(options) {
         Ok(()) => ExitCode::SUCCESS,
         Err(error) => {
-            // TODO: Read https://docs.rs/anyhow/latest/anyhow/struct.Error.html#display-representations to include causes as well
-            eprintln!(
-                "{}",
-                Colored(ColorTarget::Foreground, AnsiColor::Red, &error)
-            );
+            let target = ColorTarget::Foreground;
+            let color = AnsiColor::Red;
+            eprint!("{}", Bold(Colored(target, color, "Error: ")));
+            for cause in error.chain() {
+                eprintln!("{}", Colored(target, color, &cause));
+            }
             ExitCode::FAILURE
         },
     }
