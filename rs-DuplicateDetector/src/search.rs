@@ -93,7 +93,7 @@ impl PathStyle {
 
     /// Applies a formatting style,
     /// falling back to the original path if formatting fails.
-    pub fn apply(self, path: &Path) -> Cow<Path> {
+    pub fn format(self, path: &Path) -> Cow<Path> {
         match self.try_apply(path) {
             Ok(cow) => cow,
             Err(_) => Borrowed(path),

@@ -37,21 +37,17 @@ impl<T> TinyVec<T> {
         }
     }
 
-    fn into_push(self, new: T) -> Self {
-        match self {
+    /// Adds a new value.
+    pub fn push(&mut self, new: T) {
+        // ...is there ::core::mem method that does in one operation?
+        *self = match take(self) {
             Empty => Single(new),
             Single(old) => Multiple(vec![old, new]),
             Multiple(mut vec) => {
                 vec.push(new);
                 Multiple(vec)
             },
-        }
-    }
-
-    /// Adds a new value.
-    pub fn push(&mut self, new: T) {
-        // ...is there ::core::mem method that does in one operation?
-        *self = take(self).into_push(new);
+        };
     }
 
     /// Returns a slice of the entire contents.
@@ -63,7 +59,7 @@ impl<T> TinyVec<T> {
         }
     }
 
-    /// Consumes this vec and turns it into a proper [`Vec`].
+    /// Consumes this vec and turns it into a [`Vec`].
     pub fn into_vec(self) -> Vec<T> {
         match self {
             Empty => vec![],

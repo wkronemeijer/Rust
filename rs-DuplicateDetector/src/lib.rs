@@ -3,6 +3,9 @@
 #![forbid(unsafe_code)]
 #![warn(missing_docs)]
 
+#[cfg(not(windows))]
+compile_error!("this program requires NTFS ADS to store metadata");
+
 pub mod connection;
 pub mod core {
     //! Stuff that should be in [`core`], but isn't.
@@ -57,16 +60,22 @@ pub type Result<T = (), E = Error> = ::std::result::Result<T, E>;
 // Main //
 //////////
 
+/// Options for output formatting.
+pub struct StyleOptions {
+    /// How to format the hashes of the duplicates found.
+    pub hash: HashStyle,
+    /// How to format the path to the duplicates found.
+    pub path: PathStyle,
+}
+
 /// Options for finding duplicates.
 pub struct Options {
     /// Where to look for duplicates.
     pub directories: Vec<PathBuf>,
     /// Options for hashing.
     pub config: HashFilesConfiguration,
-    /// How to format the hashes of the duplicates found.
-    pub hash_style: HashStyle,
-    /// How to format the path to the duplicates found.
-    pub path_style: PathStyle,
+    /// Options for output formatting.
+    pub style: StyleOptions,
     /// Where to (re)store previously found information on duplicates.
     pub cache: ConnectionKind,
     /// Whether to wipe the cache before computation.
@@ -75,14 +84,7 @@ pub struct Options {
 
 /// Finds duplicates using the specified parameters.
 pub fn run(
-    Options {
-        directories,
-        config,
-        hash_style,
-        path_style,
-        clean_cache,
-        cache,
-    }: Options,
+    Options { directories, config, style, clean_cache, cache }: Options,
 ) -> crate::Result {
     ///////////////////////
     // Load data sources //
@@ -180,11 +182,11 @@ pub fn run(
     for (hash, paths) in findings.duplicates() {
         entry.clear();
         let count = paths.len();
-        let hash = hash_style.apply(hash);
+        let hash = style.hash.format(hash);
         let header = format!("{} files with hash {}", count, hash);
         writeln!(entry, "{}:", Bold(&header))?;
         for &path in paths {
-            let dir = path_style.apply(path.parent().unwrap());
+            let dir = style.path.format(path.parent().unwrap());
             let file = Path::new(path.file_name().unwrap());
 
             let canonical_file_path = canonicalize(path)?;

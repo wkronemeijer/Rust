@@ -96,7 +96,7 @@ pub enum HashStyle {
 
 impl HashStyle {
     /// Uses the style to formnat a hash.
-    pub fn apply(self, hash: &FileHash) -> String {
+    pub fn format(self, hash: &FileHash) -> String {
         let hash = hash.to_string();
         match self {
             // 8 ASCII chars == 8 bytes

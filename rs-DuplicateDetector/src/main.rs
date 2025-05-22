@@ -11,6 +11,7 @@ use clap::Parser;
 use directories::ProjectDirs;
 use duplicate_detector::Options;
 pub use duplicate_detector::Result;
+use duplicate_detector::StyleOptions;
 use duplicate_detector::connection::ConnectionKind;
 use duplicate_detector::core::ansi::AnsiColor;
 use duplicate_detector::core::ansi::Bold;
@@ -36,18 +37,22 @@ pub struct Cli {
     #[arg(long)]
     pub threads: Option<usize>,
 
-    /// Format for hashes.
-    #[arg(long, default_value_t)]
-    pub hash_style: HashStyle,
-
-    /// Format for paths.
-    #[arg(long, default_value_t)]
-    pub path_style: PathStyle,
+    /// Display the full hash.
+    #[arg(long)]
+    pub long: bool,
 
     // TODO: Invert this, store hashes (with time) in a AppData/Local cache
     /// Persist files hashes in a file.
     #[arg(long)]
     pub incremental: bool,
+
+    /// Display the absolute path.
+    #[arg(long)]
+    pub absolute: bool,
+
+    /// Display the canonical path.
+    #[arg(long)]
+    pub canonical: bool,
 
     /// Clean cache before processing.
     #[arg(long)]
@@ -75,11 +80,12 @@ pub fn start(
     Cli {
         mut directories,
         threads,
-        hash_style,
-        path_style,
         incremental,
         clean_cache,
         cache_path,
+        absolute,
+        canonical,
+        long,
     }: Cli,
 ) -> crate::Result {
     let cache = match incremental {
@@ -101,12 +107,23 @@ pub fn start(
         directories.push(Path::new(".").to_path_buf());
     }
 
+    let style = StyleOptions {
+        hash: match long {
+            true => HashStyle::Full,
+            false => HashStyle::Short,
+        },
+        path: match (absolute, canonical) {
+            (_, true) => PathStyle::Canonical,
+            (true, _) => PathStyle::Absolute,
+            _ => PathStyle::Relative,
+        },
+    };
+
     duplicate_detector::run(Options {
         config,
         directories,
         cache,
-        hash_style,
-        path_style,
+        style,
         clean_cache,
     })
 }
