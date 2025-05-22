@@ -20,6 +20,7 @@ type HashingAlgo = Sha256;
 // TODO: Can we use ↑ to derive ↓?
 const HASH_BYTE_SIZE: usize = 32;
 
+/// The hashed contents of a file.
 #[derive(
     Debug,
     Clone,
@@ -34,8 +35,8 @@ const HASH_BYTE_SIZE: usize = 32;
 )]
 #[repr(transparent)]
 #[serde(transparent)] // TODO: Store it as a hex string, not as an array of bytes
-/// The hashed contents of a file.
 pub struct FileHash {
+    #[serde(with = "serde_bytes", rename = "hash")]
     bytes: [u8; HASH_BYTE_SIZE],
 }
 
@@ -72,9 +73,9 @@ impl FileHasher {
         let mut file = File::open(path)?;
         copy(&mut file, &mut self.hasher)?;
 
+        // let now = SystemTime::now();
         let digest = self.hasher.finalize_reset();
-        let bytes = digest.into();
-        Ok(FileHash { bytes })
+        Ok(FileHash { bytes: digest.into() })
     }
 }
 

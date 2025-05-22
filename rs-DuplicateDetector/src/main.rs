@@ -42,7 +42,7 @@ pub struct Cli {
     pub long: bool,
 
     // TODO: Invert this, store hashes (with time) in a AppData/Local cache
-    /// Persist files hashes in a file.
+    /// Store hashes in a global cache.
     #[arg(long)]
     pub incremental: bool,
 
