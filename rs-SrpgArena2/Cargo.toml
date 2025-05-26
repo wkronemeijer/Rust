@@ -25,5 +25,18 @@ arrayvec = "0.7.6"
 derive_more = "0.99.18"
 num-traits = "0.2.19"
 rand = "0.8.5"
-ratatui = "0.29.0"
+serde_bytes = "0.11.17"
 thiserror = "2.0.11"
+
+[dependencies.serde]
+version = "1.0.219"
+features = ["derive"]
+
+[dependencies.egui]
+version = "0.31.1"
+features = ["serde"]
+
+[dependencies.eframe]
+version = "0.31.1"
+default-features = false
+features = ["default_fonts", "glow"]

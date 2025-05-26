@@ -52,6 +52,7 @@ impl UnitHandle {
     }
 }
 
+#[derive(Debug)]
 pub struct UnitCollection {
     units: Vec<(UnitHandle, Unit)>,
     next_index: Option<UnitHandle>,
@@ -374,6 +375,7 @@ impl Unit {
 // Arena //
 ///////////
 
+#[derive(Debug)]
 pub struct Arena {
     pub combatants: UnitCollection,
 }
@@ -454,7 +456,11 @@ impl Arena {
         ArenaResult { victor }
     }
 
-    pub fn advance() {
+    pub fn reset(&mut self) {
+        // NOP for now
+    }
+
+    pub fn advance(&mut self) {
         todo!();
     }
 }

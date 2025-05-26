@@ -1,5 +1,12 @@
 pub mod app;
-pub mod core;
+pub mod assets {
+    pub mod fonts;
+}
+pub mod core {
+    pub mod bitflags;
+    pub mod genmap;
+    pub mod slice;
+}
 pub mod events;
 pub mod game;
 pub mod ideas;

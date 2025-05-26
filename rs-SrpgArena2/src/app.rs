@@ -1,27 +1,13 @@
-use std::num::Wrapping;
-use std::time::Duration;
-use std::time::Instant;
+use eframe::App;
+use eframe::CreationContext;
+use egui::CentralPanel;
+use egui::FontDefinitions;
+use egui::FontFamily;
+use egui::RichText;
+use egui::Theme;
 
-use ratatui::Frame;
-use ratatui::Terminal;
-use ratatui::crossterm::event::Event;
-use ratatui::crossterm::event::KeyCode;
-use ratatui::crossterm::event::KeyEvent;
-use ratatui::crossterm::event::poll;
-use ratatui::crossterm::event::read;
-use ratatui::layout::Alignment;
-use ratatui::prelude::Backend;
-use ratatui::text::Line;
-use ratatui::text::Span;
-use ratatui::text::Text;
-use ratatui::widgets::Block;
-use ratatui::widgets::BorderType;
-use ratatui::widgets::Borders;
-use ratatui::widgets::List;
-use ratatui::widgets::ListItem;
-use ratatui::widgets::Paragraph;
-
-use crate::events::ObserverInstance;
+use crate::assets::fonts::FONTIN_REGULAR;
+use crate::assets::fonts::FONTIN_SMALL_CAPS;
 use crate::game::Arena;
 use crate::game::Unit;
 use crate::stats::Stats;
@@ -62,120 +48,61 @@ fn init_arena() -> Arena {
     arena
 }
 
-#[expect(unused)]
-fn run() {
-    let mut arena = init_arena();
-
-    let mut observer = ObserverInstance::new();
-
-    let before = Instant::now();
-    let result = arena.fight_to_the_death(&mut observer);
-    let after = Instant::now();
-
-    match result.victor {
-        Some(unit) => println!(
-            "{} is victorious!",
-            arena.combatants.get(unit).unwrap().name()
-        ),
-        None => println!("Everyone died..."),
-    }
-
-    let millis = (after - before).as_millis();
-    println!("(completed in {}ms)", millis)
-}
-
-pub struct App {
-    should_exit: Option<crate::Result>, // TODO: Put anyhow's type in here
-    frame_no: Wrapping<u64>,
+pub struct ArenaApp {
     arena: Option<Arena>,
 }
 
-impl App {
-    pub fn new() -> Self {
-        App { should_exit: None, arena: None, frame_no: Wrapping(0) }
+impl ArenaApp {
+    pub fn new(cc: &CreationContext) -> Self {
+        cc.egui_ctx.set_zoom_factor(16.0 / 12.0); // bad eyes ok
+        cc.egui_ctx.set_theme(Theme::Dark);
+        cc.egui_ctx.set_fonts({
+            // TODO: Could we copy the current `cc.egui_ctx.fonts`?
+            let mut fonts = FontDefinitions::default();
+
+            FONTIN_REGULAR.register(&mut fonts);
+            FONTIN_REGULAR.register_as(&mut fonts, FontFamily::Proportional);
+            FONTIN_SMALL_CAPS.register(&mut fonts);
+            fonts
+        });
+
+        ArenaApp { arena: None }
     }
+}
 
-    fn advance(&mut self) {
-        match self.arena {
-            None => self.arena = Some(init_arena()),
-            Some(_) => {
-                todo!();
-            },
-        }
-    }
+impl App for ArenaApp {
+    fn update(&mut self, ctx: &egui::Context, _: &mut eframe::Frame) {
+        CentralPanel::default().show(ctx, |ui| {
+            ui.heading("Header");
 
-    fn exit(&mut self, reason: crate::Result) {
-        self.should_exit = Some(reason)
-    }
-
-    fn draw(&self, frame: &mut Frame) {
-        let window = Block::new()
-            .title(crate::APP_NAME)
-            .title_alignment(Alignment::Left)
-            .borders(Borders::ALL)
-            .border_type(BorderType::Plain);
-
-        let mut units = Vec::new();
-
-        if let Some(arena) = self.arena {
-            for unit in arena.combatants().values() {
-                let mut unit_lines = Vec::new();
-
-                unit_lines.push(Span::from(unit.name()));
-                unit_lines
-                    .push(Span::from(format!("{}HP", unit.resources().life)));
-
-                units.push(
-                    Paragraph::new(Line::from(unit_lines)).block(
-                        Block::new()
-                            .borders(Borders::ALL)
-                            .border_type(BorderType::Plain),
-                    ),
-                );
+            if self.arena.is_none() {
+                if ui.button("Create arena").clicked() {
+                    self.arena.get_or_insert_with(init_arena);
+                }
+            } else {
+                if ui.button("Destroy arena").clicked() {
+                    self.arena = None;
+                }
             }
-        }
 
-        // So yeah
-        // uhm
-        // How do you stack boxes?
-        // How tf does anyone get anything done with ratatui?
-        // I thought it was more high-level than incrementing a row coord yourself
-        let text = Paragraph::new();
-        List::new(units.into_iter().map(|p| ListItem::new(p)).collect());
+            if let Some(arena) = &mut self.arena {
+                if ui.button("Reset").clicked() {
+                    arena.reset();
+                }
 
-        let widget = Paragraph::new("Hello, world!").block(window);
-        frame.render_widget(widget, frame.area());
-    }
+                ui.horizontal(|ui| {
+                    for (_, unit) in arena.combatants().entries() {
+                        ui.group(|ui| {
+                            ui.label(
+                                RichText::new(unit.name())
+                                    .font(FONTIN_SMALL_CAPS.sized(12.0)),
+                            )
+                        });
+                    }
+                });
 
-    fn handle_event(&mut self, event: Event) -> crate::Result {
-        match event {
-            Event::Key(KeyEvent { code, .. }) => match code {
-                KeyCode::Enter => self.advance(),
-                KeyCode::F(8) => self.exit(Ok(())),
-                _ => {},
-            },
-            _ => {},
-        }
-        Ok(())
-    }
-
-    fn try_read_events(&mut self) -> crate::Result {
-        const MAX_DELAY: Duration = Duration::from_millis(1);
-        loop {
-            let Ok(true) = poll(MAX_DELAY) else { break };
-            self.handle_event(read()?)?;
-        }
-        Ok(())
-    }
-
-    pub fn run(&mut self, term: &mut Terminal<impl Backend>) -> crate::Result {
-        loop {
-            self.try_read_events()?;
-            if let Some(reason) = self.should_exit.take() {
-                return reason;
+                ui.code(format!("{:#?}", arena));
             }
-            term.draw(|f| self.draw(f))?;
-            self.frame_no += 1;
-        }
+        });
     }
 }
