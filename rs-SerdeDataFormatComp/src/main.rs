@@ -25,9 +25,18 @@ pub type StrBuf = ::std::string::String;
 
 pub const HASH_BYTES: usize = 32;
 
+#[non_exhaustive]
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "kebab-case")]
+pub enum HashAlgorithm {
+    Sha256,
+}
+
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct FileHash {
     pub time: SystemTime,
+
+    pub method: HashAlgorithm,
 
     #[serde(with = "serde_bytes", rename = "hash")]
     pub bytes: [u8; HASH_BYTES],
@@ -91,6 +100,7 @@ fn main() -> crate::Result {
 
     let value = FileHash {
         time: SystemTime::now(),
+        method: HashAlgorithm::Sha256,
         bytes: [
             a, b, c, d, e, f, g, h, a, b, c, d, e, f, g, h, 0, 1, 2, 3, 4, 5,
             6, 7, 8, 9, 10, 11, 12, 13, 14, 15,
@@ -105,6 +115,7 @@ fn main() -> crate::Result {
     psei("TOML (Pretty)", toml::to_string_pretty(&value)?.as_bytes());
     psei("MessagePack", rmp_serde::to_vec(&value)?.as_slice());
     psei("MessagePack (Named)", rmp_serde::to_vec_named(&value)?.as_slice());
+    psei("PostCard", postcard::to_stdvec(&value)?.as_slice());
 
     Ok(())
 }

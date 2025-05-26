@@ -134,14 +134,14 @@ impl App {
                 );
             }
         }
-        
+
         // So yeah
         // uhm
         // How do you stack boxes?
         // How tf does anyone get anything done with ratatui?
         // I thought it was more high-level than incrementing a row coord yourself
-        let text = Paragraph::new()
-            List::new(units.into_iter().map(|p| ListItem::new(p)).collect());
+        let text = Paragraph::new();
+        List::new(units.into_iter().map(|p| ListItem::new(p)).collect());
 
         let widget = Paragraph::new("Hello, world!").block(window);
         frame.render_widget(widget, frame.area());
