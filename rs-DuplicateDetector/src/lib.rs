@@ -3,9 +3,6 @@
 #![forbid(unsafe_code)]
 #![warn(missing_docs)]
 
-#[cfg(not(windows))]
-compile_error!("this program requires NTFS ADS to store metadata");
-
 pub mod connection;
 pub mod core {
     //! Stuff that should be in [`core`], but isn't.
@@ -17,6 +14,7 @@ pub mod core {
     }
     pub mod error;
     pub mod fs;
+    pub mod xattr;
 }
 pub mod db;
 pub mod hash;
