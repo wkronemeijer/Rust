@@ -8,10 +8,7 @@ use std::thread;
 use std::time::Duration;
 use std::time::Instant;
 
-use crate::core::collections::nonempty::NonEmptySlice;
-use crate::core::collections::nonempty::NonEmptyVec;
-use crate::core::error::AggregateError;
-use crate::core::error::partition_results;
+use crate::core::error::sequence;
 use crate::hash::FileHash;
 use crate::hash::FileHasher;
 use crate::status_line::StatusLine;
@@ -20,28 +17,7 @@ use crate::status_line::StatusLine;
 // Parameters and return //
 ///////////////////////////
 
-struct Options<'a> {
-    pub files: NonEmptySlice<'a, &'a Path>,
-    pub threads: NonZero<usize>,
-}
-
-type ReturnItem<'a> = (&'a Path, FileHash);
-
-type Return<'a> = crate::Result<Vec<ReturnItem<'a>>>;
-
-/// Turns a sequence of results into a result of a sequence.
-///
-/// Unlike the stdlib conversion method,
-/// this function accumulates all errors into an [`AggregateError`].
-fn sequence<T, I>(iter: I) -> crate::Result<Vec<T>>
-where I: IntoIterator<Item = crate::Result<T>> {
-    let (values, errors) = partition_results(iter);
-    if let Some(errors) = NonEmptyVec::new(errors) {
-        Err(crate::Error::new(AggregateError::new(errors)))
-    } else {
-        Ok(values)
-    }
-}
+type Item<'a> = (&'a Path, FileHash);
 
 ////////////
 // Search //
@@ -51,14 +27,25 @@ where I: IntoIterator<Item = crate::Result<T>> {
 // N workers each process a chunk of the files, hashing each file
 // then send the (path, hash) through a channel
 // recv then inserts them into the result
-fn algorithm_mpsc(Options { files, threads, .. }: Options) -> Return {
+// recv also writes updates to stderr to show progress
+fn algorithm_mpsc<'a>(
+    files: &'a [&'a Path],
+    threads: NonZero<usize>,
+) -> crate::Result<Vec<Item<'a>>> {
     const UPDATE_PERIOD: Duration = Duration::from_millis(100);
     const WAIT_PERIOD: Duration = Duration::from_millis(500);
-    const CHANNEL_SIZE: usize = 1 << 8;
+    const CHANNEL_SIZE: usize = 1 << 10;
 
-    let file_count = files.len().get();
+    let file_count = files.len();
+
+    if file_count == 0 {
+        return Ok(vec![]);
+    }
+
     let worker_count = threads.get();
     let chunk_size = file_count.div_ceil(worker_count);
+    // NB: Given a>=1 and b>=1,
+    // then ceil(a / b) >= 1
     let mut results = Vec::with_capacity(file_count);
 
     thread::scope(|scope| {
@@ -121,25 +108,24 @@ fn algorithm_mpsc(Options { files, threads, .. }: Options) -> Return {
 
 #[derive(Debug)]
 /// Options for the algorithm.
-pub struct HashFilesConfiguration {
+pub struct HashFilesOptions {
     /// The number of threads to use.
     pub threads: NonZero<usize>,
 }
 
-impl HashFilesConfiguration {
-    /// Uses the configuration to find duplicate files in a list of files.
-    pub fn run<'a>(self, files: &'a [&'a Path]) -> Return<'a> {
-        let HashFilesConfiguration { threads } = self;
-        let Some(files) = NonEmptySlice::new(files) else { return Ok(vec![]) };
-        let result = algorithm_mpsc(Options { files, threads })?;
+/// Hashes multiple files in parallel.
+pub fn parallel_hash_files<'a>(
+    files: &'a [&'a Path],
+    HashFilesOptions { threads }: HashFilesOptions,
+) -> crate::Result<Vec<Item<'a>>> {
+    let result = algorithm_mpsc(files, threads)?;
 
-        let in_count = files.len().get();
-        let out_count = result.len();
-        debug_assert_eq!(
-            in_count, out_count,
-            "input and output count must be equal"
-        );
+    let in_count = files.len();
+    let out_count = result.len();
+    debug_assert_eq!(
+        in_count, out_count,
+        "input and output count must be equal"
+    );
 
-        Ok(result)
-    }
+    Ok(result)
 }

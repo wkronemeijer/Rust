@@ -9,7 +9,6 @@ pub mod core {
     pub mod ansi;
     pub mod collections {
         //! Contains additional collections.
-        pub mod nonempty;
         pub mod tinyvec;
     }
     pub mod error;
@@ -40,7 +39,8 @@ use crate::core::fs::read_dir_all;
 use crate::db::Database;
 use crate::hash::FileHash;
 use crate::hash::HashStyle;
-use crate::hash_concurrent::HashFilesConfiguration;
+use crate::hash_concurrent::HashFilesOptions;
+use crate::hash_concurrent::parallel_hash_files;
 use crate::search::Deduplicator;
 use crate::search::PathStyle;
 
@@ -71,7 +71,7 @@ pub struct Options {
     /// Where to look for duplicates.
     pub directories: Vec<PathBuf>,
     /// Options for hashing.
-    pub config: HashFilesConfiguration,
+    pub config: HashFilesOptions,
     /// Options for output formatting.
     pub style: StyleOptions,
     /// Where to (re)store previously found information on duplicates.
@@ -134,11 +134,11 @@ pub fn run(
     // Execute //
     /////////////
 
-    let files_to_insert: Vec<(PathBuf, FileHash)> = config
-        .run(&files_to_hash)?
-        .into_iter()
-        .map(|(path, hash)| (path.to_path_buf(), hash))
-        .collect();
+    let files_to_insert: Vec<(PathBuf, FileHash)> =
+        parallel_hash_files(&files_to_hash, config)?
+            .into_iter()
+            .map(|(path, hash)| (path.to_path_buf(), hash))
+            .collect();
 
     ///////////////////
     // Apply changes //

@@ -2,22 +2,22 @@
 
 use std::error::Error as StdError;
 use std::fmt;
-use std::ops::Deref;
-use std::ops::DerefMut;
 
-use crate::core::collections::nonempty::NonEmptyVec;
+/////////////////////////
+// Partition `Result`s //
+/////////////////////////
 
-////////////////////////
-// Parition `Result`s //
-////////////////////////
-
-/// Splits a list of results into a list of values and errors.
-pub fn partition_results<T, E, I>(iter: I) -> (Vec<T>, Vec<E>)
-where I: IntoIterator<Item = Result<T, E>> {
+/// Turns a sequence of results into a result of a sequence.
+///
+/// Unlike the stdlib conversion method,
+/// this function accumulates all errors into an [`AggregateError`].
+pub fn sequence<T>(
+    iter: impl IntoIterator<Item = crate::Result<T>>,
+) -> crate::Result<Vec<T>> {
     let iter = iter.into_iter();
-    let size = iter.size_hint().0;
-    let mut values = Vec::with_capacity(size);
-    let mut errors = Vec::with_capacity(size);
+    let size_hint = iter.size_hint().0;
+    let mut values = Vec::with_capacity(size_hint);
+    let mut errors = Vec::with_capacity(size_hint);
     for item in iter {
         match item {
             Ok(v) => values.push(v),
@@ -26,7 +26,12 @@ where I: IntoIterator<Item = Result<T, E>> {
     }
     values.shrink_to_fit();
     errors.shrink_to_fit();
-    (values, errors)
+
+    if let Some(aggregate) = AggregateError::new(errors) {
+        Err(crate::Error::new(aggregate))
+    } else {
+        Ok(values)
+    }
 }
 
 /////////////////////
@@ -37,27 +42,22 @@ where I: IntoIterator<Item = Result<T, E>> {
 /// An error respresting a non-empty list of errors.
 pub struct AggregateError {
     /// Invariant: never empty
-    errors: NonEmptyVec<crate::Error>,
+    errors: Vec<crate::Error>,
 }
 
 impl AggregateError {
     /// Creates a new aggregate error.
-    pub fn new(errors: NonEmptyVec<crate::Error>) -> Self {
-        AggregateError { errors }
+    pub fn new(errors: Vec<crate::Error>) -> Option<Self> {
+        if errors.len() != 0 {
+            Some(AggregateError { errors })
+        } else {
+            return None
+        }
     }
 }
 
-impl Deref for AggregateError {
-    type Target = NonEmptyVec<crate::Error>;
-    fn deref(&self) -> &Self::Target { &self.errors }
-}
-
-impl DerefMut for AggregateError {
-    fn deref_mut(&mut self) -> &mut Self::Target { &mut self.errors }
-}
-
 impl fmt::Display for AggregateError {
-    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         let mut iter = self.errors.iter();
         if let Some(first) = iter.next() {
             first.fmt(f)?;
@@ -72,6 +72,6 @@ impl fmt::Display for AggregateError {
 
 impl StdError for AggregateError {
     fn source(&self) -> Option<&(dyn StdError + 'static)> {
-        Some(self.errors.as_slice().first().as_ref())
+        Some(self.errors.first().expect("aggregate was empty").as_ref())
     }
 }

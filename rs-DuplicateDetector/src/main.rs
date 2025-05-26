@@ -18,7 +18,7 @@ use duplicate_detector::core::ansi::Bold;
 use duplicate_detector::core::ansi::ColorTarget;
 use duplicate_detector::core::ansi::Colored;
 use duplicate_detector::hash::HashStyle;
-use duplicate_detector::hash_concurrent::HashFilesConfiguration;
+use duplicate_detector::hash_concurrent::HashFilesOptions;
 use duplicate_detector::search::PathStyle;
 
 ////////////////////
@@ -96,12 +96,13 @@ pub fn start(
         false => ConnectionKind::Memory,
     };
 
-    let threads = threads
-        .and_then(NonZero::new)
-        .or_else(|| available_parallelism().ok())
-        .or_else(|| NonZero::new(1))
-        .unwrap();
-    let config = HashFilesConfiguration { threads };
+    let config = HashFilesOptions {
+        threads: threads
+            .and_then(NonZero::new)
+            .or_else(|| available_parallelism().ok())
+            .or_else(|| NonZero::new(1))
+            .unwrap(),
+    };
 
     if directories.len() == 0 {
         directories.push(Path::new(".").to_path_buf());

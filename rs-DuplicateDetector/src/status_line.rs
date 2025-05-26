@@ -17,12 +17,12 @@ impl<W: Write + IsTerminal> StatusLine<W> {
 
     /// Creates a new instance using a writer.
     pub fn new(writer: W) -> Self {
-        let out = if writer.is_terminal() {
-            Some(BufWriter::with_capacity(Self::CAPACITY, writer))
-        } else {
-            None
-        };
-        StatusLine { out }
+        StatusLine {
+            out: match writer.is_terminal() {
+                true => Some(BufWriter::with_capacity(Self::CAPACITY, writer)),
+                false => None,
+            },
+        }
     }
 
     /// Writes a status line.
