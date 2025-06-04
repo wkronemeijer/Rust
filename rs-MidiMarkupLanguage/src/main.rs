@@ -28,10 +28,10 @@ fn run() -> crate::Result {
     let out_port = discover_output_port(&out)?;
     let out_name = out.port_name(&out_port)?; // store before consuming `out`
     let mut out = out.connect(&out_port, "MidiML Runner Connection")?;
-    println!("outputting to {}", out_name);
+    println!("output: {}", out_name);
 
     let ch = Channel::ONE;
-    let vel = Velocity::new(32).unwrap();
+    let vel = Velocity::MAX;
     // Define a new scope in which the closure `play_note` borrows conn_out, so it can be called easily
     let mut play_note = |pitch: Pitch, duration: u64| -> crate::Result {
         let msg = Message::NoteOn(ch, pitch, vel);

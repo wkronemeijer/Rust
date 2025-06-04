@@ -40,10 +40,10 @@ impl Channel {
 impl Channel {
     #[inline]
     /// The 0-based index of this channel.
-    pub fn offset(&self) -> u8 { self.offset }
+    pub fn offset(self) -> u8 { self.offset }
 
     /// The 1-based index of this channel.
-    pub fn number(&self) -> u8 { self.offset + 1 }
+    pub fn number(self) -> u8 { self.offset + 1 }
 }
 
 impl fmt::Debug for Channel {
@@ -75,7 +75,7 @@ impl Pitch {
 
 impl Pitch {
     #[inline]
-    pub fn value(&self) -> u8 { self.value }
+    pub fn value(self) -> u8 { self.value }
 }
 
 impl fmt::Debug for Pitch {
@@ -110,7 +110,7 @@ impl Velocity {
 
 impl Velocity {
     #[inline]
-    pub fn value(&self) -> u8 { self.value }
+    pub fn value(self) -> u8 { self.value }
 }
 
 impl fmt::Debug for Velocity {
@@ -140,6 +140,8 @@ impl Message {
 
 impl Message {
     pub fn send_to(self, out: &mut MidiOutputConnection) -> crate::Result {
+        // Ideally, we put the `send()` outside
+        // Lifetimes don't allow it
         match self {
             Message::NoteOn(channel, pitch, velocity) => out.send(&[
                 Self::NOTE_ON | channel.offset(),

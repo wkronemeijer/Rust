@@ -1,5 +1,3 @@
-#![warn(clippy::all)]
-
 pub mod domain {
     pub mod midi;
     pub mod midi_file;
