@@ -1,10 +1,14 @@
 use eframe::App;
 use eframe::CreationContext;
 use egui::CentralPanel;
+use egui::Color32;
 use egui::FontDefinitions;
 use egui::FontFamily;
+use egui::Key;
+use egui::ProgressBar;
 use egui::RichText;
 use egui::Theme;
+use egui::ViewportCommand;
 
 use crate::assets::fonts::FONTIN_REGULAR;
 use crate::assets::fonts::FONTIN_SMALL_CAPS;
@@ -73,7 +77,13 @@ impl ArenaApp {
 impl App for ArenaApp {
     fn update(&mut self, ctx: &egui::Context, _: &mut eframe::Frame) {
         CentralPanel::default().show(ctx, |ui| {
+            if ui.input(|i| i.key_pressed(Key::F8)) {
+                ctx.send_viewport_cmd(ViewportCommand::Close);
+            }
+
             ui.heading("Header");
+
+            ui.add(ProgressBar::new(0.5));
 
             if self.arena.is_none() {
                 if ui.button("Create arena").clicked() {
@@ -90,16 +100,25 @@ impl App for ArenaApp {
                     arena.reset();
                 }
 
-                ui.horizontal(|ui| {
-                    for (_, unit) in arena.combatants().entries() {
-                        ui.group(|ui| {
-                            ui.label(
-                                RichText::new(unit.name())
-                                    .font(FONTIN_SMALL_CAPS.sized(12.0)),
-                            )
-                        });
-                    }
-                });
+                for (_, unit) in arena.combatants().entries() {
+                    ui.group(|ui| {
+                        ui.label(
+                            RichText::new(unit.name())
+                                .font(FONTIN_SMALL_CAPS.sized(12.0)),
+                        );
+
+                        let min_hp = unit.resources().life;
+                        let max_hp = 40i16;
+
+                        let ratio = min_hp as f32 / max_hp as f32;
+                        let text = format!("{}/{}", min_hp, max_hp);
+                        let bar = ProgressBar::new(ratio)
+                            .text(text)
+                            .corner_radius(0)
+                            .fill(Color32::from_rgb(255, 0, 0));
+                        ui.add(bar);
+                    });
+                }
 
                 ui.code(format!("{:#?}", arena));
             }

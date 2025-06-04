@@ -14,7 +14,7 @@
             "environment": [],
             "stopAtEntry": false,
             
-            "console": "externalTerminal",
+            "console": "internalConsole",
             "internalConsoleOptions": "openOnSessionStart"
         }
     ]
