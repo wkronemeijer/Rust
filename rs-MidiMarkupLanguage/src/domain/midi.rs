@@ -1,87 +1,51 @@
 //! Implements https://midi.org/summary-of-midi-1-0-messages for real-time use
 //! The file format is implemented in [`midi_file`].
+//!
+//! Ideally we use non-power-of-two integer types for this (e.g. u4, u7)
+//! But the library for that (`ux`) hasn't been updated
+//! AND has no TryFrom<u8> impl for some reason.
 
-use std::fmt;
-
+use anyhow::Context;
+use arrayvec::ArrayVec;
 use midir::MidiOutputConnection;
 
-// SIDE NOTE: I wish we had u4, u7, etc. in Rust
-// It would put the validation outside of the constructors
-// Something something parse, don't validate
-const U4_MAX: u8 = 0b0000_1111;
-const U7_MAX: u8 = 0b0111_1111;
+use crate::domain::midi_ux::u4;
+use crate::domain::midi_ux::u7;
 
 /////////////////
 // MidiChannel //
 /////////////////
 
-#[derive(Clone, Copy)]
+#[derive(Debug, Clone, Copy)]
 #[repr(transparent)]
-/// A 4-bit number for the channel. Unlike MIDI,
-pub struct Channel {
-    /// Invariant: contains a u4
-    offset: u8,
-}
+/// A 4-bit number for the channel.
+pub struct Channel(pub u4);
 
 impl Channel {
-    /// Create a 0-based channel.
-    pub fn new(offset: u8) -> Option<Self> {
-        if offset <= U4_MAX { Some(Channel { offset }) } else { None }
-    }
+    pub const ONE: Self = Channel(u4::new(0).unwrap());
+    pub const TWO: Self = Channel(u4::new(1).unwrap());
+    pub const THREE: Self = Channel(u4::new(2).unwrap());
+    pub const FOUR: Self = Channel(u4::new(3).unwrap());
 
-    pub const ONE: Self = Channel { offset: 0 };
-    pub const TWO: Self = Channel { offset: 1 };
-    pub const FIFTEEN: Self = Channel { offset: 15 };
+    pub const MIN: Self = Channel(u4::MIN);
+    pub const MAX: Self = Channel(u4::MAX);
 
-    pub const MIN: Self = Self::ONE;
-    pub const MAX: Self = Self::FIFTEEN;
-}
-
-impl Channel {
-    #[inline]
-    /// The 0-based index of this channel.
-    pub fn offset(self) -> u8 { self.offset }
-
-    /// The 1-based index of this channel.
-    pub fn number(self) -> u8 { self.offset + 1 }
-}
-
-impl fmt::Debug for Channel {
-    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-        f.debug_tuple("Channel").field(&self.offset).finish()
-    }
+    pub const COUNT: usize = 16;
 }
 
 ///////////////
 // MidiPitch //
 ///////////////
 
-#[derive(Clone, Copy)]
+#[derive(Debug, Clone, Copy)]
 #[repr(transparent)]
-pub struct Pitch {
-    value: u8,
-}
+pub struct Pitch(pub u7);
 
 impl Pitch {
-    pub fn new(value: u8) -> Option<Self> {
-        if value <= U7_MAX { Some(Pitch { value }) } else { None }
-    }
-
-    pub const MIN: Self = Pitch { value: 0 };
-    pub const C4: Self = Pitch { value: 60 };
-    pub const A4: Self = Pitch { value: 69 };
-    pub const MAX: Self = Pitch { value: 127 };
-}
-
-impl Pitch {
-    #[inline]
-    pub fn value(self) -> u8 { self.value }
-}
-
-impl fmt::Debug for Pitch {
-    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-        f.debug_tuple("Pitch").field(&self.value).finish()
-    }
+    pub const MIN: Self = Pitch(u7::MIN);
+    pub const C4: Self = Pitch(u7::new(60).unwrap());
+    pub const A4: Self = Pitch(u7::new(69).unwrap());
+    pub const MAX: Self = Pitch(u7::MAX);
 }
 
 impl Default for Pitch {
@@ -92,31 +56,14 @@ impl Default for Pitch {
 // MidiNote //
 //////////////
 
-#[derive(Clone, Copy)]
+#[derive(Debug, Clone, Copy)]
 #[repr(transparent)]
-pub struct Velocity {
-    value: u8,
-}
+pub struct Velocity(pub u7);
 
 impl Velocity {
-    pub const fn new(value: u8) -> Option<Self> {
-        if value <= U7_MAX { Some(Velocity { value }) } else { None }
-    }
-
-    pub const MIN: Self = Velocity { value: 0 };
-    pub const DEFAULT: Self = Velocity { value: 64 };
-    pub const MAX: Self = Velocity { value: 127 };
-}
-
-impl Velocity {
-    #[inline]
-    pub fn value(self) -> u8 { self.value }
-}
-
-impl fmt::Debug for Velocity {
-    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-        f.debug_tuple("Velocity").field(&self.value).finish()
-    }
+    pub const MIN: Self = Velocity(u7::MIN);
+    pub const DEFAULT: Self = Velocity(u7::new(64).unwrap());
+    pub const MAX: Self = Velocity(u7::MAX);
 }
 
 impl Default for Velocity {
@@ -140,21 +87,20 @@ impl Message {
 
 impl Message {
     pub fn send_to(self, out: &mut MidiOutputConnection) -> crate::Result {
+        let mut msg = ArrayVec::<u8, 4>::new();
+
         // Ideally, we put the `send()` outside
         // Lifetimes don't allow it
         match self {
-            Message::NoteOn(channel, pitch, velocity) => out.send(&[
-                Self::NOTE_ON | channel.offset(),
-                pitch.value(),
-                velocity.value(),
-            ]),
-            Message::NoteOff(channel, pitch, velocity) => out.send(&[
-                Self::NOTE_OFF | channel.offset(),
-                pitch.value(),
-                velocity.value(),
-            ]),
-        }?;
-        Ok(())
+            Message::NoteOn(channel, pitch, velocity) => {
+                msg.extend([Self::NOTE_ON | *channel.0, *pitch.0, *velocity.0])
+            },
+            Message::NoteOff(channel, pitch, velocity) => {
+                msg.extend([Self::NOTE_OFF | *channel.0, *pitch.0, *velocity.0])
+            },
+        };
+
+        out.send(&msg).context("midi error: ")
     }
 }
 
