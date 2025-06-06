@@ -101,6 +101,7 @@ pub enum Instrument {
     Xylophone = 13,
 
     Ocarina = 79,
+    Koto = 107,
 }
 
 impl From<Instrument> for Program {

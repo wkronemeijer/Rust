@@ -1,14 +1,16 @@
+use std::env::args;
 use std::thread::sleep;
 use std::time::Duration;
 
+use anyhow::Context;
 use anyhow::bail;
 pub use midimlc::Error;
 pub use midimlc::Result;
 use midimlc::domain::midi::Channel;
-use midimlc::domain::midi::Instrument;
 use midimlc::domain::midi::Message;
 use midimlc::domain::midi::MessageSink;
 use midimlc::domain::midi::Pitch;
+use midimlc::domain::midi::Program;
 use midimlc::domain::midi::Velocity;
 use midimlc::domain::midi_ux::u7;
 use midir::MidiOutput;
@@ -25,12 +27,12 @@ fn discover_output_port(
     })
 }
 
-fn fun_name(out: &mut MidiOutputConnection) -> crate::Result {
+fn fun_name(out: &mut MidiOutputConnection, instrument: u7) -> crate::Result {
     let ch = Channel::ONE;
     let vel = Velocity::MAX;
     const MILLIS_PER_TICK: u64 = 150;
 
-    Message::ProgramChange(ch, Instrument::Marimba.into()).send(out)?;
+    out.send_message(Message::ProgramChange(ch, Program(instrument)))?;
 
     let mut play_note = |p: Pitch, ticks: u64| -> crate::Result {
         out.send_message(Message::NoteOn(ch, p, vel))?;
@@ -52,6 +54,13 @@ fn fun_name(out: &mut MidiOutputConnection) -> crate::Result {
 }
 
 fn run() -> crate::Result {
+    let mut args = args().skip(1);
+    let instrument = match args.next() {
+        Some(no) => u7::new(u8::from_str_radix(&no, 10)? - 1)
+            .context("invalid instrument")?,
+        None => u7::default(),
+    };
+
     let out = MidiOutput::new("MidiML Runner")?;
     let ports = out.ports();
     let out_port = discover_output_port(&ports)?;
@@ -63,7 +72,7 @@ fn run() -> crate::Result {
     // Fade in
     sleep(Duration::from_millis(150));
     // Play thing
-    fun_name(&mut out)?;
+    fun_name(&mut out, instrument)?;
     // Fade out
     sleep(Duration::from_millis(300));
 
