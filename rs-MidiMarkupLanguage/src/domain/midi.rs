@@ -70,6 +70,69 @@ impl Default for Velocity {
     fn default() -> Self { Self::DEFAULT }
 }
 
+//////////////////
+// MIDI Program //
+//////////////////
+
+#[derive(Debug, Clone, Copy)]
+#[repr(transparent)]
+pub struct Program(pub u7);
+
+impl Program {
+    pub const DEFAULT: Self = Program(u7::new(0).unwrap());
+}
+
+impl Default for Program {
+    fn default() -> Self { Self::DEFAULT }
+}
+
+/////////////////////
+// MIDI Instrument //
+/////////////////////
+
+#[derive(Debug, Clone, Copy)]
+#[repr(u8)]
+pub enum Instrument {
+    GrandPiano = 0,
+
+    Harpischord = 6,
+
+    Marimba = 12,
+    Xylophone = 13,
+
+    Ocarina = 79,
+}
+
+impl From<Instrument> for Program {
+    fn from(instr: Instrument) -> Self {
+        Self(u7::new(instr as u8).expect("failed to convert"))
+    }
+}
+
+////////////////////////////
+// (General) MIDI Control //
+////////////////////////////
+
+#[derive(Debug, Clone, Copy)]
+pub enum ControlEntry {
+    Volume(u7),
+}
+
+impl ControlEntry {
+    pub fn key(self) -> u7 {
+        u7::new(match self {
+            ControlEntry::Volume(..) => 7,
+        })
+        .unwrap()
+    }
+
+    pub fn value(self) -> u7 {
+        match self {
+            ControlEntry::Volume(v) => v,
+        }
+    }
+}
+
 /////////////////
 // MidiMessage //
 /////////////////
@@ -78,28 +141,33 @@ impl Default for Velocity {
 pub enum Message {
     NoteOn(Channel, Pitch, Velocity),
     NoteOff(Channel, Pitch, Velocity),
+    ProgramChange(Channel, Program),
+    // ...only SysEx doesn't have channel info
+    // And SysEx is variable width and very complicated
 }
 
 impl Message {
     const NOTE_OFF: u8 = 0b1000_0000;
     const NOTE_ON: u8 = 0b1001_0000;
+    const PROGRAM_CHANGE: u8 = 0b1100_0000;
+    // const PITCH_BEND_CHANGE: u8 = 0b1110_0000;
 }
 
 impl Message {
-    pub fn send_to(self, out: &mut MidiOutputConnection) -> crate::Result {
+    pub fn send(self, out: &mut MidiOutputConnection) -> crate::Result {
+        use Message::*;
         let mut msg = ArrayVec::<u8, 4>::new();
-
-        // Ideally, we put the `send()` outside
-        // Lifetimes don't allow it
         match self {
-            Message::NoteOn(channel, pitch, velocity) => {
-                msg.extend([Self::NOTE_ON | *channel.0, *pitch.0, *velocity.0])
+            NoteOn(Channel(ch), Pitch(p), Velocity(v)) => {
+                msg.extend([Self::NOTE_ON | *ch, *p, *v])
             },
-            Message::NoteOff(channel, pitch, velocity) => {
-                msg.extend([Self::NOTE_OFF | *channel.0, *pitch.0, *velocity.0])
+            NoteOff(Channel(ch), Pitch(p), Velocity(v)) => {
+                msg.extend([Self::NOTE_OFF | *ch, *p, *v])
+            },
+            ProgramChange(Channel(ch), Program(p)) => {
+                msg.extend([Self::PROGRAM_CHANGE | *ch, *p])
             },
         };
-
         out.send(&msg).context("midi error: ")
     }
 }
@@ -109,7 +177,5 @@ pub trait MessageSink {
 }
 
 impl MessageSink for MidiOutputConnection {
-    fn send_message(&mut self, msg: Message) -> crate::Result {
-        msg.send_to(self)
-    }
+    fn send_message(&mut self, msg: Message) -> crate::Result { msg.send(self) }
 }

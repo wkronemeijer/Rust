@@ -5,6 +5,7 @@ use anyhow::bail;
 pub use midimlc::Error;
 pub use midimlc::Result;
 use midimlc::domain::midi::Channel;
+use midimlc::domain::midi::Instrument;
 use midimlc::domain::midi::Message;
 use midimlc::domain::midi::MessageSink;
 use midimlc::domain::midi::Pitch;
@@ -27,13 +28,14 @@ fn discover_output_port(
 fn fun_name(out: &mut MidiOutputConnection) -> crate::Result {
     let ch = Channel::ONE;
     let vel = Velocity::MAX;
+    const MILLIS_PER_TICK: u64 = 150;
 
-    let mut play_note = |pitch: Pitch, duration: u64| -> crate::Result {
-        let msg = Message::NoteOn(ch, pitch, vel);
-        eprintln!("{:?}", msg);
-        out.send_message(msg)?;
-        sleep(Duration::from_millis(duration * 150));
-        out.send_message(Message::NoteOff(ch, pitch, vel))?;
+    Message::ProgramChange(ch, Instrument::Marimba.into()).send(out)?;
+
+    let mut play_note = |p: Pitch, ticks: u64| -> crate::Result {
+        out.send_message(Message::NoteOn(ch, p, vel))?;
+        sleep(Duration::from_millis(MILLIS_PER_TICK * ticks));
+        out.send_message(Message::NoteOff(ch, p, vel))?;
         Ok(())
     };
 
@@ -56,7 +58,7 @@ fn run() -> crate::Result {
     let out_name = out.port_name(&out_port)?; // store before consuming `out`
     let mut out = out.connect(&out_port, "MidiML Runner Connection")?;
 
-    println!("output: {}", out_name);
+    println!("using '{}'", out_name);
 
     // Fade in
     sleep(Duration::from_millis(150));
