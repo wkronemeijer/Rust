@@ -1,10 +1,7 @@
-pub mod core {}
-
-pub mod domain {
-
-    pub mod midi;
-    pub mod midi_file;
-    pub mod midi_ux;
+pub mod midi {
+    pub mod common;
+    pub mod int;
+    pub mod streaming;
 }
 
 // TODO: Decide on how you will propagate errors

@@ -9,8 +9,8 @@ use anyhow::Context;
 use arrayvec::ArrayVec;
 use midir::MidiOutputConnection;
 
-use crate::domain::midi_ux::u4;
-use crate::domain::midi_ux::u7;
+use crate::midi::int::u4;
+use crate::midi::int::u7;
 
 /////////////////
 // MidiChannel //

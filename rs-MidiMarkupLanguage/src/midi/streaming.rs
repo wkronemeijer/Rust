@@ -17,7 +17,7 @@ use std::ops::Sub;
 
 use midir::MidiOutputConnection;
 
-use crate::domain::midi::Message;
+use crate::midi::common::Message;
 
 #[derive(Debug, Clone, Copy)]
 pub struct MidiTime {
