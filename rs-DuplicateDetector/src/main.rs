@@ -6,9 +6,7 @@ use std::path::PathBuf;
 use std::process::ExitCode;
 use std::thread::available_parallelism;
 
-use anyhow::Context;
 use clap::Parser;
-use directories::ProjectDirs;
 use duplicate_detector::Options;
 pub use duplicate_detector::Result;
 use duplicate_detector::StyleOptions;
@@ -67,15 +65,6 @@ pub struct Cli {
 // Main* //
 ///////////
 
-const ORG_NAME: &str = "Bliksem Software";
-const APP_NAME: &str = "Duplicate Detector";
-
-fn global_cache_path() -> crate::Result<PathBuf> {
-    let dirs = ProjectDirs::from("frl", ORG_NAME, APP_NAME)
-        .context("failed to find user directory")?;
-    Ok(dirs.cache_dir().join("hash-cache.dat"))
-}
-
 pub fn start(
     Cli {
         mut directories,
@@ -91,7 +80,7 @@ pub fn start(
     let cache = match incremental {
         true => ConnectionKind::Disk(match cache_path {
             Some(file) => file,
-            None => global_cache_path()?,
+            None => "hash-cache.dat".into(),
         }),
         false => ConnectionKind::Memory,
     };
