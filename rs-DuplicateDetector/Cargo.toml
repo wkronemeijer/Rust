@@ -3,6 +3,10 @@ name = "duplicate-detector"
 version = "0.1.0"
 edition = "2024"
 
+############
+# Profiles #
+############
+
 [profile.dev]
 strip = false
 incremental = true
@@ -16,6 +20,10 @@ incremental = false
 opt-level = 3
 panic = "abort"
 lto = true
+
+################
+# Dependencies #
+################
 
 [dependencies]
 anyhow = "1.0.95"
