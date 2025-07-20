@@ -1,7 +1,15 @@
+pub mod core {
+    pub mod int;
+    pub mod ratio;
+}
+
 pub mod midi {
     pub mod common;
-    pub mod int;
     pub mod streaming;
+}
+
+pub mod domain {
+    pub mod primitive;
 }
 
 // TODO: Decide on how you will propagate errors

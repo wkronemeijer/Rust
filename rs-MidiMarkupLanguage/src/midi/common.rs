@@ -9,8 +9,8 @@ use anyhow::Context;
 use arrayvec::ArrayVec;
 use midir::MidiOutputConnection;
 
-use crate::midi::int::u4;
-use crate::midi::int::u7;
+use crate::core::int::u4;
+use crate::core::int::u7;
 
 /////////////////
 // MidiChannel //
@@ -117,19 +117,32 @@ impl From<Instrument> for Program {
 #[derive(Debug, Clone, Copy)]
 pub enum ControlEntry {
     Volume(u7),
+    Pedal(bool),
 }
 
 impl ControlEntry {
     pub fn key(self) -> u7 {
         u7::new(match self {
-            ControlEntry::Volume(..) => 7,
+            Self::Volume(_) => 7,
+            Self::Pedal(_) => 64,
         })
         .unwrap()
     }
 
     pub fn value(self) -> u7 {
+        const fn midi_bool(b: bool) -> u7 {
+            if b {
+                const TRUE: u7 = u7::new(64).unwrap();
+                TRUE
+            } else {
+                const FALSE: u7 = u7::new(0).unwrap();
+                FALSE
+            }
+        }
+
         match self {
-            ControlEntry::Volume(v) => v,
+            Self::Volume(v) => v,
+            Self::Pedal(b) => midi_bool(b),
         }
     }
 }
@@ -142,6 +155,7 @@ impl ControlEntry {
 pub enum Message {
     NoteOn(Channel, Pitch, Velocity),
     NoteOff(Channel, Pitch, Velocity),
+    ControlChange(Channel, ControlEntry),
     ProgramChange(Channel, Program),
     // ...only SysEx doesn't have channel info
     // And SysEx is variable width and very complicated
@@ -150,6 +164,7 @@ pub enum Message {
 impl Message {
     const NOTE_OFF: u8 = 0b1000_0000;
     const NOTE_ON: u8 = 0b1001_0000;
+    const CONTROL_CHANGE: u8 = 0b1011_0000;
     const PROGRAM_CHANGE: u8 = 0b1100_0000;
     // const PITCH_BEND_CHANGE: u8 = 0b1110_0000;
 }
@@ -164,6 +179,9 @@ impl Message {
             },
             NoteOff(Channel(ch), Pitch(p), Velocity(v)) => {
                 msg.extend([Self::NOTE_OFF | *ch, *p, *v])
+            },
+            ControlChange(Channel(ch), ce) => {
+                msg.extend([Self::CONTROL_CHANGE | *ch, *ce.key(), *ce.value()])
             },
             ProgramChange(Channel(ch), Program(p)) => {
                 msg.extend([Self::PROGRAM_CHANGE | *ch, *p])

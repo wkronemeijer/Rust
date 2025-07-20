@@ -1,7 +1,7 @@
 //! Sub-byte integer types like `u7`.
 //! The `ux` crate has issues, so we implement this stuff ourselves.
 //!
-//! MIDI uses only u4 and u7, so the scope is constrained.
+//! MIDI uses only u4 and u7, so we implement only a limited subset.
 
 #![allow(non_camel_case_types)]
 
