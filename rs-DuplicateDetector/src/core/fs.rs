@@ -39,8 +39,8 @@ pub fn read_dir_all<P: AsRef<Path>>(dir: P) -> io::Result<Vec<PathBuf>> {
 pub fn open_explorer(path: impl AsRef<Path>) -> io::Result<()> {
     use std::os::windows::process::CommandExt;
     let path = absolute(path)?;
-    let arg = format!("/select,{}", path.display());
-    // Note the "raw_arg"; without that, paths with space wouldn't work
+    let arg = format!("/select,\"{}\"", path.display());
+    // raw_arg() and double quotes so spaces can appear anywhere in the path
     Command::new("explorer.exe").raw_arg(arg).spawn()?;
     sleep(Duration::from_millis(50)); // Delay to allow the window to open
     Ok(())
