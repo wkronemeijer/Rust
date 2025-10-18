@@ -4,11 +4,11 @@
 #![warn(missing_docs)]
 
 pub mod connection;
+/// Stuff that should be in [`core`], but isn't.
 pub mod core {
-    //! Stuff that should be in [`core`], but isn't.
     pub mod ansi;
+    /// Contains additional collections.
     pub mod collections {
-        //! Contains additional collections.
         pub mod tinyvec;
     }
     pub mod error;
@@ -31,8 +31,6 @@ use std::ops::Deref;
 use std::path::MAIN_SEPARATOR;
 use std::path::Path;
 use std::path::PathBuf;
-use std::thread::sleep;
-use std::time::Duration;
 
 use url::Url;
 
@@ -60,11 +58,69 @@ pub type Error = ::anyhow::Error;
 /// This libraries result type.
 pub type Result<T = (), E = Error> = ::std::result::Result<T, E>;
 
+////////////
+// Output //
+////////////
+
+fn print_findings(
+    findings: &Deduplicator,
+    style: StyleOptions,
+    interactive: bool,
+) -> crate::Result {
+    let mut lines = stdin().lines();
+    let ref mut entry = String::new();
+    let mut first = true;
+    for (hash, paths) in findings.duplicates() {
+        if interactive {
+            if first {
+                first = false;
+            } else {
+                let mut stdout = stdout().lock();
+                write!(stdout, "Press enter for the next set of files...")?;
+                stdout.flush()?;
+                let Some(Ok(_)) = lines.next() else { continue };
+                write!(stdout, "\x1B[1A\x1B[2K\r")?; //Clear last line, return to 
+                stdout.flush()?;
+            }
+            for &path in paths {
+                open_explorer(path)?;
+            }
+        }
+
+        entry.clear();
+        let count = paths.len();
+        let hash = style.hash.format(hash);
+        let header = format!("{} files with hash {}", count, hash);
+        writeln!(entry, "{}:", Bold(&header))?;
+        for &path in paths {
+            let dir = style.path.format(path.parent().unwrap());
+            let file = Path::new(path.file_name().unwrap());
+
+            let canonical_file_path = canonicalize(path)?;
+            let file_url = Url::from_file_path(&canonical_file_path).unwrap();
+
+            let canonical_dir_path = canonical_file_path.parent().unwrap();
+            let dir_url = Url::from_file_path(&canonical_dir_path).unwrap();
+
+            writeln!(
+                entry,
+                "{}{}{}",
+                Anchor(&dir_url, dir.display()),
+                MAIN_SEPARATOR,
+                Anchor(&file_url, file.display()),
+            )?;
+        }
+        println!("{}", entry.trim_ascii());
+    }
+    Ok(())
+}
+
 //////////
 // Main //
 //////////
 
 /// Options for output formatting.
+#[derive(Debug, Clone, Copy)]
 pub struct StyleOptions {
     /// How to format the hashes of the duplicates found.
     pub hash: HashStyle,
@@ -90,7 +146,14 @@ pub struct Options {
 
 /// Finds duplicates using the specified parameters.
 pub fn run(
-    Options { directories, config, style, clean_cache, cache, interactive }: Options,
+    Options {
+        directories,
+        config,
+        style,
+        clean_cache,
+        cache,
+        interactive,
+    }: Options,
 ) -> crate::Result {
     ///////////////////////
     // Load data sources //
@@ -184,47 +247,7 @@ pub fn run(
         index.entries().filter(|(file, _)| is_our_file(file)),
     );
 
-    let mut lines = stdin().lines();
-    let ref mut entry = String::new();
-    for (hash, paths) in findings.duplicates() {
-        entry.clear();
-        let count = paths.len();
-        let hash = style.hash.format(hash);
-        let header = format!("{} files with hash {}", count, hash);
-        writeln!(entry, "{}:", Bold(&header))?;
-        for &path in paths {
-            let dir = style.path.format(path.parent().unwrap());
-            let file = Path::new(path.file_name().unwrap());
+    print_findings(&findings, style, interactive)?;
 
-            let canonical_file_path = canonicalize(path)?;
-            let file_url = Url::from_file_path(&canonical_file_path).unwrap();
-
-            let canonical_dir_path = canonical_file_path.parent().unwrap();
-            let dir_url = Url::from_file_path(&canonical_dir_path).unwrap();
-
-            writeln!(
-                entry,
-                "{}{}{}",
-                Anchor(&dir_url, dir.display()),
-                MAIN_SEPARATOR,
-                Anchor(&file_url, file.display()),
-            )?;
-        }
-        println!("{}", entry.trim_ascii());
-        if interactive {
-            let mut stdout = stdout().lock();
-            write!(stdout, "> ")?;
-            stdout.flush()?;
-            let Some(Ok(mut line)) = lines.next() else { continue };
-            line.make_ascii_lowercase();
-            let line = line.trim_ascii();
-            if line == "open" {
-                for &path in paths {
-                    open_explorer(path)?;
-                    sleep(Duration::from_millis(50));
-                }
-            }
-        }
-    }
     Ok(())
 }
