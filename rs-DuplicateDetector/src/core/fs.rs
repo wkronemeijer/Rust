@@ -5,6 +5,8 @@ use std::fs;
 use std::io;
 use std::path::Path;
 use std::path::PathBuf;
+use std::path::absolute;
+use std::process::Command;
 
 /// Recursively reads a directory and returns a list of all files.
 /// Returned paths are relative to the given directory.
@@ -28,4 +30,16 @@ pub fn read_dir_all<P: AsRef<Path>>(dir: P) -> io::Result<Vec<PathBuf>> {
         }
     }
     Ok(visited)
+}
+
+#[cfg(target_os = "windows")]
+/// Opens Windows Explorer and highlights the given file
+pub fn open_explorer(path: impl AsRef<Path>) -> io::Result<()> {
+    use std::os::windows::process::CommandExt;
+    let path = absolute(path)?;
+    let arg = format!("/select,{}", path.display());
+    // Note the "raw_arg"
+    // Without that, paths with space would cause failure
+    Command::new("explorer.exe").raw_arg(arg).spawn()?;
+    Ok(())
 }

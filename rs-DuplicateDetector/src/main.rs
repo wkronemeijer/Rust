@@ -56,6 +56,10 @@ pub struct Cli {
     #[arg(long)]
     pub clean_cache: bool,
 
+    /// Use TUI to browse results.
+    #[arg(long)]
+    pub interactive: bool,
+
     /// Where to store the cache.
     #[arg(long)]
     pub cache_path: Option<PathBuf>,
@@ -74,6 +78,7 @@ pub fn start(
         cache_path,
         absolute,
         canonical,
+        interactive,
         long,
     }: Cli,
 ) -> crate::Result {
@@ -114,6 +119,7 @@ pub fn start(
         directories,
         cache,
         style,
+        interactive,
         clean_cache,
     })
 }

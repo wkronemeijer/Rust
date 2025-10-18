@@ -24,10 +24,15 @@ pub mod status_line;
 use std::collections::HashSet;
 use std::fmt::Write;
 use std::fs::canonicalize;
+use std::io::Write as _;
+use std::io::stdin;
+use std::io::stdout;
 use std::ops::Deref;
 use std::path::MAIN_SEPARATOR;
 use std::path::Path;
 use std::path::PathBuf;
+use std::thread::sleep;
+use std::time::Duration;
 
 use url::Url;
 
@@ -35,6 +40,7 @@ use crate::connection::Connection;
 use crate::connection::ConnectionKind;
 use crate::core::ansi::Anchor;
 use crate::core::ansi::Bold;
+use crate::core::fs::open_explorer;
 use crate::core::fs::read_dir_all;
 use crate::db::Database;
 use crate::hash::FileHash;
@@ -78,11 +84,13 @@ pub struct Options {
     pub cache: ConnectionKind,
     /// Whether to wipe the cache before computation.
     pub clean_cache: bool,
+    /// Whether to display TUI interface for duplicates
+    pub interactive: bool,
 }
 
 /// Finds duplicates using the specified parameters.
 pub fn run(
-    Options { directories, config, style, clean_cache, cache }: Options,
+    Options { directories, config, style, clean_cache, cache, interactive }: Options,
 ) -> crate::Result {
     ///////////////////////
     // Load data sources //
@@ -176,6 +184,7 @@ pub fn run(
         index.entries().filter(|(file, _)| is_our_file(file)),
     );
 
+    let mut lines = stdin().lines();
     let ref mut entry = String::new();
     for (hash, paths) in findings.duplicates() {
         entry.clear();
@@ -202,6 +211,20 @@ pub fn run(
             )?;
         }
         println!("{}", entry.trim_ascii());
+        if interactive {
+            let mut stdout = stdout().lock();
+            write!(stdout, "> ")?;
+            stdout.flush()?;
+            let Some(Ok(mut line)) = lines.next() else { continue };
+            line.make_ascii_lowercase();
+            let line = line.trim_ascii();
+            if line == "open" {
+                for &path in paths {
+                    open_explorer(path)?;
+                    sleep(Duration::from_millis(50));
+                }
+            }
+        }
     }
     Ok(())
 }
