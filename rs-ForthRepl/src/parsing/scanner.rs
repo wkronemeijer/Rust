@@ -9,11 +9,7 @@ use super::token::TokenKind::*;
 ///
 /// See [this GitHub file](https://github.com/rust-lang/regex/blob/1a069b9232c607b34c4937122361aa075ef573fa/regex-syntax/src/ast/parse.rs#L483) for more info
 fn try_char_at(this: &str, i: usize) -> Option<char> {
-    if this.is_char_boundary(i) {
-        this[i..].chars().next()
-    } else {
-        None
-    }
+    if this.is_char_boundary(i) { this[i..].chars().next() } else { None }
 }
 
 /////////////
@@ -142,13 +138,13 @@ impl<'s> Scanner<'s> {
                 '\'' => self.finish_character()?,
                 '-' if self.peek().is_some_and(is_digit) => {
                     self.finish_number()
-                }
+                },
                 _ if is_digit(c) => self.finish_number(),
                 _ if is_alphanum(c) => self.finish_identifier(),
                 _ => {
                     self.report.error(SyntaxError::UnexpectedCharacter(c));
                     continue;
-                }
+                },
             };
         })
     }
