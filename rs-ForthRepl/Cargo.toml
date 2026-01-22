@@ -10,4 +10,4 @@ doctest = false # reduces 'cargo test' vertical size (while we don't use it)
 panic = "abort"
 
 [dependencies]
-thiserror = "1.0.56"
+thiserror = "2"
